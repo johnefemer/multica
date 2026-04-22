@@ -1,4 +1,4 @@
-.PHONY: help makehelp dev server daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down db-reset selfhost selfhost-build selfhost-stop
+.PHONY: help makehelp dev server daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree db-up db-down db-reset selfhost selfhost-build selfhost-stop upstream-sync
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -148,6 +148,17 @@ selfhost-stop: ## Stop the self-hosted Docker Compose stack
 	@echo "==> Stopping Multica services..."
 	docker compose -f docker-compose.selfhost.yml down
 	@echo "✓ All services stopped."
+
+# ---------- Fork management ----------
+##@ Fork management
+
+upstream-sync: ## Rebase kensink branch on latest upstream/main (keeps fork in sync)
+	@echo "==> Fetching upstream (multica-ai/multica)..."
+	git fetch upstream
+	@echo "==> Rebasing kensink onto upstream/main..."
+	git rebase upstream/main
+	@echo "✓ kensink is now up to date with upstream/main."
+	@echo "   Review rebase, then: git push origin kensink --force-with-lease"
 
 # ---------- One-click commands ----------
 ##@ One-click
