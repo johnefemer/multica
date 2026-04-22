@@ -32,22 +32,39 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@agenthost.kensink.com
 
 ## Access URLs
 
-| Service | URL |
-|---------|-----|
-| **Web app** | http://agenthost.kensink.com:3000 |
-| **Backend API** | http://agenthost.kensink.com:8080 |
-| **API health** | http://agenthost.kensink.com:8080/health |
-| **WebSocket** | `ws://agenthost.kensink.com:8080/ws` |
+All public traffic enters on **port 80 via nginx**. Cloudflare proxies port 80
+and terminates HTTPS — no TLS config needed on the server.
+
+| Service | Public URL |
+|---------|-----------|
+| **Web app** | http://agenthost.kensink.com |
+| **Backend API** | http://agenthost.kensink.com/api/ |
+| **API health** | http://agenthost.kensink.com/health |
+| **WebSocket** | `ws://agenthost.kensink.com/ws` |
+
+> With Cloudflare proxy active, these also work over HTTPS/WSS automatically.
+
+### nginx routing (port 80)
+
+```
+agenthost.kensink.com/ws       → localhost:8080/ws   (WebSocket, 1h timeout)
+agenthost.kensink.com/api/*    → localhost:8080/api/  (REST)
+agenthost.kensink.com/health   → localhost:8080/health
+agenthost.kensink.com/*        → localhost:3000       (Next.js frontend)
+```
+
+Config file on server: `/etc/nginx/sites-available/multica`
+Config in repo: `scripts/nginx/agenthost.conf`
 
 ### AWS Security Group — open ports
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
 | 22 | TCP | SSH |
-| 3000 | TCP | Next.js frontend |
-| 8080 | TCP | Go backend API + WebSocket |
-| 80 | TCP | Reserved for future reverse proxy (nginx/caddy) |
-| 443 | TCP | Reserved for TLS termination |
+| 80 | TCP | nginx — public entry point (Cloudflare proxies this) |
+| 3000 | TCP | Next.js direct access (internal / debug) |
+| 8080 | TCP | Go backend direct access (internal / debug) |
+| 443 | TCP | Reserved — Cloudflare handles TLS, no cert needed on server |
 | 5432 | TCP | PostgreSQL — **consider restricting to VPC only** |
 
 ---
@@ -136,6 +153,44 @@ MULTICA_CODEX_TIMEOUT=20m
 
 > **Never commit `.env`** — it contains `JWT_SECRET` and `RESEND_API_KEY`.
 > Edit it directly on the server at `/opt/multica/.env`.
+
+---
+
+## nginx
+
+The nginx reverse proxy runs on port 80 and routes all traffic to the correct
+container. Config is version-controlled at `scripts/nginx/agenthost.conf`.
+
+### Install / update config on server
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
+  sudo cp /opt/multica/scripts/nginx/agenthost.conf /etc/nginx/sites-available/multica
+  sudo nginx -t && sudo systemctl reload nginx
+"
+```
+
+### nginx operations
+
+```bash
+# Status
+sudo systemctl status nginx
+
+# Test config before reloading
+sudo nginx -t
+
+# Reload (zero-downtime config swap)
+sudo systemctl reload nginx
+
+# Full restart
+sudo systemctl restart nginx
+
+# View access logs
+sudo tail -f /var/log/nginx/access.log
+
+# View error logs
+sudo tail -f /var/log/nginx/error.log
+```
 
 ---
 
@@ -305,6 +360,28 @@ scp -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103:~/multica-backup-*.sql.gz .
 # Check current disk
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "df -h / && docker system df"
 ```
+
+---
+
+## Cloudflare Setup
+
+To enable HTTPS via Cloudflare proxy:
+
+1. In your Cloudflare dashboard, go to **DNS** for `kensink.com`
+2. Add/update the `agenthost` A record:
+   - **Type:** A
+   - **Name:** `agenthost`
+   - **IPv4:** `54.82.211.103`
+   - **Proxy status:** Proxied (orange cloud ☁️)
+3. Go to **SSL/TLS** → set mode to **Flexible**
+   (Cloudflare handles HTTPS externally; sends plain HTTP to your server on port 80)
+4. Optionally enable **Always Use HTTPS** under SSL/TLS → Edge Certificates
+
+After this, `https://agenthost.kensink.com` and `wss://agenthost.kensink.com/ws`
+will work automatically — no cert needed on the server.
+
+> **WebSocket note:** Cloudflare proxies WebSocket connections on port 80/443
+> natively. No extra config needed.
 
 ---
 
