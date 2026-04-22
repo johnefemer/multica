@@ -159,6 +159,13 @@ function LoginPageContent() {
   return (
     <LoginPage
       onSuccess={handleSuccess}
+      logo={
+        <img
+          src="/kensink-logo.png"
+          alt="Kensink Labs"
+          className="h-12 w-12 object-contain"
+        />
+      }
       google={
         googleClientId
           ? {

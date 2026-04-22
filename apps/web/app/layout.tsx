@@ -67,26 +67,24 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.multica.ai"),
+  metadataBase: new URL("https://agenthost.kensink.com"),
   title: {
-    default: "Multica — Project Management for Human + Agent Teams",
-    template: "%s | Multica",
+    default: "Kensink Labs — AI Agent Task Management",
+    template: "%s | Kensink Labs",
   },
   description:
-    "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
+    "Kensink Labs — AI-native task management platform. Assign tasks to agents, track progress, compound skills.",
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    shortcut: ["/favicon.svg"],
+    icon: [{ url: "/kensink-logo.png", type: "image/png" }],
+    shortcut: ["/kensink-logo.png"],
   },
   openGraph: {
     type: "website",
-    siteName: "Multica",
+    siteName: "Kensink Labs",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    site: "@multica_hq",
-    creator: "@multica_hq",
   },
   alternates: {
     canonical: "/",
