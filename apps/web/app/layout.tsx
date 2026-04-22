@@ -73,7 +73,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.multica.ai"),
+  metadataBase: new URL("https://agenthost.kensink.com"),
   title: {
     default: SITE_TITLE,
     template: TITLE_TEMPLATE,
@@ -102,13 +102,11 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Multica",
+    siteName: "Kensink Labs",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    site: "@multica_hq",
-    creator: "@multica_hq",
   },
   alternates: {
     canonical: "/",
