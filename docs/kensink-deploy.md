@@ -114,7 +114,7 @@ MULTICA_SERVER_URL=wss://agenthost.kensink.com/ws
 
 # ── Email (Resend) ────────────────────────────────────────────
 RESEND_API_KEY=<set on server — not committed>
-RESEND_FROM_EMAIL=noreply@multica.ai
+RESEND_FROM_EMAIL=noreply@kensink.com
 
 # ── Google OAuth (optional) ───────────────────────────────────
 GOOGLE_CLIENT_ID=
