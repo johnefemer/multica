@@ -1,4 +1,4 @@
-.PHONY: help makehelp dev server daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree remove-worktree db-up db-down db-drop db-reset selfhost selfhost-build selfhost-stop up down status list destroy gc env-exec api-dev web-dev desktop-dev
+.PHONY: help makehelp dev server daemon cli multica build test migrate-up migrate-down sqlc seed clean setup start stop check worktree-env setup-main start-main stop-main check-main setup-worktree start-worktree stop-worktree check-worktree remove-worktree db-up db-down db-drop db-reset selfhost selfhost-build selfhost-stop up down status list destroy gc env-exec api-dev web-dev desktop-dev upstream-sync
 
 MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
@@ -188,6 +188,16 @@ web-dev: ## Run only the Next.js dev server for the current env file
 
 desktop-dev: ## Run only the Electron desktop app for the current env file
 	pnpm dev:desktop
+# ---------- Fork management ----------
+##@ Fork management
+
+upstream-sync: ## Rebase kensink branch on latest upstream/main (keeps fork in sync)
+	@echo "==> Fetching upstream (multica-ai/multica)..."
+	git fetch upstream
+	@echo "==> Rebasing kensink onto upstream/main..."
+	git rebase upstream/main
+	@echo "✓ kensink is now up to date with upstream/main."
+	@echo "   Review rebase, then: git push origin kensink --force-with-lease"
 
 # ---------- One-click commands ----------
 ##@ One-click

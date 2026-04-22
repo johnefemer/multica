@@ -1,0 +1,53 @@
+name: Deploy to agenthost
+
+# Manual trigger — you choose when to deploy.
+# Optionally override the branch (defaults to kensink).
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: false
+        default: "kensink"
+      confirm:
+        description: "Type 'deploy' to confirm"
+        required: true
+        default: ""
+
+jobs:
+  deploy:
+    name: SSH deploy → agenthost (54.82.211.103)
+    runs-on: ubuntu-latest
+
+    # Guard: require explicit confirmation
+    if: ${{ github.event.inputs.confirm == 'deploy' }}
+
+    steps:
+      - name: Checkout (to copy deploy script)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AGENTHOST_SSH_KEY }}" > ~/.ssh/agenthost.pem
+          chmod 600 ~/.ssh/agenthost.pem
+          ssh-keyscan -H "${{ secrets.AGENTHOST_IP }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy latest deploy script to server
+        run: |
+          scp -i ~/.ssh/agenthost.pem \
+            scripts/agenthost-deploy.sh \
+            ubuntu@${{ secrets.AGENTHOST_IP }}:/opt/multica/scripts/agenthost-deploy.sh
+
+      - name: Run deploy on agenthost
+        run: |
+          ssh -i ~/.ssh/agenthost.pem ubuntu@${{ secrets.AGENTHOST_IP }} \
+            "chmod +x /opt/multica/scripts/agenthost-deploy.sh && \
+             BRANCH=${{ github.event.inputs.branch }} \
+             bash /opt/multica/scripts/agenthost-deploy.sh"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/agenthost.pem
