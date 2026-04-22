@@ -37,12 +37,10 @@ and terminates HTTPS — no TLS config needed on the server.
 
 | Service | Public URL |
 |---------|-----------|
-| **Web app** | http://agenthost.kensink.com |
-| **Backend API** | http://agenthost.kensink.com/api/ |
-| **API health** | http://agenthost.kensink.com/health |
-| **WebSocket** | `ws://agenthost.kensink.com/ws` |
-
-> With Cloudflare proxy active, these also work over HTTPS/WSS automatically.
+| **Web app** | https://agenthost.kensink.com |
+| **Backend API** | https://agenthost.kensink.com/api/ |
+| **API health** | https://agenthost.kensink.com/health |
+| **WebSocket** | `wss://agenthost.kensink.com/ws` |
 
 ### nginx routing (port 80)
 
@@ -97,22 +95,22 @@ Location on server: `/opt/multica/.env`
 # ── Database ─────────────────────────────────────────────────
 POSTGRES_DB=multica
 POSTGRES_USER=multica
-POSTGRES_PASSWORD=multica
+POSTGRES_PASSWORD=<set on server — not committed>
 POSTGRES_PORT=5432
-DATABASE_URL=postgres://multica:multica@localhost:5432/multica?sslmode=disable
+DATABASE_URL=postgres://multica:<password>@localhost:5432/multica?sslmode=disable
 
 # ── Server ───────────────────────────────────────────────────
 APP_ENV=production
 PORT=8080
 JWT_SECRET=<generate with: openssl rand -hex 32>
 
-# ── App URLs (domain-specific) ───────────────────────────────
-MULTICA_APP_URL=http://agenthost.kensink.com:3000
-FRONTEND_ORIGIN=http://agenthost.kensink.com:3000
-CORS_ALLOWED_ORIGINS=http://agenthost.kensink.com:3000
-NEXT_PUBLIC_API_URL=http://agenthost.kensink.com:8080
-NEXT_PUBLIC_WS_URL=ws://agenthost.kensink.com:8080/ws
-MULTICA_SERVER_URL=ws://localhost:8080/ws
+# ── App URLs ──────────────────────────────────────────────────
+MULTICA_APP_URL=https://agenthost.kensink.com
+FRONTEND_ORIGIN=https://agenthost.kensink.com
+CORS_ALLOWED_ORIGINS=https://agenthost.kensink.com,http://agenthost.kensink.com
+NEXT_PUBLIC_API_URL=https://agenthost.kensink.com
+NEXT_PUBLIC_WS_URL=wss://agenthost.kensink.com/ws
+MULTICA_SERVER_URL=wss://agenthost.kensink.com/ws
 
 # ── Email (Resend) ────────────────────────────────────────────
 RESEND_API_KEY=<set on server — not committed>
@@ -121,7 +119,7 @@ RESEND_FROM_EMAIL=noreply@multica.ai
 # ── Google OAuth (optional) ───────────────────────────────────
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=http://agenthost.kensink.com:3000/auth/callback
+GOOGLE_REDIRECT_URI=https://agenthost.kensink.com/auth/callback
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 
 # ── Storage (local upload mode) ───────────────────────────────
@@ -137,7 +135,7 @@ MULTICA_WEB_IMAGE=ghcr.io/multica-ai/multica-web
 
 # ── Signup controls ───────────────────────────────────────────
 ALLOW_SIGNUP=true
-ALLOWED_EMAIL_DOMAINS=
+ALLOWED_EMAIL_DOMAINS=kensink.com
 ALLOWED_EMAILS=
 
 # ── Analytics (optional) ──────────────────────────────────────
@@ -392,7 +390,8 @@ will work automatically — no cert needed on the server.
   the frontend image locally from source (using `Dockerfile.web`) so the
   kensink domain compiles in. See `scripts/agenthost-deploy.sh` for a
   `--build` flag option.
-- **No TLS yet.** All traffic runs over plain HTTP. Add a reverse proxy
-  (nginx/caddy) on ports 80/443 with Let's Encrypt to enable HTTPS.
+- **No TLS yet.** All traffic to the server runs over plain HTTP on port 80.
+  Cloudflare handles TLS at the edge (Flexible mode). If you switch to Full/Strict
+  mode, add a Let's Encrypt cert with certbot.
 - **No automated backups.** Set up a cron job or AWS Backup for the
   `multica_pgdata` volume.
