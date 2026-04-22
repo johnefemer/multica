@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "owner": "johnefemer",
+  "repositories": [
+    { "name": "multica", "label": "repo:multica" }
+  ],
+  "project": {
+    "number": 1,
+    "id": "PVT_kwHOAA7v284BTydu",
+    "title": "Bunker Projects"
+  },
+  "fields": {
+    "Status": {
+      "id": "PVTSSF_lAHOAA7v284BTyduzhA-9Fg",
+      "options": {
+        "Todo": "f75ad846",
+        "In Progress": "47fc9ee4",
+        "Done": "98236657"
+      }
+    },
+    "Priority": {
+      "id": "PVTSSF_lAHOAA7v284BTyduzhA--Uc",
+      "options": {
+        "P0 Critical": "f0fffd05",
+        "P1 High": "0d3eaae4",
+        "P2 Medium": "a0404002",
+        "P3 Low": "1c1c1c64"
+      }
+    },
+    "Size": {
+      "id": "PVTSSF_lAHOAA7v284BTyduzhA--VU",
+      "options": {
+        "XS": "fab8eaa0",
+        "S": "d76d69d6",
+        "M": "2b2b92a3",
+        "L": "776ee00e",
+        "XL": "3cb7e616"
+      }
+    },
+    "Estimate": {
+      "id": "PVTF_lAHOAA7v284BTyduzhA--WM",
+      "type": "number"
+    }
+  },
+  "labels": {
+    "bootstrapped": true,
+    "customDomains": ["domain:deploy", "domain:auth"]
+  },
+  "team": ["johnefemer"],
+  "conventions": {
+    "source": "CLAUDE.md",
+    "techStack": "Go backend (Chi, sqlc, gorilla/websocket) + Next.js frontend (App Router) + PostgreSQL 17 pgvector",
+    "testCommand": "make test (Go) / pnpm test (TS)",
+    "lintCommand": "pnpm lint / go vet ./..."
+  }
+}
