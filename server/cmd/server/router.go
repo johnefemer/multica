@@ -1524,8 +1524,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/start", h.IntegrationOAuthStart)
 	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/callback", h.IntegrationOAuthCallback)
 
-	// Webhook ingestion (implemented in commit 4)
-	// r.Post("/webhooks/{provider}", h.IntegrationWebhook)
+	// Webhook ingestion (no auth, provider HMAC verified)
+	r.Post("/webhooks/{provider}", h.IntegrationWebhook)
 
 	// Public API
 	r.Get("/api/config", h.GetConfig)
