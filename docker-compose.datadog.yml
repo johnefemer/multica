@@ -1,0 +1,76 @@
+# Datadog Agent — separate compose file for agenthost monitoring
+#
+# Usage (on the server):
+#   docker compose -f docker-compose.datadog.yml up -d
+#
+# Connects to the multica_default network so Datadog can see all
+# multica containers and collect their metrics + logs.
+
+name: datadog
+
+networks:
+  multica_default:
+    external: true   # shared with docker-compose.selfhost.yml (name: multica)
+
+volumes:
+  datadog_run:       # shared socket dir for APM + DogStatsD
+
+services:
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:7
+    container_name: dd-agent
+    restart: unless-stopped
+
+    # Full host access — required for process-level and network metrics
+    pid: host
+    privileged: true
+
+    networks:
+      - multica_default
+
+    environment:
+      # --- Core ---
+      DD_API_KEY: "cd01dbdb89413ee83bddea26bec0ec62"
+      DD_SITE: "us5.datadoghq.com"
+      DD_ENV: "prod"
+      DD_HOSTNAME: "agenthost"
+      DD_TAGS: "env:prod,host:agenthost,project:kensink"
+
+      # --- APM ---
+      DD_APM_ENABLED: "true"
+      DD_APM_NON_LOCAL_TRAFFIC: "true"
+      DD_APM_RECEIVER_SOCKET: "/var/run/datadog/apm.socket"
+
+      # --- DogStatsD ---
+      DD_DOGSTATSD_NON_LOCAL_TRAFFIC: "true"
+      DD_DOGSTATSD_SOCKET: "/var/run/datadog/dsd.socket"
+
+      # --- Container + process monitoring ---
+      DD_PROCESS_AGENT_ENABLED: "true"
+      DD_CONTAINER_EXCLUDE: "name:dd-agent"   # don't monitor itself
+
+      # --- Log collection ---
+      DD_LOGS_ENABLED: "true"
+      DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "true"
+      DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION: "true"
+      DD_CONTAINER_LABELS_AS_TAGS: "true"
+
+      # --- System probe (network performance monitoring) ---
+      DD_SYSTEM_PROBE_ENABLED: "false"   # set true to enable NPM (needs kernel headers)
+
+    volumes:
+      # Socket dir shared with app containers for APM + DogStatsD
+      - datadog_run:/var/run/datadog
+
+      # Docker daemon access — for container discovery and log tailing
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # Host proc/cgroup — for host-level CPU, memory, disk metrics
+      - /proc:/host/proc:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+
+      # Container logs — for log collection from all running containers
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+      # Optional: persist agent status across restarts
+      - /opt/datadog-agent/run:/opt/datadog-agent/run:rw
