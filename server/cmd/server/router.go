@@ -26,6 +26,8 @@ import (
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/featureflags"
 	"github.com/multica-ai/multica/server/internal/handler"
+	"github.com/multica-ai/multica/server/internal/integration"
+	githubprovider "github.com/multica-ai/multica/server/internal/integration/github"
 	"github.com/multica-ai/multica/server/internal/integrations/channel"
 	"github.com/multica-ai/multica/server/internal/integrations/channel/engine"
 	composiointeg "github.com/multica-ai/multica/server/internal/integrations/composio"
@@ -1400,6 +1402,15 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	daemonHub.SetRPCHandler(h.DaemonRPCHandler)
 	health := newServerHealth(pool)
 
+	// Register integration providers.
+	reg := integration.NewRegistry()
+	reg.Register(githubprovider.New(
+		os.Getenv("GITHUB_CLIENT_ID"),
+		os.Getenv("GITHUB_CLIENT_SECRET"),
+		os.Getenv("GITHUB_WEBHOOK_SECRET"),
+	))
+	handler.IntegrationRegistry = reg
+
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -1508,6 +1519,13 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	r.With(authVerifyRL).Post("/auth/verify-code", h.VerifyCode)
 	r.With(authRL).Post("/auth/google", h.GoogleLogin)
 	r.Post("/auth/logout", h.Logout)
+
+	// OAuth integration start (requires auth — user must be logged in)
+	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/start", h.IntegrationOAuthStart)
+	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/callback", h.IntegrationOAuthCallback)
+
+	// Webhook ingestion (implemented in commit 4)
+	// r.Post("/webhooks/{provider}", h.IntegrationWebhook)
 
 	// Public API
 	r.Get("/api/config", h.GetConfig)
@@ -2368,6 +2386,17 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				r.Post("/nodes/reboot", h.RebootCloudRuntimeNode)
 				r.Post("/nodes/status", h.GetCloudRuntimeNodeStatus)
 				r.Post("/nodes/exec", h.ExecCloudRuntimeNode)
+			})
+
+			// Integrations (workspace-scoped OAuth connections)
+			r.Route("/api/workspaces/{id}/integrations", func(r chi.Router) {
+				r.Get("/", h.ListIntegrations)
+				r.Get("/{provider}", h.GetIntegration)
+				r.Delete("/{provider}", h.DisconnectIntegration)
+				// GitHub-specific actions
+				r.Get("/github/repos", h.ListGitHubRepos)
+				r.Post("/github/import-issues", h.ImportGitHubIssues)
+				r.Post("/github/register-webhook", h.RegisterGitHubWebhook)
 			})
 
 			// Tasks (user-facing, with ownership check)

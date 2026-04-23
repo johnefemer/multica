@@ -45,6 +45,8 @@ type AppConfig struct {
 	// false so the managed-cloud response keeps its previous shape; the UI
 	// defaults absent to false (hidden).
 	VCSIntegrationAvailable bool `json:"vcs_integration_available,omitempty"`
+	// Kensink: GitHub OAuth app client id for the integrations page.
+	GitHubClientID string `json:"github_client_id,omitempty"`
 
 	// PostHog public config for the frontend. The key is the same Project
 	// API Key the backend uses; returning it here (instead of baking it
@@ -117,6 +119,7 @@ func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 		AllowSignup:                        os.Getenv("ALLOW_SIGNUP") != "false",
 		GoogleClientID:                     os.Getenv("GOOGLE_CLIENT_ID"),
 		WorkspaceCreationDisabled:          os.Getenv("DISABLE_WORKSPACE_CREATION") == "true",
+		GitHubClientID:                     os.Getenv("GITHUB_CLIENT_ID"),
 	}
 	if h.Storage != nil {
 		config.CdnDomain = h.Storage.CdnDomain()

@@ -86,3 +86,19 @@ WHERE workspace_id       = @workspace_id
   AND integration_provider    = @provider
   AND integration_repo        = @repo
   AND integration_external_id = @external_id;
+
+-- name: CreateIntegrationIssue :one
+-- Creates an issue that originated from an external provider (e.g. GitHub).
+INSERT INTO issue (
+    workspace_id, title, description, status, priority,
+    creator_type, creator_id, origin_type,
+    integration_provider, integration_external_id, integration_external_url,
+    integration_repo, integration_synced_at
+) VALUES (
+    @workspace_id, @title, @description, @status, @priority,
+    @creator_type, @creator_id, 'integration',
+    @integration_provider, @integration_external_id, @integration_external_url,
+    @integration_repo, now()
+)
+RETURNING *;
+

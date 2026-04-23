@@ -216,4 +216,8 @@ const (
 	// front-ends invalidate the Telegram installations query on either.
 	EventTelegramInstallationCreated = "telegram_installation:created"
 	EventTelegramInstallationRevoked = "telegram_installation:revoked"
+
+	// Integration events
+	EventIntegrationConnected    = "integration:connected"
+	EventIntegrationDisconnected = "integration:disconnected"
 )

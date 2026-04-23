@@ -11,6 +11,91 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createIntegrationIssue = `-- name: CreateIntegrationIssue :one
+INSERT INTO issue (
+    workspace_id, title, description, status, priority,
+    creator_type, creator_id, origin_type,
+    integration_provider, integration_external_id, integration_external_url,
+    integration_repo, integration_synced_at
+) VALUES (
+    $1, $2, $3, $4, $5,
+    $6, $7, 'integration',
+    $8, $9, $10,
+    $11, now()
+)
+RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, integration_provider, integration_external_id, integration_external_url, integration_repo, integration_synced_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id
+`
+
+type CreateIntegrationIssueParams struct {
+	WorkspaceID            pgtype.UUID `json:"workspace_id"`
+	Title                  string      `json:"title"`
+	Description            pgtype.Text `json:"description"`
+	Status                 string      `json:"status"`
+	Priority               string      `json:"priority"`
+	CreatorType            string      `json:"creator_type"`
+	CreatorID              pgtype.UUID `json:"creator_id"`
+	IntegrationProvider    pgtype.Text `json:"integration_provider"`
+	IntegrationExternalID  pgtype.Text `json:"integration_external_id"`
+	IntegrationExternalUrl pgtype.Text `json:"integration_external_url"`
+	IntegrationRepo        pgtype.Text `json:"integration_repo"`
+}
+
+// Creates an issue that originated from an external provider (e.g. GitHub).
+func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrationIssueParams) (Issue, error) {
+	row := q.db.QueryRow(ctx, createIntegrationIssue,
+		arg.WorkspaceID,
+		arg.Title,
+		arg.Description,
+		arg.Status,
+		arg.Priority,
+		arg.CreatorType,
+		arg.CreatorID,
+		arg.IntegrationProvider,
+		arg.IntegrationExternalID,
+		arg.IntegrationExternalUrl,
+		arg.IntegrationRepo,
+	)
+	var i Issue
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.Priority,
+		&i.AssigneeType,
+		&i.AssigneeID,
+		&i.CreatorType,
+		&i.CreatorID,
+		&i.ParentIssueID,
+		&i.AcceptanceCriteria,
+		&i.ContextRefs,
+		&i.Position,
+		&i.DueDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Number,
+		&i.ProjectID,
+		&i.OriginType,
+		&i.OriginID,
+		&i.FirstExecutedAt,
+		&i.IntegrationProvider,
+		&i.IntegrationExternalID,
+		&i.IntegrationExternalUrl,
+		&i.IntegrationRepo,
+		&i.IntegrationSyncedAt,
+		&i.StartDate,
+		&i.Metadata,
+		&i.Stage,
+		&i.Properties,
+		&i.Revision,
+		&i.LastActivityAt,
+		&i.TriageState,
+		&i.DuplicateOfIssueID,
+	)
+	return i, err
+}
+
 const disconnectIntegration = `-- name: DisconnectIntegration :one
 UPDATE integration_connection
 SET status          = 'active',
