@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@multica/ui/components/ui/dialog";
 import {
   Select,
@@ -143,35 +142,35 @@ function IntegrationCard({
               {isConnected ? (
                 <>
                   {canManage && (
-                    <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 px-2">
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Disconnect
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Disconnect {meta.label}?</DialogTitle>
-                          <DialogDescription>
-                            This removes the OAuth connection. Existing imported issues are kept.
-                            Webhooks registered via Agenthost must be removed manually from GitHub.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setDisconnectOpen(false)}>
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            onClick={handleDisconnect}
-                            disabled={disconnect.isPending}
-                          >
-                            {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                    <>
+                      <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => setDisconnectOpen(true)}>
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Disconnect
+                      </Button>
+                      <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Disconnect {meta.label}?</DialogTitle>
+                            <DialogDescription>
+                              This removes the OAuth connection. Existing imported issues are kept.
+                              Webhooks registered via Agenthost must be removed manually from GitHub.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setDisconnectOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              onClick={handleDisconnect}
+                              disabled={disconnect.isPending}
+                            >
+                              {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </>
                   )}
                   {providerKey === "github" && (
                     <GitHubActions wsId={wsId} connection={connection} canManage={canManage} />
@@ -240,12 +239,10 @@ function GitHubActions({
 
   return (
     <Dialog open={importOpen} onOpenChange={setImportOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 px-2">
-          <Download className="h-3 w-3 mr-1" />
-          Import
-        </Button>
-      </DialogTrigger>
+      <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => setImportOpen(true)}>
+        <Download className="h-3 w-3 mr-1" />
+        Import
+      </Button>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Import GitHub Issues</DialogTitle>
