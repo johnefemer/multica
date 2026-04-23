@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Github, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
+import { Trash2, GitBranch, Eye, EyeOff, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import type { AgentRuntime } from "@multica/core/types";
@@ -129,7 +129,7 @@ function GitHubTokenSection({
       {/* Stored PAT */}
       {isSet && preview && (
         <div className="flex items-center gap-2 text-sm rounded-md border bg-muted/30 px-3 py-2">
-          <Github className="h-4 w-4 text-muted-foreground shrink-0" />
+          <GitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="font-mono text-xs flex-1">{preview}</span>
           <Button
             variant="ghost"
