@@ -118,6 +118,11 @@ type DaemonRegisterRequest struct {
 		Type    string `json:"type"`
 		Version string `json:"version"` // agent CLI version (claude/codex)
 		Status  string `json:"status"`
+		// gh CLI fields — advertised by the daemon when gh is available.
+		GHAvailable string `json:"gh_available,omitempty"`
+		GHUser      string `json:"gh_user,omitempty"`
+		GHScopes    string `json:"gh_scopes,omitempty"`
+		GHHost      string `json:"gh_host,omitempty"`
 	} `json:"runtimes"`
 }
 
@@ -261,6 +266,12 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 			"version":     runtime.Version,
 			"cli_version": req.CLIVersion,
 			"launched_by": req.LaunchedBy,
+			// gh CLI integration metadata — populated when the daemon detects
+			// a local gh CLI installation. Used by the frontend status badge.
+			"gh_available": runtime.GHAvailable == "true",
+			"gh_user":      runtime.GHUser,
+			"gh_scopes":    runtime.GHScopes,
+			"gh_host":      runtime.GHHost,
 		})
 
 		row, err := h.Queries.UpsertAgentRuntime(r.Context(), db.UpsertAgentRuntimeParams{
@@ -294,6 +305,7 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:      row.UpdatedAt,
 			OwnerID:        row.OwnerID,
 			LegacyDaemonID: row.LegacyDaemonID,
+			Settings:       row.Settings,
 		}
 
 		if row.Inserted {

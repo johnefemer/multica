@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -53,6 +54,20 @@ type Daemon struct {
 	restartBinary string             // non-empty after a successful update; path to the new binary
 	updating      atomic.Bool        // prevents concurrent update attempts
 	activeTasks   atomic.Int64       // number of tasks currently in handleTask; exposed via /health
+
+	// GitHub token resolution (four-tier priority chain, resolved once at startup).
+	// ghTokenSettings is the P1 token from runtime settings (delivered by server at registration).
+	// ghTokenEnv is the P2 token from GH_TOKEN/GITHUB_TOKEN in the daemon's process environment.
+	// ghTokenCLI is the P3 token from `gh auth token` (detected once at startup).
+	// The resolved token is kept in repoCache (via SetToken) and injected into agentEnv.
+	ghTokenSettings string
+	ghTokenEnv      string
+	ghTokenCLI      string
+	// gh CLI metadata (populated by probeGHCLI at startup).
+	ghAvailable bool
+	ghUser      string
+	ghScopes    string
+	ghHost      string
 }
 
 // New creates a new Daemon instance.
@@ -114,6 +129,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Load auth token from CLI config.
 	if err := d.resolveAuth(); err != nil {
 		return err
+	}
+
+	// Probe gh CLI availability and local authentication status.
+	d.probeGHCLI(ctx)
+
+	// Pick up P2 token from daemon process environment.
+	d.ghTokenEnv = os.Getenv("GH_TOKEN")
+	if d.ghTokenEnv == "" {
+		d.ghTokenEnv = os.Getenv("GITHUB_TOKEN")
 	}
 
 	// Fetch all user workspaces from the API and register runtimes for any
@@ -180,6 +204,77 @@ func (d *Daemon) resolveAuth() error {
 	return nil
 }
 
+// probeGHCLI runs `gh auth status` and `gh auth token` to detect the local
+// gh CLI auth state. Results are stored on the Daemon and advertised in
+// runtime metadata so the frontend can show a status badge.
+// Non-fatal: if gh is not installed or not authenticated, fields are left empty.
+func (d *Daemon) probeGHCLI(ctx context.Context) {
+	ghPath, err := exec.LookPath("gh")
+	if err != nil {
+		d.logger.Info("gh CLI not found on PATH — GitHub CLI integration unavailable")
+		return
+	}
+	d.ghAvailable = true
+
+	// `gh auth status` exits 0 when authenticated, 1 when not.
+	statusCmd := exec.CommandContext(ctx, ghPath, "auth", "status", "--hostname", "github.com")
+	statusOut, statusErr := statusCmd.CombinedOutput()
+
+	if statusErr != nil {
+		d.logger.Info("gh CLI available but not authenticated", "output", strings.TrimSpace(string(statusOut)))
+		return
+	}
+
+	// Parse key fields from `gh auth status` output (human-readable text).
+	for _, line := range strings.Split(string(statusOut), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Logged in to ") {
+			// "Logged in to github.com account username (keyring)"
+			parts := strings.Fields(line)
+			if len(parts) >= 7 {
+				d.ghHost = parts[3]
+				d.ghUser = parts[5]
+			}
+		}
+		if strings.Contains(line, "Token scopes:") {
+			idx := strings.Index(line, "Token scopes:")
+			d.ghScopes = strings.TrimSpace(line[idx+len("Token scopes:"):])
+		}
+	}
+
+	// Retrieve the raw token for P3 injection.
+	tokenCmd := exec.CommandContext(ctx, ghPath, "auth", "token")
+	tokenOut, tokenErr := tokenCmd.Output()
+	if tokenErr == nil {
+		d.ghTokenCLI = strings.TrimSpace(string(tokenOut))
+	}
+
+	d.logger.Info("gh CLI authenticated",
+		"host", d.ghHost,
+		"user", d.ghUser,
+		"token_available", d.ghTokenCLI != "",
+	)
+}
+
+// resolveGitHubToken implements the four-tier priority chain:
+//
+//	P1: runtime settings token (delivered at registration from server DB)
+//	P2: GH_TOKEN / GITHUB_TOKEN in daemon process environment
+//	P3: `gh auth token` output (local gh CLI)
+//	P4: "" (no token — credential helpers in the system may still work)
+func (d *Daemon) resolveGitHubToken() string {
+	if d.ghTokenSettings != "" {
+		return d.ghTokenSettings
+	}
+	if d.ghTokenEnv != "" {
+		return d.ghTokenEnv
+	}
+	if d.ghTokenCLI != "" {
+		return d.ghTokenCLI
+	}
+	return ""
+}
+
 // allRuntimeIDs returns all runtime IDs across all watched workspaces.
 func (d *Daemon) allRuntimeIDs() []string {
 	d.mu.Lock()
@@ -218,12 +313,27 @@ func (d *Daemon) registerRuntimesForWorkspace(ctx context.Context, workspaceID s
 		if d.cfg.DeviceName != "" {
 			displayName = fmt.Sprintf("%s (%s)", displayName, d.cfg.DeviceName)
 		}
-		runtimes = append(runtimes, map[string]string{
+		rt := map[string]string{
 			"name":    displayName,
 			"type":    name,
 			"version": version,
 			"status":  "online",
-		})
+		}
+		// Advertise gh CLI presence and auth status in runtime metadata so the
+		// frontend can display it and the server can include it in API responses.
+		if d.ghAvailable {
+			rt["gh_available"] = "true"
+			if d.ghUser != "" {
+				rt["gh_user"] = d.ghUser
+			}
+			if d.ghScopes != "" {
+				rt["gh_scopes"] = d.ghScopes
+			}
+			if d.ghHost != "" {
+				rt["gh_host"] = d.ghHost
+			}
+		}
+		runtimes = append(runtimes, rt)
 	}
 	if len(runtimes) == 0 {
 		return nil, fmt.Errorf("no agent runtimes could be registered")
@@ -246,6 +356,20 @@ func (d *Daemon) registerRuntimesForWorkspace(ctx context.Context, workspaceID s
 	if len(resp.Runtimes) == 0 {
 		return nil, fmt.Errorf("register runtimes: empty response")
 	}
+
+	// Extract P1 tokens from the registration response.
+	// We use the first non-empty token found across all runtimes for this
+	// workspace (all runtimes on a daemon share the same token pool).
+	for _, tok := range resp.GitHubTokens {
+		if tok != "" {
+			d.ghTokenSettings = tok
+			break
+		}
+	}
+
+	// Resolve and push the current best token to the repo cache.
+	d.repoCache.SetToken(d.resolveGitHubToken())
+
 	return resp, nil
 }
 
@@ -1105,6 +1229,12 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 		"AGENTHOST_AGENT_ID":     task.AgentID,
 		"AGENTHOST_TASK_ID":      task.ID,
 	}
+	// Inject the resolved GitHub token so the agent subprocess can use it for
+	// `gh` CLI calls and git operations without any manual configuration.
+	if tok := d.resolveGitHubToken(); tok != "" {
+		agentEnv["GH_TOKEN"] = tok
+		agentEnv["GITHUB_TOKEN"] = tok
+	}
 	// Ensure the agenthost CLI is on PATH inside the agent's environment.
 	// Some runtimes (e.g. Codex) run in an isolated sandbox that may not
 	// inherit the daemon's PATH. Prepend the directory of the running
@@ -1566,8 +1696,13 @@ func isBlockedEnvKey(key string) bool {
 	if strings.HasPrefix(upper, "AGENTHOST_") || strings.HasPrefix(upper, "MULTICA_") {
 		return true
 	}
+	// Block GitHub token vars and git config injection — daemon manages these.
+	if strings.HasPrefix(upper, "GIT_CONFIG_") {
+		return true
+	}
 	switch upper {
-	case "HOME", "PATH", "USER", "SHELL", "TERM", "CODEX_HOME":
+	case "HOME", "PATH", "USER", "SHELL", "TERM", "CODEX_HOME",
+		"GH_TOKEN", "GITHUB_TOKEN", "GH_PROMPT_DISABLED", "GH_NO_UPDATE_NOTIFIER":
 		return true
 	}
 	return false

@@ -50,6 +50,10 @@ type repoCheckoutRequest struct {
 	WorkDir     string `json:"workdir"`
 	AgentName   string `json:"agent_name"`
 	TaskID      string `json:"task_id"`
+	// GitHubToken is an optional per-task token forwarded by `agenthost repo checkout`
+	// from the agent's GH_TOKEN env. When set it takes P0 priority over the
+	// daemon-level resolved token. Ignored if empty.
+	GitHubToken string `json:"github_token,omitempty"`
 }
 
 // healthHandler returns the /health HTTP handler. Extracted from serveHealth
@@ -157,15 +161,41 @@ func (d *Daemon) serveHealth(ctx context.Context, ln net.Listener, startedAt tim
 			return
 		}
 
-		result, err := d.repoCache.CreateWorktree(repocache.WorktreeParams{
-			WorkspaceID: req.WorkspaceID,
-			RepoURL:     req.URL,
-			WorkDir:     req.WorkDir,
-			AgentName:   req.AgentName,
-			TaskID:      req.TaskID,
-		})
+		var result *repocache.WorktreeResult
+		var err error
+		if req.GitHubToken != "" {
+			// P0: agent forwarded its own GH_TOKEN — use it for this checkout.
+			result, err = d.repoCache.CreateWorktreeWithToken(repocache.WorktreeParams{
+				WorkspaceID: req.WorkspaceID,
+				RepoURL:     req.URL,
+				WorkDir:     req.WorkDir,
+				AgentName:   req.AgentName,
+				TaskID:      req.TaskID,
+			}, req.GitHubToken)
+		} else {
+			result, err = d.repoCache.CreateWorktree(repocache.WorktreeParams{
+				WorkspaceID: req.WorkspaceID,
+				RepoURL:     req.URL,
+				WorkDir:     req.WorkDir,
+				AgentName:   req.AgentName,
+				TaskID:      req.TaskID,
+			})
+		}
 		if err != nil {
 			d.logger.Error("repo checkout failed", "url", req.URL, "error", err)
+			// Return a structured JSON error for auth failures so agents can
+			// surface an actionable message instead of a raw git error.
+			var authErr *repocache.GitHubAuthError
+			if authErrOk := isGitHubAuthErr(err, &authErr); authErrOk {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error":  "github_auth_failed",
+					"detail": authErr.Error(),
+					"hint":   "Set a GitHub PAT in runtime settings (PATCH /api/runtimes/{id}/settings) or ensure GH_TOKEN is set in the daemon environment.",
+				})
+				return
+			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -185,5 +215,17 @@ func (d *Daemon) serveHealth(ctx context.Context, ln net.Listener, startedAt tim
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		d.logger.Warn("health server error", "error", err)
 	}
+}
+
+// isGitHubAuthErr checks if err is a *repocache.GitHubAuthError and sets *out.
+func isGitHubAuthErr(err error, out **repocache.GitHubAuthError) bool {
+	if err == nil {
+		return false
+	}
+	if ae, ok := err.(*repocache.GitHubAuthError); ok {
+		*out = ae
+		return true
+	}
+	return false
 }
 

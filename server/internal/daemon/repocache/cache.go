@@ -14,12 +14,68 @@ import (
 	"time"
 )
 
-// gitEnv returns an environment for git subprocesses that contact remotes.
-// It passes the full daemon environment so credential helpers (e.g. gh) can
-// locate their config, and disables TTY prompting so auth failures produce
-// clear errors instead of blocking on a non-existent terminal.
+// GitHubAuthError is returned when a git operation fails because of an
+// authentication problem with a GitHub remote (e.g. invalid token, missing
+// scope, private repo without credentials). Structured so callers can craft
+// actionable error responses.
+type GitHubAuthError struct {
+	Op  string // "clone" or "fetch"
+	URL string
+	Msg string // underlying git error message
+}
+
+func (e *GitHubAuthError) Error() string {
+	return fmt.Sprintf("github auth failed during %s of %s: %s", e.Op, e.URL, e.Msg)
+}
+
+// classifyGitError wraps a generic git command error as a GitHubAuthError when
+// the output contains well-known authentication failure indicators.
+func classifyGitError(op, repoURL string, out []byte, err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := strings.ToLower(string(out))
+	if strings.Contains(msg, "authentication failed") ||
+		strings.Contains(msg, "repository not found") ||
+		strings.Contains(msg, "invalid username or password") ||
+		strings.Contains(msg, "could not read username") ||
+		strings.Contains(msg, "the requested url returned error: 403") ||
+		strings.Contains(msg, "the requested url returned error: 401") {
+		return &GitHubAuthError{Op: op, URL: repoURL, Msg: strings.TrimSpace(string(out))}
+	}
+	return fmt.Errorf("git %s: %s: %w", op, strings.TrimSpace(string(out)), err)
+}
+
+// gitEnvWithToken builds an environment for git subprocesses that contact
+// remotes. It passes the full daemon environment so credential helpers can
+// locate their config, disables TTY prompting so auth failures produce clear
+// errors, and — when a non-empty token is provided — injects GH_TOKEN,
+// GITHUB_TOKEN and a GIT_CONFIG_* URL rewrite so HTTPS clones and fetches
+// authenticate transparently without a pre-configured credential helper.
+func gitEnvWithToken(token string) []string {
+	env := append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GH_PROMPT_DISABLED=1",
+		"GH_NO_UPDATE_NOTIFIER=1",
+	)
+	if token != "" {
+		env = append(env,
+			"GH_TOKEN="+token,
+			"GITHUB_TOKEN="+token,
+			// Rewrite https://github.com → https://<token>@github.com so plain
+			// git commands authenticate without a credential helper.
+			"GIT_CONFIG_COUNT=1",
+			"GIT_CONFIG_KEY_0=url.https://"+token+"@github.com/.insteadOf",
+			"GIT_CONFIG_VALUE_0=https://github.com/",
+		)
+	}
+	return env
+}
+
+// gitEnv returns the default environment without a token (used when no token
+// is available; credential helpers in the daemon's own env may still work).
 func gitEnv() []string {
-	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	return gitEnvWithToken("")
 }
 
 // RepoInfo describes a repository to cache.
@@ -45,11 +101,39 @@ type Cache struct {
 	// worktree admin dirs) don't tolerate parallel mutations on the same
 	// repo. Separate repos are independent and run concurrently.
 	repoLocks sync.Map // barePath -> *sync.Mutex
+
+	// tokenMu guards token.
+	tokenMu sync.RWMutex
+	// token is the resolved GitHub token for this cache (set by SetToken).
+	// All git remote operations use this token unless a per-call override
+	// is supplied via CreateWorktreeWithToken.
+	token string
 }
 
 // New creates a new repo cache rooted at the given directory.
 func New(root string, logger *slog.Logger) *Cache {
 	return &Cache{root: root, logger: logger}
+}
+
+// SetToken updates the resolved GitHub token used for all subsequent git
+// remote operations. Thread-safe — may be called from the daemon's token-
+// refresh path while repo operations are in flight.
+func (c *Cache) SetToken(token string) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	c.token = token
+}
+
+// getToken reads the current token under the read lock.
+func (c *Cache) getToken() string {
+	c.tokenMu.RLock()
+	defer c.tokenMu.RUnlock()
+	return c.token
+}
+
+// env returns an authenticated git environment using the cache's current token.
+func (c *Cache) env() []string {
+	return gitEnvWithToken(c.getToken())
 }
 
 // lockForRepo returns the mutex dedicated to the given bare repo path. See
@@ -77,6 +161,7 @@ func (c *Cache) Sync(workspaceID string, repos []RepoInfo) error {
 		return fmt.Errorf("create workspace cache dir: %w", err)
 	}
 
+	env := c.env()
 	var firstErr error
 	for _, repo := range repos {
 		if repo.URL == "" {
@@ -89,7 +174,7 @@ func (c *Cache) Sync(workspaceID string, repos []RepoInfo) error {
 		if isBareRepo(barePath) {
 			// Already cached — fetch latest.
 			c.logger.Info("repo cache: fetching", "url", repo.URL, "path", barePath)
-			if err := gitFetch(barePath); err != nil {
+			if err := gitFetchWithEnv(barePath, env); err != nil {
 				c.logger.Warn("repo cache: fetch failed", "url", repo.URL, "error", err)
 				if firstErr == nil {
 					firstErr = err
@@ -98,7 +183,7 @@ func (c *Cache) Sync(workspaceID string, repos []RepoInfo) error {
 		} else {
 			// Not cached — bare clone.
 			c.logger.Info("repo cache: cloning", "url", repo.URL, "path", barePath)
-			if err := gitCloneBare(repo.URL, barePath); err != nil {
+			if err := gitCloneBareWithEnv(repo.URL, barePath, env); err != nil {
 				c.logger.Error("repo cache: clone failed", "url", repo.URL, "error", err)
 				if firstErr == nil {
 					firstErr = err
@@ -122,7 +207,7 @@ func (c *Cache) Lookup(workspaceID, url string) string {
 
 // Fetch runs `git fetch origin` on a cached bare clone to get latest refs.
 func (c *Cache) Fetch(barePath string) error {
-	return gitFetch(barePath)
+	return gitFetchWithEnv(barePath, c.env())
 }
 
 // bareDirName derives a directory name from a repo URL.
@@ -163,72 +248,70 @@ func isBareRepo(path string) bool {
 // refs and abort the entire fetch.
 const modernFetchRefspec = "+refs/heads/*:refs/remotes/origin/*"
 
-func gitCloneBare(url, dest string) error {
+func gitCloneBareWithEnv(url, dest string, env []string) error {
 	cmd := exec.Command("git", "clone", "--bare", url, dest)
-	cmd.Env = gitEnv()
-	if out, err := cmd.CombinedOutput(); err != nil {
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
 		// Clean up partial clone.
 		os.RemoveAll(dest)
-		return fmt.Errorf("git clone --bare: %s: %w", strings.TrimSpace(string(out)), err)
+		return classifyGitError("clone", url, out, err)
 	}
 	// `git clone --bare` populates refs/heads/* as a snapshot and defaults to
 	// a mirror-style fetch refspec. Convert the bare repo to the standard
 	// remote-tracking layout immediately so subsequent fetches write to
 	// refs/remotes/origin/* and can't conflict with worktree-locked heads.
-	if err := ensureRemoteTrackingLayout(dest); err != nil {
+	if err := ensureRemoteTrackingLayoutWithEnv(dest, env); err != nil {
 		os.RemoveAll(dest)
 		return fmt.Errorf("configure fetch refspec: %w", err)
 	}
 	return nil
 }
 
-// gitFetch runs `git fetch origin` on a bare cache, migrating its fetch
-// refspec to the remote-tracking layout first if it's still using the legacy
-// mirror-style layout from an older version of this package. After a
-// successful fetch it also refreshes refs/remotes/origin/HEAD so a remote
-// default-branch change (e.g. master→main on an existing repo) actually
-// takes effect in getRemoteDefaultBranch. Plain `git fetch origin` never
-// touches that symref on its own, so without this call an existing cache
-// would keep basing new worktrees on the original default branch forever
-// after the remote flipped.
-func gitFetch(barePath string) error {
-	if err := ensureRemoteTrackingLayout(barePath); err != nil {
+// gitCloneBare is a compatibility shim for callers without a token.
+func gitCloneBare(url, dest string) error {
+	return gitCloneBareWithEnv(url, dest, gitEnv())
+}
+
+// gitFetchWithEnv runs `git fetch origin` on a bare cache using the given env.
+func gitFetchWithEnv(barePath string, env []string) error {
+	if err := ensureRemoteTrackingLayoutWithEnv(barePath, env); err != nil {
 		return fmt.Errorf("ensure refspec: %w", err)
 	}
-	if err := runGitFetch(barePath); err != nil {
+	if err := runGitFetchWithEnv(barePath, env); err != nil {
 		return err
 	}
 	// Refresh refs/remotes/origin/HEAD after every successful fetch.
-	// set-head --auto is lightweight (a single ls-remote HEAD round-trip)
-	// and non-fatal: if it fails we still have the step 2-5 fallbacks in
-	// getRemoteDefaultBranch, but the modern-cache default-branch-change
-	// path (the only path that can't be recovered any other way) relies
-	// on this call.
 	cmd := exec.Command("git", "-C", barePath, "remote", "set-head", "origin", "--auto")
-	cmd.Env = gitEnv()
+	cmd.Env = env
 	_ = cmd.Run()
 	return nil
 }
 
-// runGitFetch is the raw `git fetch origin` wrapper. Callers should go through
-// gitFetch, which migrates legacy caches first.
-func runGitFetch(barePath string) error {
+// gitFetch is a compatibility shim that uses the default (unauthenticated) env.
+func gitFetch(barePath string) error {
+	return gitFetchWithEnv(barePath, gitEnv())
+}
+
+// runGitFetchWithEnv is the raw `git fetch origin` wrapper with explicit env.
+func runGitFetchWithEnv(barePath string, env []string) error {
 	cmd := exec.Command("git", "-C", barePath, "fetch", "origin")
-	cmd.Env = gitEnv()
+	cmd.Env = env
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git fetch: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 	return nil
 }
 
-// ensureRemoteTrackingLayout upgrades a bare repo from the legacy mirror
-// refspec (+refs/heads/*:refs/heads/*) to the standard remote-tracking refspec
-// (+refs/heads/*:refs/remotes/origin/*). It's idempotent: on an already-modern
-// cache it's a single `git config --get` call. On legacy caches it rewrites
-// the refspec, performs a backfill fetch to populate refs/remotes/origin/*,
-// and runs `git remote set-head origin --auto` so getRemoteDefaultBranch can
-// resolve the remote's default branch.
-func ensureRemoteTrackingLayout(barePath string) error {
+// runGitFetch is a compatibility shim using the default env.
+func runGitFetch(barePath string) error {
+	return runGitFetchWithEnv(barePath, gitEnv())
+}
+
+// ensureRemoteTrackingLayoutWithEnv upgrades a bare repo from the legacy mirror
+// refspec to the standard remote-tracking refspec using the given env.
+// It's idempotent: on an already-modern cache it's a single `git config --get` call.
+func ensureRemoteTrackingLayoutWithEnv(barePath string, env []string) error {
 	cur, err := readFetchRefspec(barePath)
 	if err != nil {
 		return err
@@ -239,18 +322,20 @@ func ensureRemoteTrackingLayout(barePath string) error {
 	if err := setFetchRefspec(barePath, modernFetchRefspec); err != nil {
 		return err
 	}
-	// Backfill refs/remotes/origin/* by fetching with the new refspec. This
-	// writes to the origin/* namespace, so even worktree-locked refs/heads/*
-	// branches can't collide.
-	if err := runGitFetch(barePath); err != nil {
+	// Backfill refs/remotes/origin/* by fetching with the new refspec.
+	if err := runGitFetchWithEnv(barePath, env); err != nil {
 		return fmt.Errorf("backfill fetch after refspec migration: %w", err)
 	}
 	// Set refs/remotes/origin/HEAD so getRemoteDefaultBranch can read it.
-	// Non-fatal: if this fails we fall back to origin/main, origin/master.
 	cmd := exec.Command("git", "-C", barePath, "remote", "set-head", "origin", "--auto")
-	cmd.Env = gitEnv()
+	cmd.Env = env
 	_ = cmd.Run()
 	return nil
+}
+
+// ensureRemoteTrackingLayout is a compatibility shim using the default env.
+func ensureRemoteTrackingLayout(barePath string) error {
+	return ensureRemoteTrackingLayoutWithEnv(barePath, gitEnv())
 }
 
 // readFetchRefspec returns the current remote.origin.fetch config value, or
@@ -295,52 +380,49 @@ type WorktreeResult struct {
 // at the target path (reused environment), it updates the existing worktree to
 // the latest remote default branch instead of failing.
 func (c *Cache) CreateWorktree(params WorktreeParams) (*WorktreeResult, error) {
+	return c.createWorktreeWithEnv(params, c.env())
+}
+
+// CreateWorktreeWithToken is like CreateWorktree but uses the supplied token
+// instead of the cache's default token. Used by /repo/checkout when the agent
+// forwards its own GH_TOKEN in the request body (per-task override, P0).
+func (c *Cache) CreateWorktreeWithToken(params WorktreeParams, token string) (*WorktreeResult, error) {
+	return c.createWorktreeWithEnv(params, gitEnvWithToken(token))
+}
+
+func (c *Cache) createWorktreeWithEnv(params WorktreeParams, env []string) (*WorktreeResult, error) {
 	barePath := c.Lookup(params.WorkspaceID, params.RepoURL)
 	if barePath == "" {
 		return nil, fmt.Errorf("repo not found in cache: %s (workspace: %s)", params.RepoURL, params.WorkspaceID)
 	}
 
-	// Serialize concurrent CreateWorktree calls on the same bare repo. Git's
-	// own lockfiles (packed-refs.lock, config.lock, worktree admin dirs)
-	// can't tolerate parallel fetch + worktree mutations on the same repo.
+	// Serialize concurrent CreateWorktree calls on the same bare repo.
 	repoLock := c.lockForRepo(barePath)
 	repoLock.Lock()
 	defer repoLock.Unlock()
 
-	// Fetch latest from origin. This also migrates the bare cache's refspec
-	// to the modern remote-tracking layout on first run, so subsequent fetches
-	// never collide with the refs/heads/agent/* branches that worktree creation
-	// locks in this same bare repo.
-	if err := gitFetch(barePath); err != nil {
-		// Non-fatal: preserve cached state and continue, but make the warning
-		// loud enough that it's findable in the daemon log. The agent will
-		// receive an older snapshot than the remote head.
+	// Fetch latest from origin.
+	if err := gitFetchWithEnv(barePath, env); err != nil {
 		c.logger.Warn("repo checkout: fetch failed, agent will see possibly stale code",
 			"url", params.RepoURL,
 			"error", err,
 		)
+		// Propagate auth errors so health.go can return a structured 403.
+		var authErr *GitHubAuthError
+		if ok := isGitHubAuthError(err, &authErr); ok {
+			return nil, authErr
+		}
 	}
 
-	// Determine the default branch to base the worktree on. getRemoteDefaultBranch
-	// walks origin/HEAD → origin/main, origin/master → bare-HEAD hint into
-	// origin/<same> → single-entry scan of origin/* → bare HEAD (only if
-	// origin/* is empty). Reaching "" here means the cache is in a state we
-	// refuse to guess from (no origin/HEAD, no main/master, bare HEAD doesn't
-	// match any origin/* entry, and origin/* has multiple candidates).
 	baseRef := getRemoteDefaultBranch(barePath)
 	if baseRef == "" {
 		return nil, fmt.Errorf("cannot resolve default branch for %s: bare cache at %s has no usable refs (origin/* is empty or ambiguous and bare HEAD has no match). The cache may be corrupted; delete it and retry", params.RepoURL, barePath)
 	}
 
-	// Build branch name: agent/{sanitized-name}/{short-task-id}
 	branchName := fmt.Sprintf("agent/%s/%s", sanitizeName(params.AgentName), shortID(params.TaskID))
-
-	// Derive directory name from repo URL.
 	dirName := repoNameFromURL(params.RepoURL)
 	worktreePath := filepath.Join(params.WorkDir, dirName)
 
-	// If worktree already exists (reused environment from a prior task),
-	// update it to the latest remote code instead of creating a new one.
 	if isGitWorktree(worktreePath) {
 		actualBranch, err := updateExistingWorktree(worktreePath, branchName, baseRef)
 		if err != nil {
@@ -364,14 +446,11 @@ func (c *Cache) CreateWorktree(params WorktreeParams) (*WorktreeResult, error) {
 		}, nil
 	}
 
-	// Create a new worktree. createWorktree may rename the branch to avoid
-	// collisions with stale per-task refs left over from previous runs.
 	actualBranch, err := createWorktree(barePath, worktreePath, branchName, baseRef)
 	if err != nil {
 		return nil, fmt.Errorf("create worktree: %w", err)
 	}
 
-	// Exclude agent context files from git tracking.
 	for _, pattern := range []string{".agent_context", "CLAUDE.md", "AGENTS.md", ".claude", ".config/opencode"} {
 		_ = excludeFromGit(worktreePath, pattern)
 	}
@@ -387,6 +466,21 @@ func (c *Cache) CreateWorktree(params WorktreeParams) (*WorktreeResult, error) {
 		Path:       worktreePath,
 		BranchName: actualBranch,
 	}, nil
+}
+
+// isGitHubAuthError checks if err is (or wraps) a *GitHubAuthError and sets *out if so.
+func isGitHubAuthError(err error, out **GitHubAuthError) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "github auth failed") {
+		if ae, ok := err.(*GitHubAuthError); ok {
+			*out = ae
+			return true
+		}
+	}
+	return false
 }
 
 // createWorktree creates a git worktree at the given path with a new branch.
