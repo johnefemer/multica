@@ -39,6 +39,9 @@ type TaskContextForEnv struct {
 	AgentSkills       []SkillContextForEnv
 	Repos             []RepoContextForEnv // workspace repos available for checkout
 	ChatSessionID     string              // non-empty for chat tasks
+	// GHAvailable is true when the daemon detected an authenticated gh CLI at startup.
+	// When true, agents are informed they can use `gh` for GitHub interactions.
+	GHAvailable bool
 }
 
 // SkillContextForEnv represents a skill to be written into the execution environment.

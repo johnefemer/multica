@@ -55,6 +55,14 @@ func runRepoCheckout(cmd *cobra.Command, args []string) error {
 		"task_id":      taskID,
 	}
 
+	// Forward the agent's GH_TOKEN to the daemon so it can be used as a
+	// per-checkout override (P0 priority, overrides daemon-level token).
+	if tok := os.Getenv("GH_TOKEN"); tok != "" {
+		reqBody["github_token"] = tok
+	} else if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
+		reqBody["github_token"] = tok
+	}
+
 	data, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("encode request: %w", err)
@@ -72,6 +80,21 @@ func runRepoCheckout(cmd *cobra.Command, args []string) error {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode == http.StatusForbidden {
+		// Structured 403 from the daemon's GitHub auth check.
+		var errBody struct {
+			Error  string `json:"error"`
+			Detail string `json:"detail"`
+			Hint   string `json:"hint"`
+		}
+		if json.Unmarshal(body, &errBody) == nil && errBody.Error == "github_auth_failed" {
+			return fmt.Errorf("GitHub authentication failed for %s.\n"+
+				"Hint: %s\n"+
+				"Detail: %s", repoURL, errBody.Hint, errBody.Detail)
+		}
+		return fmt.Errorf("checkout failed (403): %s", string(body))
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("checkout failed: %s", string(body))

@@ -81,6 +81,18 @@ func buildMetaSkillContent(provider string, ctx TaskContextForEnv) string {
 	b.WriteString("- `agenthost autopilot get <id> --output json` — Get autopilot details including triggers\n")
 	b.WriteString("- `agenthost autopilot runs <id> [--limit N] --output json` — List execution history for an autopilot\n\n")
 
+	// Inject GitHub CLI section when gh is available.
+	if ctx.GHAvailable {
+		b.WriteString("### GitHub CLI (gh)\n")
+		b.WriteString("The `gh` CLI is authenticated on this runtime. Use it for GitHub operations:\n")
+		b.WriteString("- `agenthost github status` — Show GitHub authentication status for this runtime\n")
+		b.WriteString("- `agenthost github pr create --title \"...\" --body \"...\" [--base <branch>]` — Create a pull request\n")
+		b.WriteString("- `agenthost github run list [--limit N] [--workflow <name>]` — List recent GitHub Actions runs\n")
+		b.WriteString("- `agenthost github run watch <run-id>` — Watch a workflow run until it completes\n")
+		b.WriteString("- `agenthost github token status` — Show the active GitHub token source and scopes\n")
+		b.WriteString("You may also call `gh` directly for operations not covered by `agenthost github`.\n\n")
+	}
+
 	b.WriteString("### Write\n")
 	b.WriteString("- `agenthost issue create --title \"...\" [--description \"...\"] [--priority X] [--assignee X] [--parent <issue-id>] [--status X]` — Create a new issue\n")
 	b.WriteString("- `agenthost issue assign <id> --to <name>` — Assign an issue to a member or agent by name (use --unassign to remove assignee)\n")
