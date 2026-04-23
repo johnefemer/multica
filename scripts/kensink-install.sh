@@ -76,18 +76,24 @@ install_cli_binary() {
   info "Downloading $url ..."
   curl -fsSL "$url" -o "$tmp_dir/multica.tar.gz" \
     || { rm -rf "$tmp_dir"; fail "Download failed."; }
-  tar -xzf "$tmp_dir/multica.tar.gz" -C "$tmp_dir" multica
+  tar -xzf "$tmp_dir/multica.tar.gz" -C "$tmp_dir" agenthost 2>/dev/null \
+    || tar -xzf "$tmp_dir/multica.tar.gz" -C "$tmp_dir" multica 2>/dev/null \
+    || { rm -rf "$tmp_dir"; fail "Could not extract binary from archive."; }
+
+  # Support both agenthost and multica binary names in the archive
+  local extracted="$tmp_dir/agenthost"
+  [ -f "$extracted" ] || extracted="$tmp_dir/multica"
 
   local bin_dir="/usr/local/bin"
   if [ -w "$bin_dir" ]; then
-    mv "$tmp_dir/multica" "$bin_dir/multica"
+    mv "$extracted" "$bin_dir/agenthost"
   elif command_exists sudo; then
-    sudo mv "$tmp_dir/multica" "$bin_dir/multica"
+    sudo mv "$extracted" "$bin_dir/agenthost"
   else
     bin_dir="$HOME/.local/bin"
     mkdir -p "$bin_dir"
-    mv "$tmp_dir/multica" "$bin_dir/multica"
-    chmod +x "$bin_dir/multica"
+    mv "$extracted" "$bin_dir/agenthost"
+    chmod +x "$bin_dir/agenthost"
     export PATH="$bin_dir:$PATH"
     for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
       [ -f "$rc" ] && ! grep -qF "$bin_dir" "$rc" && \
@@ -95,7 +101,7 @@ install_cli_binary() {
     done
   fi
   rm -rf "$tmp_dir"
-  ok "Multica CLI installed to $bin_dir/multica"
+  ok "Agenthost CLI installed to $bin_dir/agenthost"
 }
 
 install_cli_brew() {
@@ -108,13 +114,13 @@ install_cli_brew() {
 }
 
 install_or_upgrade_cli() {
-  if command_exists multica; then
+  if command_exists agenthost; then
     local current_ver latest_ver
-    current_ver=$(multica version 2>/dev/null | awk '{print $2}' || echo "unknown")
+    current_ver=$(agenthost version 2>/dev/null | awk '{print $2}' || echo "unknown")
     latest_ver=$(get_latest_version)
     local cur="${current_ver#v}" lat="${latest_ver#v}"
     if [ -z "$latest_ver" ] || [ "$cur" = "$lat" ]; then
-      ok "Multica CLI is up to date ($current_ver)"
+      ok "Agenthost CLI is up to date ($current_ver)"
       return 0
     fi
     info "Upgrading $current_ver → $latest_ver ..."
@@ -123,7 +129,7 @@ install_or_upgrade_cli() {
     else
       install_cli_binary
     fi
-    ok "Upgraded to $(multica version 2>/dev/null | awk '{print $2}' || echo '?')"
+    ok "Upgraded to $(agenthost version 2>/dev/null | awk '{print $2}' || echo '?')"
     return 0
   fi
 
@@ -133,8 +139,8 @@ install_or_upgrade_cli() {
     install_cli_binary
   fi
 
-  command_exists multica \
-    || fail "'multica' not found on PATH after install. Restart your shell and try again."
+  command_exists agenthost \
+    || fail "'agenthost' not found on PATH after install. Restart your shell and try again."
 }
 
 main() {
@@ -152,8 +158,10 @@ main() {
   printf "\n"
   printf "  Run this to authenticate and start the daemon:\n"
   printf "\n"
-  printf "     ${CYAN}multica setup self-host \\${RESET}\n"
-  printf "       ${CYAN}--server-url %s${RESET}\n" "$AGENTHOST_SERVER_URL"
+  printf "     ${CYAN}agenthost setup self-host${RESET}\n"
+  printf "\n"
+  printf "  To use a different server:\n"
+  printf "     ${CYAN}agenthost setup self-host --server-url <url>${RESET}\n"
   printf "\n"
   printf "  ${BOLD}Requirements on this machine:${RESET}\n"
   printf "  • An AI coding tool: Claude Code, Cursor, Codex, or similar\n"

@@ -19,12 +19,12 @@ import (
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Configure the CLI, authenticate, and start the daemon",
-	Long: `Configures the CLI to connect to Multica Cloud (multica.ai), then
+	Long: `Configures the CLI to connect to Agenthost (agenthost.kensink.com), then
 authenticates via browser and starts the agent daemon.
 
 If a configuration already exists, you will be prompted before overwriting.
 
-Use 'multica setup self-host' to connect to a self-hosted server instead.
+Use 'agenthost setup self-host' to connect to a self-hosted server instead.
 
 If you run this command over SSH on a remote machine, keep the localhost
 callback and follow the SSH tunnel hint printed during browser login. If your
@@ -32,14 +32,14 @@ browser can reach this CLI directly on a private network address, pass
 --callback-host <host-or-ip>.
 
 Use --profile to create an isolated configuration for a separate environment:
-  multica setup self-host --profile staging --server-url https://api-staging.co`,
+  agenthost setup self-host --profile staging --server-url https://api-staging.co`,
 	RunE: runSetupCloud,
 }
 
 var setupCloudCmd = &cobra.Command{
 	Use:   "cloud",
-	Short: "Configure the CLI for Multica Cloud (multica.ai)",
-	Long: `Explicitly configures the CLI to connect to Multica Cloud (multica.ai).
+	Short: "Configure the CLI for Agenthost cloud",
+	Long: `Explicitly configures the CLI to connect to Agenthost.
 
 If you run this command over SSH on a remote machine, keep the localhost
 callback and follow the SSH tunnel hint printed during browser login. If your
@@ -52,20 +52,18 @@ This is equivalent to running 'multica setup' without a subcommand.`,
 
 var setupSelfHostCmd = &cobra.Command{
 	Use:   "self-host",
-	Short: "Configure the CLI for a self-hosted Multica server",
-	Long: `Configures the CLI to connect to a self-hosted Multica server.
+	Short: "Configure the CLI for a self-hosted Agenthost server",
+	Long: `Configures the CLI to connect to a self-hosted Agenthost server.
 
-By default, connects to http://localhost:8080 (backend) and http://localhost:3000 (frontend).
-Use --server-url and --app-url to specify a custom server (e.g. an on-premise deployment).
+Defaults to https://agenthost.kensink.com. Use --server-url to override.
 
 If you run this command from a different machine than the server, also pass
 --callback-host <host-or-ip-the-browser-can-reach-back-to-this-machine-on> so
 the OAuth login flow can return the token to the CLI.
 
 Examples:
-  multica setup self-host
-  multica setup self-host --server-url https://api.internal.co --app-url https://app.internal.co
-  multica setup self-host --port 9090 --frontend-port 4000`,
+  agenthost setup self-host
+  agenthost setup self-host --server-url https://other.internal.co`,
 	RunE: runSetupSelfHost,
 }
 
@@ -161,7 +159,7 @@ func runSetupCloud(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, "Configured for Multica Cloud (https://multica.ai).")
+	fmt.Fprintln(os.Stderr, "Configured for Agenthost.")
 	fmt.Fprintf(os.Stderr, "  server_url: %s\n", cfg.ServerURL)
 	fmt.Fprintf(os.Stderr, "  app_url:    %s\n", cfg.AppURL)
 	printConfigLocation(profile)
@@ -175,7 +173,7 @@ func runSetupCloud(cmd *cobra.Command, args []string) error {
 	if err := runDaemonAfterSetup(cmd, args); err != nil {
 		return fmt.Errorf("start or restart daemon: %w", err)
 	}
-	fmt.Fprintln(os.Stderr, "\n✓ Setup complete! Your machine is now connected to Multica.")
+	fmt.Fprintln(os.Stderr, "\n✓ Setup complete! Your machine is now connected to Agenthost.")
 
 	return nil
 }
@@ -256,7 +254,7 @@ func runSetupSelfHost(cmd *cobra.Command, args []string) error {
 	if err := runDaemonAfterSetup(cmd, args); err != nil {
 		return fmt.Errorf("start or restart daemon: %w", err)
 	}
-	fmt.Fprintln(os.Stderr, "\n✓ Setup complete! Your machine is now connected to Multica.")
+	fmt.Fprintln(os.Stderr, "\n✓ Setup complete! Your machine is now connected to Agenthost.")
 
 	return nil
 }

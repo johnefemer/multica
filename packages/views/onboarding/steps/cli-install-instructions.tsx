@@ -10,7 +10,7 @@ import { CliInstallCommand } from "../../common/cli-install-command";
 import { useT } from "../../i18n";
 
 const SETUP_CMD =
-  "multica setup self-host --server-url https://agenthost.kensink.com";
+  "agenthost setup self-host";
 
 function CopyButton({ text }: { text: string }) {
   const { t } = useT("onboarding");

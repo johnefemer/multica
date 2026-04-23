@@ -274,7 +274,7 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 	serverURL := resolveServerURL(cmd)
 	workspaceID := resolveWorkspaceID(cmd)
 	if serverURL == "" {
-		return nil, fmt.Errorf("server URL not set: use --server-url flag, MULTICA_SERVER_URL env, or 'multica config set server_url <url>'")
+		return nil, fmt.Errorf("server URL not set: use --server-url flag, AGENTHOST_SERVER_URL env, or 'agenthost config set server_url <url>'")
 	}
 
 	client := cli.NewAPIClient(serverURL, workspaceID, token)
@@ -506,7 +506,7 @@ func requireWorkspaceID(cmd *cobra.Command) (string, error) {
 		if inDaemonManagedExecutionContext() {
 			return "", fmt.Errorf("workspace_id is required: MULTICA_WORKSPACE_ID must be set by the daemon in agent execution context (no fallback to user config)")
 		}
-		return "", fmt.Errorf("workspace_id is required: use --workspace-id flag, set MULTICA_WORKSPACE_ID env, or run 'multica config set workspace_id <id>'")
+		return "", fmt.Errorf("workspace_id is required: use --workspace-id flag, set AGENTHOST_WORKSPACE_ID env, or run 'agenthost config set workspace_id <id>'")
 	}
 	return id, nil
 }
