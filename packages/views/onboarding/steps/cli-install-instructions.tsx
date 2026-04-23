@@ -5,8 +5,9 @@ import { Check, Copy, Terminal } from "lucide-react";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
 
 const INSTALL_CMD =
-  "curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash";
-const SETUP_CMD = "multica setup";
+  "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash";
+const SETUP_CMD =
+  "multica setup self-host --server-url https://agenthost.kensink.com";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -67,8 +68,8 @@ export function CliInstallInstructions() {
           Code, Codex, Cursor, …) for the daemon to do real work. Also
           works on servers and remote dev boxes.
         </p>
-        <Step n={1} label="Install the Multica CLI" cmd={INSTALL_CMD} />
-        <Step n={2} label="Start the daemon" cmd={SETUP_CMD} />
+        <Step n={1} label="Install the CLI" cmd={INSTALL_CMD} />
+        <Step n={2} label="Connect to Agenthost" cmd={SETUP_CMD} />
       </CardContent>
     </Card>
   );

@@ -182,27 +182,16 @@ export function StepPlatformFork({
               Connect a runtime.
             </h1>
             <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.55] text-muted-foreground">
-              A runtime is what actually runs your agents&apos; work. Pick
-              how you&apos;d like to set one up.
+              Install the CLI on your dev machine or server to connect
+              it to Agenthost as a runtime.
             </p>
 
             <div className="mt-10 flex max-w-[560px] flex-col gap-3.5">
-              <ForkPrimary onClick={pickDesktop} downloaded={downloaded} />
-
               <ForkAlt
                 title="Install the CLI"
                 subtitle="For servers, remote dev boxes, and headless setups. Terminal required."
                 actionLabel="Show steps"
                 onAction={handleOpenCli}
-              />
-
-              <ForkAlt
-                title="Cloud runtime"
-                subtitle="We host the runtime. Not live yet — join the waitlist."
-                actionLabel={
-                  waitlistSubmitted ? "On the list" : "Join waitlist"
-                }
-                onAction={handleOpenCloud}
               />
             </div>
           </div>
