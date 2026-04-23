@@ -57,6 +57,9 @@ services:
       APP_ENV: ${APP_ENV:-production}
       APP_NAME: ${APP_NAME:-Agenthost by Kensink Labs}
       MULTICA_APP_URL: ${MULTICA_APP_URL:-http://localhost:3000}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
     restart: unless-stopped
 
   frontend:
