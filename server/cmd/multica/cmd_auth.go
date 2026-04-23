@@ -62,7 +62,7 @@ func resolveAppURL(cmd *cobra.Command) string {
 	if err == nil && cfg.AppURL != "" {
 		return strings.TrimRight(cfg.AppURL, "/")
 	}
-	fmt.Fprintln(os.Stderr, "No app URL configured. Run 'multica setup' first.")
+	fmt.Fprintln(os.Stderr, "No app URL configured. Run 'agenthost setup' first.")
 	os.Exit(1)
 	return "" // unreachable
 }
@@ -275,7 +275,7 @@ func runAuthStatus(cmd *cobra.Command, _ []string) error {
 	serverURL := resolveServerURL(cmd)
 
 	if token == "" {
-		fmt.Fprintln(os.Stderr, "Not authenticated. Run 'multica login' to authenticate.")
+		fmt.Fprintln(os.Stderr, "Not authenticated. Run 'agenthost login' to authenticate.")
 		return nil
 	}
 
@@ -289,7 +289,7 @@ func runAuthStatus(cmd *cobra.Command, _ []string) error {
 		Email string `json:"email"`
 	}
 	if err := client.GetJSON(ctx, "/api/me", &me); err != nil {
-		fmt.Fprintf(os.Stderr, "Token is invalid or expired: %v\nRun 'multica login' to re-authenticate.\n", err)
+		fmt.Fprintf(os.Stderr, "Token is invalid or expired: %v\nRun 'agenthost login' to re-authenticate.\n", err)
 		return nil
 	}
 

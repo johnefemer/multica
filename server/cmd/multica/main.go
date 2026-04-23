@@ -17,23 +17,23 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "multica",
-	Short: "Multica CLI — local agent runtime and management tool",
-	Long:  "Work seamlessly with Multica from the command line.",
+	Use:   "agenthost",
+	Short: "Agenthost CLI — local agent runtime and management tool",
+	Long:  "Work seamlessly with Agenthost from the command line.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
 
 func init() {
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)\ngo: %s, os/arch: %s/%s", version, commit, date, runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	rootCmd.SetVersionTemplate("multica {{.Version}}\n")
+	rootCmd.SetVersionTemplate("agenthost {{.Version}}\n")
 
 	// Tag every CLI HTTP request with this binary's build version so the
 	// server can split logs/metrics by client version.
 	cli.ClientVersion = version
 
-	rootCmd.PersistentFlags().String("server-url", "", "Multica server URL (env: MULTICA_SERVER_URL)")
-	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: MULTICA_WORKSPACE_ID)")
+	rootCmd.PersistentFlags().String("server-url", "", "Agenthost server URL (env: AGENTHOST_SERVER_URL)")
+	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: AGENTHOST_WORKSPACE_ID)")
 	rootCmd.PersistentFlags().String("profile", "", "Configuration profile name (e.g. dev) — isolates config, daemon state, and workspaces")
 
 	// Core commands

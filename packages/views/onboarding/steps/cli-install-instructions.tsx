@@ -7,7 +7,7 @@ import { Card, CardContent } from "@multica/ui/components/ui/card";
 const INSTALL_CMD =
   "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash";
 const SETUP_CMD =
-  "multica setup self-host --server-url https://agenthost.kensink.com";
+  "agenthost setup self-host";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
