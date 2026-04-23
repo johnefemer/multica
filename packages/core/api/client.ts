@@ -232,6 +232,7 @@ import type {
   CreateCommentSubIssueAgentRequest,
   CreateCommentSubIssueRequest,
 } from "../types";
+import type { IntegrationConnection, GitHubRepo, ImportIssuesResult } from "../types/integration";
 import type { OnboardingCompletionPath } from "../onboarding/types";
 import type {
   CreateFeedbackResponse,
@@ -5236,5 +5237,41 @@ export class ApiClient {
       EMPTY_REDEEM_TELEGRAM_BINDING_TOKEN_RESPONSE,
       { endpoint: "POST /api/telegram/binding/redeem" },
     );
+  }
+
+  // ── Integrations ────────────────────────────────────────────────────────────
+
+  async listIntegrations(workspaceId: string): Promise<IntegrationConnection[]> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations`);
+  }
+
+  async getIntegration(workspaceId: string, provider: string): Promise<IntegrationConnection | null> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/${provider}`);
+  }
+
+  async disconnectIntegration(workspaceId: string, provider: string): Promise<IntegrationConnection> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/${provider}`, { method: "DELETE" });
+  }
+
+  async listGitHubRepos(workspaceId: string): Promise<GitHubRepo[]> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/github/repos`);
+  }
+
+  async importGitHubIssues(workspaceId: string, repo: string): Promise<ImportIssuesResult> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/github/import-issues`, {
+      method: "POST",
+      body: JSON.stringify({ repo }),
+    });
+  }
+
+  async registerGitHubWebhook(workspaceId: string, repo: string): Promise<{ hook_id: number; repo: string }> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/github/register-webhook`, {
+      method: "POST",
+      body: JSON.stringify({ repo }),
+    });
+  }
+
+  getGitHubOAuthURL(workspaceSlug: string): string {
+    return `/auth/github/start?workspace=${workspaceSlug}`;
   }
 }

@@ -95,7 +95,7 @@ func (h *Handler) IntegrationWebhook(w http.ResponseWriter, r *http.Request) {
 				slog.Error("webhook processing failed",
 					"provider", providerName, "event", eventType, "error", processErr)
 			}
-			h.Queries.MarkWebhookEventProcessed(bgCtx, ev.ID, errMsg) //nolint:errcheck
+			h.Queries.MarkWebhookEventProcessed(bgCtx, db.MarkWebhookEventProcessedParams{Error: errMsg, ID: ev.ID}) //nolint:errcheck
 		}()
 
 		if !wsID.Valid {
@@ -153,7 +153,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 	switch ev.Action {
 	case "opened":
 		// Create issue if not already present (import may have done it already).
-		_, lookupErr := h.Queries.GetIssueByIntegration(ctx, wsID, "github", repo, extID)
+		_, lookupErr := h.Queries.GetIssueByIntegration(ctx, db.GetIssueByIntegrationParams{WorkspaceID: wsID, Provider: strToText("github"), Repo: strToText(repo), ExternalID: strToText(extID)})
 		if lookupErr == nil {
 			return nil // already exists
 		}
@@ -165,7 +165,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 		if err != nil {
 			return fmt.Errorf("get workspace: %w", err)
 		}
-		conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+		conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "github"})
 		if err != nil {
 			return fmt.Errorf("get github connection: %w", err)
 		}
@@ -178,10 +178,10 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 			Priority:               "medium",
 			CreatorType:            "system",
 			CreatorID:              conn.ConnectedBy,
-			IntegrationProvider:    "github",
-			IntegrationExternalID:  extID,
-			IntegrationExternalURL: ev.Issue.HTMLURL,
-			IntegrationRepo:        repo,
+			IntegrationProvider:    strToText("github"),
+			IntegrationExternalID:  strToText(extID),
+			IntegrationExternalUrl: strToText(ev.Issue.HTMLURL),
+			IntegrationRepo:        strToText(repo),
 		})
 		if err != nil {
 			return fmt.Errorf("create issue: %w", err)
@@ -193,7 +193,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 		})
 
 	case "edited":
-		existing, err := h.Queries.GetIssueByIntegration(ctx, wsID, "github", repo, extID)
+		existing, err := h.Queries.GetIssueByIntegration(ctx, db.GetIssueByIntegrationParams{WorkspaceID: wsID, Provider: strToText("github"), Repo: strToText(repo), ExternalID: strToText(extID)})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -220,7 +220,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 		})
 
 	case "closed":
-		existing, err := h.Queries.GetIssueByIntegration(ctx, wsID, "github", repo, extID)
+		existing, err := h.Queries.GetIssueByIntegration(ctx, db.GetIssueByIntegrationParams{WorkspaceID: wsID, Provider: strToText("github"), Repo: strToText(repo), ExternalID: strToText(extID)})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -245,7 +245,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 		})
 
 	case "reopened":
-		existing, err := h.Queries.GetIssueByIntegration(ctx, wsID, "github", repo, extID)
+		existing, err := h.Queries.GetIssueByIntegration(ctx, db.GetIssueByIntegrationParams{WorkspaceID: wsID, Provider: strToText("github"), Repo: strToText(repo), ExternalID: strToText(extID)})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}

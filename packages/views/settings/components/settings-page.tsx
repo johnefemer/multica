@@ -63,6 +63,7 @@ import { useSettingsSearchIndex } from "./use-settings-search-index";
 import { WakeupsTab } from "./wakeups-tab";
 import { CollapsedNavTrigger } from "../../layout/page-header";
 import { useT } from "../../i18n";
+import { IntegrationsTab } from "./integrations-tab";
 
 export interface ExtraSettingsTab {
   value: string;
@@ -249,6 +250,10 @@ export function SettingsPage({ extraDeviceTabs = [] }: SettingsPageProps = {}) {
               <ChannelsTab />,
             ),
             entry("mcp", t(($) => $.page.tabs.mcp), Server, <McpTab />, {
+              adminOnly: true,
+            }),
+            // Kensink: GitHub OAuth integration (import issues, webhooks).
+            entry("integrations", "Integrations", Plug, <IntegrationsTab />, {
               adminOnly: true,
             }),
             ...(pluginsEnabled

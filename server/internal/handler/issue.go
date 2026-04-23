@@ -107,6 +107,12 @@ type IssueResponse struct {
 	SourceContext *sourceContextDetailResponse `json:"source_context,omitempty"`
 	// duplicateOfIssueID is the raw mark, kept off the wire; see DuplicateOf.
 	duplicateOfIssueID pgtype.UUID
+	// Kensink: integration sync fields — only set on issues imported from external providers.
+	IntegrationProvider    *string `json:"integration_provider,omitempty"`
+	IntegrationExternalID  *string `json:"integration_external_id,omitempty"`
+	IntegrationExternalURL *string `json:"integration_external_url,omitempty"`
+	IntegrationRepo        *string `json:"integration_repo,omitempty"`
+	IntegrationSyncedAt    *string `json:"integration_synced_at,omitempty"`
 }
 
 // IssueRefResponse names another issue inside a response: enough to render
@@ -484,32 +490,37 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 		statusCategory = i.Status
 	}
 	return IssueResponse{
-		ID:                 uuidToString(i.ID),
-		WorkspaceID:        uuidToString(i.WorkspaceID),
-		Number:             i.Number,
-		Identifier:         identifier,
-		Title:              i.Title,
-		Description:        textToPtr(i.Description),
-		Status:             i.Status,
-		StatusCategory:     statusCategory,
-		Priority:           i.Priority,
-		AssigneeType:       textToPtr(i.AssigneeType),
-		AssigneeID:         uuidToPtr(i.AssigneeID),
-		CreatorType:        i.CreatorType,
-		CreatorID:          uuidToString(i.CreatorID),
-		ParentIssueID:      uuidToPtr(i.ParentIssueID),
-		duplicateOfIssueID: duplicateOfPointer(i.Status, i.DuplicateOfIssueID),
-		ProjectID:          uuidToPtr(i.ProjectID),
-		Position:           i.Position,
-		Stage:              int4ToPtr(i.Stage),
-		StartDate:          dateToPtr(i.StartDate),
-		DueDate:            dateToPtr(i.DueDate),
-		CreatedAt:          timestampToString(i.CreatedAt),
-		UpdatedAt:          timestampToString(i.UpdatedAt),
-		Revision:           i.Revision,
-		LastActivityAt:     timestampToNanoPtr(i.LastActivityAt),
-		Metadata:           parseIssueMetadata(i.Metadata),
-		Properties:         parseIssueProperties(i.Properties),
+		ID:                     uuidToString(i.ID),
+		WorkspaceID:            uuidToString(i.WorkspaceID),
+		Number:                 i.Number,
+		Identifier:             identifier,
+		Title:                  i.Title,
+		Description:            textToPtr(i.Description),
+		Status:                 i.Status,
+		StatusCategory:         statusCategory,
+		Priority:               i.Priority,
+		AssigneeType:           textToPtr(i.AssigneeType),
+		AssigneeID:             uuidToPtr(i.AssigneeID),
+		CreatorType:            i.CreatorType,
+		CreatorID:              uuidToString(i.CreatorID),
+		ParentIssueID:          uuidToPtr(i.ParentIssueID),
+		duplicateOfIssueID:     duplicateOfPointer(i.Status, i.DuplicateOfIssueID),
+		ProjectID:              uuidToPtr(i.ProjectID),
+		Position:               i.Position,
+		Stage:                  int4ToPtr(i.Stage),
+		StartDate:              dateToPtr(i.StartDate),
+		DueDate:                dateToPtr(i.DueDate),
+		CreatedAt:              timestampToString(i.CreatedAt),
+		UpdatedAt:              timestampToString(i.UpdatedAt),
+		Revision:               i.Revision,
+		LastActivityAt:         timestampToNanoPtr(i.LastActivityAt),
+		Metadata:               parseIssueMetadata(i.Metadata),
+		Properties:             parseIssueProperties(i.Properties),
+		IntegrationProvider:    textToPtr(i.IntegrationProvider),
+		IntegrationExternalID:  textToPtr(i.IntegrationExternalID),
+		IntegrationExternalURL: textToPtr(i.IntegrationExternalUrl),
+		IntegrationRepo:        textToPtr(i.IntegrationRepo),
+		IntegrationSyncedAt:    timestampToPtr(i.IntegrationSyncedAt),
 	}
 }
 

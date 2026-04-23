@@ -231,4 +231,10 @@ export interface Issue {
   last_activity_at?: string | null;
   /** Present only on issue detail responses for issues created from a comment. */
   source_context?: IssueSourceContext;
+  // Integration sync fields — only present on issues imported from external providers
+  integration_provider?: string | null;
+  integration_external_id?: string | null;
+  integration_external_url?: string | null;
+  integration_repo?: string | null;
+  integration_synced_at?: string | null;
 }
