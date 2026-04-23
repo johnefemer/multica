@@ -255,7 +255,7 @@ function GitHubActions({
         </DialogHeader>
 
         <div className="py-2">
-          <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+          <Select value={selectedRepo} onValueChange={(v) => setSelectedRepo(v ?? "")}>
             <SelectTrigger>
               <SelectValue placeholder={reposLoading ? "Loading repos…" : "Select a repository"} />
             </SelectTrigger>
