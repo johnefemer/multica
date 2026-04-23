@@ -89,4 +89,8 @@ const (
 	// Daemon events
 	EventDaemonHeartbeat = "daemon:heartbeat"
 	EventDaemonRegister  = "daemon:register"
+
+	// Integration events
+	EventIntegrationConnected    = "integration:connected"
+	EventIntegrationDisconnected = "integration:disconnected"
 )
