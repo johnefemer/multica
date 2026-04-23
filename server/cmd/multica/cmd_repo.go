@@ -374,6 +374,14 @@ func runRepoCheckout(cmd *cobra.Command, args []string) error {
 		"fresh":         repoCheckoutFresh,
 	}
 
+	// Forward the agent's GH_TOKEN to the daemon so it can be used as a
+	// per-checkout override (P0 priority, overrides daemon-level token).
+	if tok := os.Getenv("GH_TOKEN"); tok != "" {
+		reqBody["github_token"] = tok
+	} else if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
+		reqBody["github_token"] = tok
+	}
+
 	data, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("encode request: %w", err)
@@ -416,6 +424,19 @@ func runRepoCheckout(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("connect to daemon: %w", context.Cause(ctx))
 			case <-timer.C:
 				continue
+			}
+		}
+		if resp.StatusCode == http.StatusForbidden {
+			// Structured 403 from the daemon's GitHub auth check (Kensink).
+			var errBody struct {
+				Error  string `json:"error"`
+				Detail string `json:"detail"`
+				Hint   string `json:"hint"`
+			}
+			if json.Unmarshal(body, &errBody) == nil && errBody.Error == "github_auth_failed" {
+				return fmt.Errorf("GitHub authentication failed for %s.\n"+
+					"Hint: %s\n"+
+					"Detail: %s", repoURL, errBody.Hint, errBody.Detail)
 			}
 		}
 		if resp.StatusCode != http.StatusOK {

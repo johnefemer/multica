@@ -233,6 +233,9 @@ type TaskContextForEnv struct {
 	InitiatorID    string
 	InitiatorName  string
 	InitiatorEmail string
+	// GHAvailable is true when the daemon detected an authenticated gh CLI at startup.
+	// When true, agents are informed they can use `gh` for GitHub interactions.
+	GHAvailable bool
 }
 
 // SkillContextForEnv represents a skill to be written into the execution environment.
