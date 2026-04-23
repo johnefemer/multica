@@ -15,6 +15,10 @@ export interface RuntimeDevice {
   status: "online" | "offline";
   device_info: string;
   metadata: Record<string, unknown>;
+  settings: {
+    github_token_set: boolean;
+    github_token_preview?: string;
+  };
   owner_id: string | null;
   last_seen_at: string | null;
   created_at: string;
