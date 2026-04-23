@@ -21,6 +21,13 @@ type EmailService struct {
 	fromEmail string
 }
 
+func appName() string {
+	if name := strings.TrimSpace(os.Getenv("APP_NAME")); name != "" {
+		return name
+	}
+	return "Multica"
+}
+
 func NewEmailService() *EmailService {
 	apiKey := os.Getenv("RESEND_API_KEY")
 	from := os.Getenv("RESEND_FROM_EMAIL")
@@ -52,7 +59,7 @@ func (s *EmailService) SendVerificationCode(to, code string) error {
 	params := &resend.SendEmailRequest{
 		From:    s.fromEmail,
 		To:      []string{to},
-		Subject: "Your Multica verification code",
+		Subject: fmt.Sprintf("Your %s verification code", appName()),
 		Html: fmt.Sprintf(
 			`<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;">
 				<h2>Your verification code</h2>
@@ -97,16 +104,16 @@ func buildInvitationParams(from, to, inviterName, workspaceName, inviteURL strin
 	return &resend.SendEmailRequest{
 		From:    from,
 		To:      []string{to},
-		Subject: fmt.Sprintf("%s invited you to %s on Multica", subjectInviter, subjectWorkspace),
+		Subject: fmt.Sprintf("%s invited you to %s on %s", subjectInviter, subjectWorkspace, appName()),
 		Html: fmt.Sprintf(
 			`<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
 				<h2>You're invited to join %s</h2>
-				<p><strong>%s</strong> invited you to collaborate in the <strong>%s</strong> workspace on Multica.</p>
+				<p><strong>%s</strong> invited you to collaborate in the <strong>%s</strong> workspace on %s.</p>
 				<p style="margin: 24px 0;">
 					<a href="%s" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 500;">Accept invitation</a>
 				</p>
 				<p style="color: #666; font-size: 14px;">You'll need to log in to accept or decline the invitation.</p>
-			</div>`, safeWorkspace, safeInviter, safeWorkspace, inviteURL),
+			</div>`, safeWorkspace, safeInviter, safeWorkspace, html.EscapeString(appName()), inviteURL),
 	}
 }
 

@@ -55,6 +55,7 @@ services:
       CLOUDFRONT_PRIVATE_KEY: ${CLOUDFRONT_PRIVATE_KEY:-}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       APP_ENV: ${APP_ENV:-production}
+      APP_NAME: ${APP_NAME:-Multica}
       MULTICA_APP_URL: ${MULTICA_APP_URL:-http://localhost:3000}
     restart: unless-stopped
 
