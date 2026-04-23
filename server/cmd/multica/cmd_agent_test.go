@@ -9,7 +9,7 @@ import (
 
 // TestResolveWorkspaceID_AgentContextSkipsConfig is a regression test for
 // the cross-workspace contamination bug (#1235). Inside a daemon-spawned
-// agent task (MULTICA_AGENT_ID / MULTICA_TASK_ID set), the CLI must NOT
+// agent task (AGENTHOST_AGENT_ID / AGENTHOST_TASK_ID set), the CLI must NOT
 // silently read the user-global ~/.multica/config.json to recover a missing
 // workspace — that fallback is how agent operations leaked into an
 // unrelated workspace when the daemon failed to inject the right value.
@@ -26,9 +26,9 @@ func TestResolveWorkspaceID_AgentContextSkipsConfig(t *testing.T) {
 	}
 
 	t.Run("outside agent context falls back to config", func(t *testing.T) {
-		t.Setenv("MULTICA_AGENT_ID", "")
-		t.Setenv("MULTICA_TASK_ID", "")
-		t.Setenv("MULTICA_WORKSPACE_ID", "")
+		t.Setenv("AGENTHOST_AGENT_ID", "")
+		t.Setenv("AGENTHOST_TASK_ID", "")
+		t.Setenv("AGENTHOST_WORKSPACE_ID", "")
 
 		got := resolveWorkspaceID(testCmd())
 		if got != "config-file-ws" {
@@ -37,9 +37,9 @@ func TestResolveWorkspaceID_AgentContextSkipsConfig(t *testing.T) {
 	})
 
 	t.Run("agent context with explicit env uses env", func(t *testing.T) {
-		t.Setenv("MULTICA_AGENT_ID", "agent-123")
-		t.Setenv("MULTICA_TASK_ID", "task-456")
-		t.Setenv("MULTICA_WORKSPACE_ID", "env-ws")
+		t.Setenv("AGENTHOST_AGENT_ID", "agent-123")
+		t.Setenv("AGENTHOST_TASK_ID", "task-456")
+		t.Setenv("AGENTHOST_WORKSPACE_ID", "env-ws")
 
 		got := resolveWorkspaceID(testCmd())
 		if got != "env-ws" {
@@ -48,9 +48,9 @@ func TestResolveWorkspaceID_AgentContextSkipsConfig(t *testing.T) {
 	})
 
 	t.Run("agent context without env returns empty, never config", func(t *testing.T) {
-		t.Setenv("MULTICA_AGENT_ID", "agent-123")
-		t.Setenv("MULTICA_TASK_ID", "task-456")
-		t.Setenv("MULTICA_WORKSPACE_ID", "")
+		t.Setenv("AGENTHOST_AGENT_ID", "agent-123")
+		t.Setenv("AGENTHOST_TASK_ID", "task-456")
+		t.Setenv("AGENTHOST_WORKSPACE_ID", "")
 
 		got := resolveWorkspaceID(testCmd())
 		if got != "" {
@@ -59,9 +59,9 @@ func TestResolveWorkspaceID_AgentContextSkipsConfig(t *testing.T) {
 	})
 
 	t.Run("task marker alone also counts as agent context", func(t *testing.T) {
-		t.Setenv("MULTICA_AGENT_ID", "")
-		t.Setenv("MULTICA_TASK_ID", "task-456")
-		t.Setenv("MULTICA_WORKSPACE_ID", "")
+		t.Setenv("AGENTHOST_AGENT_ID", "")
+		t.Setenv("AGENTHOST_TASK_ID", "task-456")
+		t.Setenv("AGENTHOST_WORKSPACE_ID", "")
 
 		if got := resolveWorkspaceID(testCmd()); got != "" {
 			t.Fatalf("resolveWorkspaceID() = %q, want empty", got)
@@ -69,9 +69,9 @@ func TestResolveWorkspaceID_AgentContextSkipsConfig(t *testing.T) {
 	})
 
 	t.Run("requireWorkspaceID surfaces agent-context error", func(t *testing.T) {
-		t.Setenv("MULTICA_AGENT_ID", "agent-123")
-		t.Setenv("MULTICA_TASK_ID", "task-456")
-		t.Setenv("MULTICA_WORKSPACE_ID", "")
+		t.Setenv("AGENTHOST_AGENT_ID", "agent-123")
+		t.Setenv("AGENTHOST_TASK_ID", "task-456")
+		t.Setenv("AGENTHOST_WORKSPACE_ID", "")
 
 		_, err := requireWorkspaceID(testCmd())
 		if err == nil {

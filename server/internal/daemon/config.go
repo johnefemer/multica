@@ -68,7 +68,7 @@ type Overrides struct {
 // and optional CLI flag overrides.
 func LoadConfig(overrides Overrides) (Config, error) {
 	// Server URL: override > env > default
-	rawServerURL := envOrDefault("MULTICA_SERVER_URL", DefaultServerURL)
+	rawServerURL := envOrDefault("AGENTHOST_SERVER_URL", DefaultServerURL)
 	if overrides.ServerURL != "" {
 		rawServerURL = overrides.ServerURL
 	}
@@ -79,60 +79,60 @@ func LoadConfig(overrides Overrides) (Config, error) {
 
 	// Probe available agent CLIs
 	agents := map[string]AgentEntry{}
-	claudePath := envOrDefault("MULTICA_CLAUDE_PATH", "claude")
+	claudePath := envOrDefault("AGENTHOST_CLAUDE_PATH", "claude")
 	if _, err := exec.LookPath(claudePath); err == nil {
 		agents["claude"] = AgentEntry{
 			Path:  claudePath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_CLAUDE_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_CLAUDE_MODEL")),
 		}
 	}
-	codexPath := envOrDefault("MULTICA_CODEX_PATH", "codex")
+	codexPath := envOrDefault("AGENTHOST_CODEX_PATH", "codex")
 	if _, err := exec.LookPath(codexPath); err == nil {
 		agents["codex"] = AgentEntry{
 			Path:  codexPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_CODEX_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_CODEX_MODEL")),
 		}
 	}
-	opencodePath := envOrDefault("MULTICA_OPENCODE_PATH", "opencode")
+	opencodePath := envOrDefault("AGENTHOST_OPENCODE_PATH", "opencode")
 	if _, err := exec.LookPath(opencodePath); err == nil {
 		agents["opencode"] = AgentEntry{
 			Path:  opencodePath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_OPENCODE_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_OPENCODE_MODEL")),
 		}
 	}
-	openclawPath := envOrDefault("MULTICA_OPENCLAW_PATH", "openclaw")
+	openclawPath := envOrDefault("AGENTHOST_OPENCLAW_PATH", "openclaw")
 	if _, err := exec.LookPath(openclawPath); err == nil {
 		agents["openclaw"] = AgentEntry{
 			Path:  openclawPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_OPENCLAW_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_OPENCLAW_MODEL")),
 		}
 	}
-	hermesPath := envOrDefault("MULTICA_HERMES_PATH", "hermes")
+	hermesPath := envOrDefault("AGENTHOST_HERMES_PATH", "hermes")
 	if _, err := exec.LookPath(hermesPath); err == nil {
 		agents["hermes"] = AgentEntry{
 			Path:  hermesPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_HERMES_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_HERMES_MODEL")),
 		}
 	}
-	geminiPath := envOrDefault("MULTICA_GEMINI_PATH", "gemini")
+	geminiPath := envOrDefault("AGENTHOST_GEMINI_PATH", "gemini")
 	if _, err := exec.LookPath(geminiPath); err == nil {
 		agents["gemini"] = AgentEntry{
 			Path:  geminiPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_GEMINI_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_GEMINI_MODEL")),
 		}
 	}
-	piPath := envOrDefault("MULTICA_PI_PATH", "pi")
+	piPath := envOrDefault("AGENTHOST_PI_PATH", "pi")
 	if _, err := exec.LookPath(piPath); err == nil {
 		agents["pi"] = AgentEntry{
 			Path:  piPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_PI_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_PI_MODEL")),
 		}
 	}
-	cursorPath := envOrDefault("MULTICA_CURSOR_PATH", "cursor-agent")
+	cursorPath := envOrDefault("AGENTHOST_CURSOR_PATH", "cursor-agent")
 	if _, err := exec.LookPath(cursorPath); err == nil {
 		agents["cursor"] = AgentEntry{
 			Path:  cursorPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_CURSOR_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_CURSOR_MODEL")),
 		}
 	}
 	copilotPath := envOrDefault("MULTICA_COPILOT_PATH", "copilot")
@@ -142,11 +142,11 @@ func LoadConfig(overrides Overrides) (Config, error) {
 			Model: strings.TrimSpace(os.Getenv("MULTICA_COPILOT_MODEL")),
 		}
 	}
-	kimiPath := envOrDefault("MULTICA_KIMI_PATH", "kimi")
+	kimiPath := envOrDefault("AGENTHOST_KIMI_PATH", "kimi")
 	if _, err := exec.LookPath(kimiPath); err == nil {
 		agents["kimi"] = AgentEntry{
 			Path:  kimiPath,
-			Model: strings.TrimSpace(os.Getenv("MULTICA_KIMI_MODEL")),
+			Model: strings.TrimSpace(os.Getenv("AGENTHOST_KIMI_MODEL")),
 		}
 	}
 	if len(agents) == 0 {
@@ -160,7 +160,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Durations: override > env > default
-	pollInterval, err := durationFromEnv("MULTICA_DAEMON_POLL_INTERVAL", DefaultPollInterval)
+	pollInterval, err := durationFromEnv("AGENTHOST_DAEMON_POLL_INTERVAL", DefaultPollInterval)
 	if err != nil {
 		return Config{}, err
 	}
@@ -168,7 +168,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		pollInterval = overrides.PollInterval
 	}
 
-	heartbeatInterval, err := durationFromEnv("MULTICA_DAEMON_HEARTBEAT_INTERVAL", DefaultHeartbeatInterval)
+	heartbeatInterval, err := durationFromEnv("AGENTHOST_DAEMON_HEARTBEAT_INTERVAL", DefaultHeartbeatInterval)
 	if err != nil {
 		return Config{}, err
 	}
@@ -176,7 +176,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		heartbeatInterval = overrides.HeartbeatInterval
 	}
 
-	agentTimeout, err := durationFromEnv("MULTICA_AGENT_TIMEOUT", DefaultAgentTimeout)
+	agentTimeout, err := durationFromEnv("AGENTHOST_AGENT_TIMEOUT", DefaultAgentTimeout)
 	if err != nil {
 		return Config{}, err
 	}
@@ -184,7 +184,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		agentTimeout = overrides.AgentTimeout
 	}
 
-	maxConcurrentTasks, err := intFromEnv("MULTICA_DAEMON_MAX_CONCURRENT_TASKS", DefaultMaxConcurrentTasks)
+	maxConcurrentTasks, err := intFromEnv("AGENTHOST_DAEMON_MAX_CONCURRENT_TASKS", DefaultMaxConcurrentTasks)
 	if err != nil {
 		return Config{}, err
 	}
@@ -199,9 +199,9 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	// The persistent UUID is written once to `<profile-dir>/daemon.id` and
 	// then reused forever so hostname drift (.local suffix, system rename,
 	// mDNS state, profile switch) no longer mints a new runtime identity.
-	// Callers may still pin a specific id via MULTICA_DAEMON_ID or the
+	// Callers may still pin a specific id via AGENTHOST_DAEMON_ID or the
 	// override field (e.g. for tests or embedded environments).
-	daemonID := strings.TrimSpace(os.Getenv("MULTICA_DAEMON_ID"))
+	daemonID := strings.TrimSpace(os.Getenv("AGENTHOST_DAEMON_ID"))
 	if overrides.DaemonID != "" {
 		daemonID = overrides.DaemonID
 	}
@@ -226,29 +226,29 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		legacyDaemonIDs = append(legacyDaemonIDs, uuids...)
 	}
 	// Strip anything that collides with the resolved daemon_id (e.g. when
-	// the user explicitly pins MULTICA_DAEMON_ID=<hostname>, or when the
+	// the user explicitly pins AGENTHOST_DAEMON_ID=<hostname>, or when the
 	// canonical id was itself promoted from a pre-change profile file).
 	legacyDaemonIDs = filterLegacyIDs(legacyDaemonIDs, daemonID)
 
-	deviceName := envOrDefault("MULTICA_DAEMON_DEVICE_NAME", host)
+	deviceName := envOrDefault("AGENTHOST_DAEMON_DEVICE_NAME", host)
 	if overrides.DeviceName != "" {
 		deviceName = overrides.DeviceName
 	}
 
-	runtimeName := envOrDefault("MULTICA_AGENT_RUNTIME_NAME", DefaultRuntimeName)
+	runtimeName := envOrDefault("AGENTHOST_AGENT_RUNTIME_NAME", DefaultRuntimeName)
 	if overrides.RuntimeName != "" {
 		runtimeName = overrides.RuntimeName
 	}
 
 	// Workspaces root: override > env > default (~/multica_workspaces or ~/multica_workspaces_<profile>)
-	workspacesRoot := strings.TrimSpace(os.Getenv("MULTICA_WORKSPACES_ROOT"))
+	workspacesRoot := strings.TrimSpace(os.Getenv("AGENTHOST_WORKSPACES_ROOT"))
 	if overrides.WorkspacesRoot != "" {
 		workspacesRoot = overrides.WorkspacesRoot
 	}
 	if workspacesRoot == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return Config{}, fmt.Errorf("resolve home directory: %w (set MULTICA_WORKSPACES_ROOT to override)", err)
+			return Config{}, fmt.Errorf("resolve home directory: %w (set AGENTHOST_WORKSPACES_ROOT to override)", err)
 		}
 		if profile != "" {
 			workspacesRoot = filepath.Join(home, "multica_workspaces_"+profile)
@@ -268,22 +268,22 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Keep env after task: env > default (false)
-	keepEnv := os.Getenv("MULTICA_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("MULTICA_KEEP_ENV_AFTER_TASK") == "1"
+	keepEnv := os.Getenv("AGENTHOST_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("AGENTHOST_KEEP_ENV_AFTER_TASK") == "1"
 
 	// GC config: env > defaults
 	gcEnabled := true
-	if v := os.Getenv("MULTICA_GC_ENABLED"); v == "false" || v == "0" {
+	if v := os.Getenv("AGENTHOST_GC_ENABLED"); v == "false" || v == "0" {
 		gcEnabled = false
 	}
-	gcInterval, err := durationFromEnv("MULTICA_GC_INTERVAL", DefaultGCInterval)
+	gcInterval, err := durationFromEnv("AGENTHOST_GC_INTERVAL", DefaultGCInterval)
 	if err != nil {
 		return Config{}, err
 	}
-	gcTTL, err := durationFromEnv("MULTICA_GC_TTL", DefaultGCTTL)
+	gcTTL, err := durationFromEnv("AGENTHOST_GC_TTL", DefaultGCTTL)
 	if err != nil {
 		return Config{}, err
 	}
-	gcOrphanTTL, err := durationFromEnv("MULTICA_GC_ORPHAN_TTL", DefaultGCOrphanTTL)
+	gcOrphanTTL, err := durationFromEnv("AGENTHOST_GC_ORPHAN_TTL", DefaultGCOrphanTTL)
 	if err != nil {
 		return Config{}, err
 	}
@@ -314,7 +314,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 func NormalizeServerBaseURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
-		return "", fmt.Errorf("invalid MULTICA_SERVER_URL: %w", err)
+		return "", fmt.Errorf("invalid AGENTHOST_SERVER_URL: %w", err)
 	}
 	switch u.Scheme {
 	case "ws":
@@ -323,7 +323,7 @@ func NormalizeServerBaseURL(raw string) (string, error) {
 		u.Scheme = "https"
 	case "http", "https":
 	default:
-		return "", fmt.Errorf("MULTICA_SERVER_URL must use ws, wss, http, or https")
+		return "", fmt.Errorf("AGENTHOST_SERVER_URL must use ws, wss, http, or https")
 	}
 	if u.Path == "/ws" {
 		u.Path = ""

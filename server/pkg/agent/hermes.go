@@ -148,7 +148,7 @@ func (b *hermesBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 		_, err := c.request(runCtx, "initialize", map[string]any{
 			"protocolVersion": 1,
 			"clientInfo": map[string]any{
-				"name":    "multica-agent-sdk",
+				"name":    "agenthost-agent-sdk",
 				"version": "0.2.0",
 			},
 			"clientCapabilities": map[string]any{},

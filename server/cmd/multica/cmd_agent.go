@@ -167,10 +167,10 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 
 	client := cli.NewAPIClient(serverURL, workspaceID, token)
 	// When running inside a daemon task, attribute actions to the agent.
-	if agentID := os.Getenv("MULTICA_AGENT_ID"); agentID != "" {
+	if agentID := os.Getenv("AGENTHOST_AGENT_ID"); agentID != "" {
 		client.AgentID = agentID
 	}
-	if taskID := os.Getenv("MULTICA_TASK_ID"); taskID != "" {
+	if taskID := os.Getenv("AGENTHOST_TASK_ID"); taskID != "" {
 		client.TaskID = taskID
 	}
 	return client, nil
@@ -179,7 +179,7 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 func resolveServerURL(cmd *cobra.Command) string {
 	val := cli.FlagOrEnv(cmd, "server-url", "AGENTHOST_SERVER_URL", "")
 	if val == "" {
-		val = cli.FlagOrEnv(cmd, "server-url", "MULTICA_SERVER_URL", "") // backward compat
+		val = cli.FlagOrEnv(cmd, "server-url", "AGENTHOST_SERVER_URL", "") // backward compat
 	}
 	if val != "" {
 		return normalizeAPIBaseURL(val)
@@ -203,18 +203,14 @@ func normalizeAPIBaseURL(raw string) string {
 }
 
 // inAgentExecutionContext reports whether the CLI is being invoked from
-// inside a daemon-managed agent task (daemon sets MULTICA_AGENT_ID and
-// MULTICA_TASK_ID in the agent env). In that context the workspace must be
-// provided explicitly by the daemon — falling back to user-global
-// ~/.multica/config.json would let the agent act on whatever workspace the
-// user last configured, which is how cross-workspace contamination happens
-// when multiple workspaces share a host.
+// inside a daemon-managed agent task (daemon sets AGENTHOST_AGENT_ID and
+// AGENTHOST_TASK_ID in the agent env).
 func inAgentExecutionContext() bool {
-	return os.Getenv("MULTICA_AGENT_ID") != "" || os.Getenv("MULTICA_TASK_ID") != ""
+	return os.Getenv("AGENTHOST_AGENT_ID") != "" || os.Getenv("AGENTHOST_TASK_ID") != ""
 }
 
 func resolveWorkspaceID(cmd *cobra.Command) string {
-	val := cli.FlagOrEnv(cmd, "workspace-id", "MULTICA_WORKSPACE_ID", "")
+	val := cli.FlagOrEnv(cmd, "workspace-id", "AGENTHOST_WORKSPACE_ID", "")
 	if val != "" {
 		return val
 	}
@@ -235,7 +231,7 @@ func requireWorkspaceID(cmd *cobra.Command) (string, error) {
 	id := resolveWorkspaceID(cmd)
 	if id == "" {
 		if inAgentExecutionContext() {
-			return "", fmt.Errorf("workspace_id is required: MULTICA_WORKSPACE_ID must be set by the daemon in agent execution context (no fallback to user config)")
+			return "", fmt.Errorf("workspace_id is required: AGENTHOST_WORKSPACE_ID must be set by the daemon in agent execution context (no fallback to user config)")
 		}
 		return "", fmt.Errorf("workspace_id is required: use --workspace-id flag, set AGENTHOST_WORKSPACE_ID env, or run 'agenthost config set workspace_id <id>'")
 	}

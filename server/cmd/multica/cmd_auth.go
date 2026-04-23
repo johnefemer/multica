@@ -43,8 +43,10 @@ func init() {
 }
 
 func resolveToken(cmd *cobra.Command) string {
-	if v := strings.TrimSpace(os.Getenv("MULTICA_TOKEN")); v != "" {
-		return v
+	for _, key := range []string{"AGENTHOST_TOKEN", "MULTICA_TOKEN"} {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
 	}
 	profile := resolveProfile(cmd)
 	cfg, _ := cli.LoadCLIConfigForProfile(profile)
@@ -307,7 +309,7 @@ const callbackSuccessHTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Multica — Authenticated</title>
+<title>Agenthost — Authenticated</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   @media (prefers-color-scheme: dark) {

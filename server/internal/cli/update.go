@@ -48,11 +48,11 @@ func releaseAssetCandidates(targetVersion, goos, goarch string) []string {
 	tag := normalizeReleaseTag(targetVersion)
 	version := strings.TrimPrefix(tag, "v")
 	ext := releaseArchiveExtension(goos)
-	// Prefer the versioned name (current scheme); fall back to the legacy
-	// `multica_{os}_{arch}` name for releases that still ship it.
+	// Our fork publishes assets as agenthost-cli-{os}-{arch}.tar.gz
 	return []string{
+		fmt.Sprintf("agenthost-cli-%s-%s.%s", goos, goarch, ext),
+		// Legacy names for fallback
 		fmt.Sprintf("multica-cli-%s-%s-%s.%s", version, goos, goarch, ext),
-		fmt.Sprintf("multica_%s_%s.%s", goos, goarch, ext),
 	}
 }
 
@@ -71,7 +71,7 @@ func findReleaseAsset(assets []GitHubReleaseAsset, targetVersion, goos, goarch s
 
 func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/multica-ai/multica/releases/tags/"+tag, nil)
+	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/johnefemer/multica/releases/tags/"+tag, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
 // FetchLatestRelease fetches the latest release tag from the multica GitHub repo.
 func FetchLatestRelease() (*GitHubRelease, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/multica-ai/multica/releases/latest", nil)
+	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/johnefemer/multica/releases/latest", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func UpdateViaDownload(targetVersion string) (string, error) {
 	// Extract the binary from the archive.
 	binaryName := "multica"
 	if runtime.GOOS == "windows" {
-		binaryName = "multica.exe"
+		binaryName = "agenthost.exe"
 	}
 	var binaryData []byte
 	if runtime.GOOS == "windows" {

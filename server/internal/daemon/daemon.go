@@ -1024,7 +1024,7 @@ func (d *Daemon) handleTask(ctx context.Context, task Task) {
 
 func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLog *slog.Logger) (TaskResult, error) {
 	// Refuse to spawn an agent without a workspace. An empty workspace_id
-	// here would make MULTICA_WORKSPACE_ID empty in the agent env, and the
+	// here would make AGENTHOST_WORKSPACE_ID empty in the agent env, and the
 	// CLI would otherwise silently fall back to the user-global config — a
 	// path that can leak operations into an unrelated workspace when
 	// multiple workspaces share a host.
@@ -1097,18 +1097,18 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	// Pass the daemon's auth credentials and context so the spawned agent CLI
 	// can call the Agenthost API and the local daemon (e.g. `agenthost repo checkout`).
 	agentEnv := map[string]string{
-		"MULTICA_TOKEN":        d.client.Token(),
-		"MULTICA_SERVER_URL":   d.cfg.ServerBaseURL,
-		"MULTICA_DAEMON_PORT":  fmt.Sprintf("%d", d.cfg.HealthPort),
-		"MULTICA_WORKSPACE_ID": task.WorkspaceID,
-		"MULTICA_AGENT_NAME":   agentName,
-		"MULTICA_AGENT_ID":     task.AgentID,
-		"MULTICA_TASK_ID":      task.ID,
+		"AGENTHOST_TOKEN":        d.client.Token(),
+		"AGENTHOST_SERVER_URL":   d.cfg.ServerBaseURL,
+		"AGENTHOST_DAEMON_PORT":  fmt.Sprintf("%d", d.cfg.HealthPort),
+		"AGENTHOST_WORKSPACE_ID": task.WorkspaceID,
+		"AGENTHOST_AGENT_NAME":   agentName,
+		"AGENTHOST_AGENT_ID":     task.AgentID,
+		"AGENTHOST_TASK_ID":      task.ID,
 	}
-	// Ensure the multica CLI is on PATH inside the agent's environment.
+	// Ensure the agenthost CLI is on PATH inside the agent's environment.
 	// Some runtimes (e.g. Codex) run in an isolated sandbox that may not
 	// inherit the daemon's PATH. Prepend the directory of the running
-	// multica binary so that `multica` commands in the agent always resolve.
+	// agenthost binary so that `agenthost` commands in the agent always resolve.
 	if selfBin, err := os.Executable(); err == nil {
 		binDir := filepath.Dir(selfBin)
 		agentEnv["PATH"] = binDir + string(os.PathListSeparator) + os.Getenv("PATH")
@@ -1563,7 +1563,7 @@ func convertSkillsForEnv(skills []SkillData) []execenv.SkillContextForEnv {
 // daemon-internal variables and critical system paths.
 func isBlockedEnvKey(key string) bool {
 	upper := strings.ToUpper(key)
-	if strings.HasPrefix(upper, "MULTICA_") {
+	if strings.HasPrefix(upper, "AGENTHOST_") || strings.HasPrefix(upper, "MULTICA_") {
 		return true
 	}
 	switch upper {

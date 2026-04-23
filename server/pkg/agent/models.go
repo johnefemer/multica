@@ -340,9 +340,9 @@ func parsePiModels(output string) []Model {
 func discoverHermesModels(ctx context.Context, executablePath string) ([]Model, error) {
 	return discoverACPModels(ctx, executablePath, acpDiscoveryProvider{
 		defaultBin:      "hermes",
-		clientName:      "multica-model-discovery",
+		clientName:      "agenthost-model-discovery",
 		extraEnv:        []string{"HERMES_YOLO_MODE=1"},
-		tmpdirPrefix:    "multica-hermes-discovery-",
+		tmpdirPrefix:    "agenthost-hermes-discovery-",
 	})
 }
 
@@ -357,8 +357,8 @@ func discoverHermesModels(ctx context.Context, executablePath string) ([]Model, 
 func discoverKimiModels(ctx context.Context, executablePath string) ([]Model, error) {
 	return discoverACPModels(ctx, executablePath, acpDiscoveryProvider{
 		defaultBin:   "kimi",
-		clientName:   "multica-model-discovery",
-		tmpdirPrefix: "multica-kimi-discovery-",
+		clientName:   "agenthost-model-discovery",
+		tmpdirPrefix: "agenthost-kimi-discovery-",
 	})
 }
 

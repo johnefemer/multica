@@ -377,7 +377,7 @@ func TestInjectRuntimeConfigClaude(t *testing.T) {
 
 	s := string(content)
 	for _, want := range []string{
-		"Multica Agent Runtime",
+		"Agenthost Agent Runtime",
 		"agenthost issue get",
 		"agenthost issue comment list",
 		"Go Conventions",
@@ -410,7 +410,7 @@ func TestInjectRuntimeConfigGemini(t *testing.T) {
 
 	s := string(content)
 	for _, want := range []string{
-		"Multica Agent Runtime",
+		"Agenthost Agent Runtime",
 		"agenthost issue get",
 		"Writing",
 	} {
@@ -447,7 +447,7 @@ func TestInjectRuntimeConfigCodex(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "Multica Agent Runtime") {
+	if !strings.Contains(s, "Agenthost Agent Runtime") {
 		t.Error("AGENTS.md missing meta skill header")
 	}
 	if !strings.Contains(s, "Coding") {
@@ -599,7 +599,7 @@ func TestInjectRuntimeConfigOpencode(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "Multica Agent Runtime") {
+	if !strings.Contains(s, "Agenthost Agent Runtime") {
 		t.Error("AGENTS.md missing meta skill header")
 	}
 	if !strings.Contains(s, "Coding") {
@@ -1212,7 +1212,7 @@ func TestReuseRestoresCodexHome(t *testing.T) {
 		t.Fatalf("config.toml not found in reused CodexHome: %v", err)
 	}
 	if !strings.Contains(string(data), multicaManagedBeginMarker) {
-		t.Error("reused config.toml missing multica-managed block")
+		t.Error("reused config.toml missing agenthost-managed block")
 	}
 }
 
