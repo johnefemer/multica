@@ -260,9 +260,46 @@ type Issue struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	Number             int32              `json:"number"`
 	ProjectID          pgtype.UUID        `json:"project_id"`
-	OriginType         pgtype.Text        `json:"origin_type"`
-	OriginID           pgtype.UUID        `json:"origin_id"`
-	FirstExecutedAt    pgtype.Timestamptz `json:"first_executed_at"`
+	OriginType              pgtype.Text        `json:"origin_type"`
+	OriginID                pgtype.UUID        `json:"origin_id"`
+	FirstExecutedAt         pgtype.Timestamptz `json:"first_executed_at"`
+	IntegrationProvider     pgtype.Text        `json:"integration_provider"`
+	IntegrationExternalID   pgtype.Text        `json:"integration_external_id"`
+	IntegrationExternalURL  pgtype.Text        `json:"integration_external_url"`
+	IntegrationRepo         pgtype.Text        `json:"integration_repo"`
+	IntegrationSyncedAt     pgtype.Timestamptz `json:"integration_synced_at"`
+}
+
+type IntegrationConnection struct {
+	ID                   pgtype.UUID        `json:"id"`
+	WorkspaceID          pgtype.UUID        `json:"workspace_id"`
+	ConnectedBy          pgtype.UUID        `json:"connected_by"`
+	Provider             string             `json:"provider"`
+	ProviderAccountID    string             `json:"provider_account_id"`
+	ProviderAccountName  pgtype.Text        `json:"provider_account_name"`
+	ProviderAccountAvatar pgtype.Text       `json:"provider_account_avatar"`
+	AccessToken          string             `json:"access_token"`
+	RefreshToken         pgtype.Text        `json:"refresh_token"`
+	TokenExpiresAt       pgtype.Timestamptz `json:"token_expires_at"`
+	Scope                pgtype.Text        `json:"scope"`
+	Meta                 []byte             `json:"meta"`
+	Status               string             `json:"status"`
+	ErrorMessage         pgtype.Text        `json:"error_message"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DisconnectedAt       pgtype.Timestamptz `json:"disconnected_at"`
+}
+
+type IntegrationWebhookEvent struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Provider    string             `json:"provider"`
+	DeliveryID  string             `json:"delivery_id"`
+	EventType   string             `json:"event_type"`
+	Payload     []byte             `json:"payload"`
+	ProcessedAt pgtype.Timestamptz `json:"processed_at"`
+	Error       pgtype.Text        `json:"error"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type IssueDependency struct {
