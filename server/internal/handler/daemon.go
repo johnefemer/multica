@@ -214,6 +214,11 @@ type DaemonRegisterRequest struct {
 		// Type carries the protocol family for both built-in and custom rows
 		// so task routing (agent.New) is unchanged.
 		ProfileID string `json:"profile_id"`
+		// gh CLI fields — advertised by the daemon when gh is available.
+		GHAvailable string `json:"gh_available,omitempty"`
+		GHUser      string `json:"gh_user,omitempty"`
+		GHScopes    string `json:"gh_scopes,omitempty"`
+		GHHost      string `json:"gh_host,omitempty"`
 	} `json:"runtimes"`
 	FailedProfiles []struct {
 		ProfileID   string `json:"profile_id"`
@@ -488,6 +493,12 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 			"cli_version":  req.CLIVersion,
 			"launched_by":  req.LaunchedBy,
 			"capabilities": requestClientCapabilities(r),
+			// gh CLI integration metadata — populated when the daemon detects
+			// a local gh CLI installation. Used by the frontend status badge.
+			"gh_available": runtime.GHAvailable == "true",
+			"gh_user":      runtime.GHUser,
+			"gh_scopes":    runtime.GHScopes,
+			"gh_host":      runtime.GHHost,
 		})
 
 		var registered db.AgentRuntime
@@ -555,6 +566,7 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 				Status:         prow.Status,
 				DeviceInfo:     prow.DeviceInfo,
 				Metadata:       prow.Metadata,
+				Settings:       prow.Settings,
 				LastSeenAt:     prow.LastSeenAt,
 				CreatedAt:      prow.CreatedAt,
 				UpdatedAt:      prow.UpdatedAt,
@@ -600,6 +612,7 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 				Status:         row.Status,
 				DeviceInfo:     row.DeviceInfo,
 				Metadata:       row.Metadata,
+				Settings:       row.Settings,
 				LastSeenAt:     row.LastSeenAt,
 				CreatedAt:      row.CreatedAt,
 				UpdatedAt:      row.UpdatedAt,

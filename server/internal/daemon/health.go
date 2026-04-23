@@ -119,6 +119,10 @@ type repoCheckoutRequest struct {
 	// --fresh`). Without it an existing checkout that holds work is kept; older
 	// daemons ignore the field and always start over.
 	Fresh bool `json:"fresh,omitempty"`
+	// GitHubToken is an optional per-task token forwarded by `agenthost repo checkout`
+	// from the agent's GH_TOKEN env (Kensink). When set it takes P0 priority over
+	// the daemon-level resolved token. Ignored if empty.
+	GitHubToken string `json:"github_token,omitempty"`
 }
 
 type activeRepoCheckoutTask struct {
@@ -528,7 +532,9 @@ func (d *Daemon) repoCheckoutHandler() http.HandlerFunc {
 		if cache, ok := d.repoCache.(interface {
 			CreateWorktreeContext(context.Context, repocache.WorktreeParams) (*repocache.WorktreeResult, error)
 		}); ok {
-			result, err = cache.CreateWorktreeContext(r.Context(), params)
+			// P0: an agent-forwarded GH_TOKEN overrides the daemon-level token
+			// for this checkout only.
+			result, err = cache.CreateWorktreeContext(repocache.ContextWithGitHubToken(r.Context(), req.GitHubToken), params)
 		} else {
 			result, err = d.repoCache.CreateWorktree(params)
 		}
@@ -544,6 +550,19 @@ func (d *Daemon) repoCheckoutHandler() http.HandlerFunc {
 				return
 			}
 			d.logger.Error("repo checkout failed", "url", req.URL, "error", err)
+			// Return a structured JSON error for auth failures so agents can
+			// surface an actionable message instead of a raw git error.
+			var authErr *repocache.GitHubAuthError
+			if repocache.IsGitHubAuthError(err, &authErr) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error":  "github_auth_failed",
+					"detail": authErr.Error(),
+					"hint":   "Set a GitHub PAT in runtime settings (PATCH /api/runtimes/{id}/settings) or ensure GH_TOKEN is set in the daemon environment.",
+				})
+				return
+			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

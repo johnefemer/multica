@@ -97,6 +97,7 @@ func runGitCombinedOutputWithTimeoutContext(parent context.Context, timeout time
 	defer cancel()
 
 	cmd := newGitCommand(args...)
+	cmd.Env = applyGitHubToken(cmd.Env, gitHubTokenFrom(parent))
 	out, err := processtree.CombinedOutput(ctx, cmd, 5*time.Second)
 	if ctx.Err() == context.DeadlineExceeded {
 		return out, fmt.Errorf("git command timed out after %s: %w", timeout, ctx.Err())
@@ -121,6 +122,7 @@ func runGitOutputWithTimeoutContext(parent context.Context, timeout time.Duratio
 	defer cancel()
 
 	cmd := newGitCommand(args...)
+	cmd.Env = applyGitHubToken(cmd.Env, gitHubTokenFrom(parent))
 	out, err := processtree.Output(ctx, cmd, 5*time.Second)
 	if ctx.Err() == context.DeadlineExceeded {
 		return out, fmt.Errorf("git command timed out after %s: %w", timeout, ctx.Err())
@@ -145,6 +147,7 @@ func runGitWithTimeoutContext(parent context.Context, timeout time.Duration, arg
 	defer cancel()
 
 	cmd := newGitCommand(args...)
+	cmd.Env = applyGitHubToken(cmd.Env, gitHubTokenFrom(parent))
 	err := processtree.Run(ctx, cmd, 5*time.Second)
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("git command timed out after %s: %w", timeout, ctx.Err())
@@ -173,6 +176,11 @@ type Cache struct {
 	// worktree admin dirs) don't tolerate parallel mutations on the same
 	// repo. Separate repos are independent and run concurrently.
 	repoLocks sync.Map // barePath -> *repoLock
+
+	// Kensink: daemon-level GitHub token for remote git operations
+	// (see github_token.go). Guarded by tokenMu.
+	tokenMu sync.RWMutex
+	token   string
 }
 
 // ErrRepoBusy means a foreground checkout could not acquire its repository
@@ -357,6 +365,7 @@ func (c *Cache) Sync(workspaceID string, repos []RepoInfo) error {
 // SyncContext is Sync with cancellation propagated through repo lock waits,
 // clone, fetch, and ref-layout migration.
 func (c *Cache) SyncContext(ctx context.Context, workspaceID string, repos []RepoInfo) error {
+	ctx = c.withCacheToken(ctx)
 	wsDir := filepath.Join(c.root, workspaceID)
 	if err := os.MkdirAll(wsDir, 0o755); err != nil {
 		return fmt.Errorf("create workspace cache dir: %w", err)
@@ -497,7 +506,7 @@ func (c *Cache) WithRepoMaintenance(ctx context.Context, barePath string, fn fun
 // Fetch runs `git fetch origin` on a cached bare clone to get latest refs.
 func (c *Cache) Fetch(barePath string) error {
 	return c.WithRepoLock(barePath, func() error {
-		return gitFetch(barePath)
+		return gitFetchContext(c.withCacheToken(context.Background()), barePath)
 	})
 }
 
@@ -596,7 +605,7 @@ func gitCloneBareContext(ctx context.Context, url, dest string) error {
 	if out, err := runGitCombinedOutputContext(ctx, "clone", "--bare", url, dest); err != nil {
 		// Clean up partial clone.
 		os.RemoveAll(dest)
-		return fmt.Errorf("git clone --bare: %s: %w", strings.TrimSpace(string(out)), err)
+		return classifyGitError("clone", url, "git clone --bare", out, err)
 	}
 	// `git clone --bare` populates refs/heads/* as a snapshot and defaults to
 	// a mirror-style fetch refspec. Convert the bare repo to the standard
@@ -647,7 +656,7 @@ func runGitFetch(barePath string) error {
 
 func runGitFetchContext(ctx context.Context, barePath string) error {
 	if out, err := runGitCombinedOutputContext(ctx, "-C", barePath, "fetch", "origin"); err != nil {
-		return fmt.Errorf("git fetch: %s: %w", strings.TrimSpace(string(out)), err)
+		return classifyGitError("fetch", barePath, "git fetch", out, err)
 	}
 	return nil
 }
@@ -783,6 +792,7 @@ func (c *Cache) CreateWorktree(params WorktreeParams) (*WorktreeResult, error) {
 // lock is held, so a client that times out behind maintenance cannot leave a
 // late, unwanted checkout.
 func (c *Cache) CreateWorktreeContext(ctx context.Context, params WorktreeParams) (*WorktreeResult, error) {
+	ctx = c.withCacheToken(ctx)
 	barePath := c.Lookup(params.WorkspaceID, params.RepoURL)
 	if barePath == "" {
 		return nil, fmt.Errorf("repo not found in cache: %s (workspace: %s)", params.RepoURL, params.WorkspaceID)
