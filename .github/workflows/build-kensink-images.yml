@@ -17,6 +17,7 @@ on:
       - "Dockerfile"
       - "Dockerfile.web"
       - "docker-compose.selfhost*.yml"
+      - ".github/workflows/build-kensink-images.yml"
   workflow_dispatch:
 
 env:
