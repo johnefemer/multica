@@ -15,7 +15,7 @@ var updateDownloadTimeout time.Duration = cli.DefaultUpdateDownloadTimeout
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update multica to the latest version",
+	Short: "Update agenthost to the latest version",
 	RunE:  runUpdate,
 }
 
@@ -50,7 +50,7 @@ func runUpdate(_ *cobra.Command, _ []string) error {
 		output, err := cli.UpdateViaBrew()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", output)
-			return fmt.Errorf("brew upgrade failed: %w\nYou can try manually: brew upgrade multica-ai/tap/multica", err)
+			return fmt.Errorf("update failed: %w\nYou can also re-run the install script: curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash", err)
 		}
 		fmt.Fprintln(os.Stderr, "Update complete.")
 		return nil

@@ -23,7 +23,7 @@ var attachmentDownloadCmd = &cobra.Command{
 	Short: "Download an attachment to a local file",
 	Long:  "Download an attachment by its ID to a local file.",
 	Example: `  # Download an image attachment to the current directory
-  $ multica attachment download abc123
+  $ agenthost attachment download abc123
 
   # Download to a directory inside the working directory (keep agent
   # downloads out of /tmp and other machine-shared paths, MUL-4252)
