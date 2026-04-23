@@ -113,8 +113,8 @@ func runSetupCloud(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := cli.CLIConfig{
-		ServerURL: "https://api.multica.ai",
-		AppURL:    "https://multica.ai",
+		ServerURL: "https://agenthost.kensink.com",
+		AppURL:    "https://agenthost.kensink.com",
 	}
 	if err := cli.SaveCLIConfigForProfile(cfg, profile); err != nil {
 		return fmt.Errorf("save config: %w", err)

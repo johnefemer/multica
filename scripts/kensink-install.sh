@@ -17,8 +17,13 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 AGENTHOST_SERVER_URL="https://agenthost.kensink.com"
 
-# The CLI binary comes from the upstream Multica releases (same binary,
-# works with any self-hosted backend). We install it as "agenthost".
+# Our fork publishes its own "agenthost" binary with the correct defaults
+# pre-baked. Download from here instead of upstream so users get
+# agenthost.kensink.com as the default without any extra config.
+KENSINK_RELEASE_URL="https://github.com/johnefemer/multica/releases/download/kensink-latest"
+
+# Fallback: if the kensink release doesn't have a build yet (e.g. first push
+# is still compiling), fall back to the upstream releases.
 UPSTREAM_REPO_WEB_URL="https://github.com/multica-ai/multica"
 
 # Colors (disabled when not a terminal)
@@ -56,49 +61,61 @@ detect_os() {
   esac
 }
 
-get_latest_version() {
+get_latest_upstream_version() {
   curl -sI "$UPSTREAM_REPO_WEB_URL/releases/latest" 2>/dev/null \
     | grep -i '^location:' | sed 's/.*tag\///' | tr -d '\r\n' || true
 }
 
-# Always install from the upstream binary release so we fully control the
-# output binary name ("agenthost"). Homebrew installs it as "multica" and
-# we have no way to rename that, so we skip Homebrew entirely.
+# Try to download from our kensink release first (binary already named
+# "agenthost" with agenthost.kensink.com defaults baked in). Falls back to
+# upstream releases if our release isn't available yet.
 install_cli_binary() {
-  info "Downloading agenthost CLI from upstream releases..."
-  local latest
-  latest=$(get_latest_version)
-  [ -n "$latest" ] || fail "Could not fetch latest release. Check your network connection."
-
-  local version="${latest#v}"
-  local url="$UPSTREAM_REPO_WEB_URL/releases/download/${latest}/multica-cli-${version}-${OS}-${ARCH}.tar.gz"
   local tmp_dir
   tmp_dir=$(mktemp -d)
 
-  info "Downloading ${latest} for ${OS}/${ARCH} ..."
-  curl -fsSL "$url" -o "$tmp_dir/multica.tar.gz" \
-    || { rm -rf "$tmp_dir"; fail "Download failed. Check your network connection."; }
+  # --- Try our kensink release first ---
+  local kensink_url="$KENSINK_RELEASE_URL/agenthost-cli-${OS}-${ARCH}.tar.gz"
+  info "Downloading agenthost CLI (kensink build) for ${OS}/${ARCH} ..."
 
-  # Archive may contain binary named "multica" or "agenthost" depending on release
-  tar -xzf "$tmp_dir/multica.tar.gz" -C "$tmp_dir" agenthost 2>/dev/null \
-    || tar -xzf "$tmp_dir/multica.tar.gz" -C "$tmp_dir" multica 2>/dev/null \
-    || { rm -rf "$tmp_dir"; fail "Could not extract binary from archive."; }
+  if curl -fsSL --head "$kensink_url" >/dev/null 2>&1; then
+    curl -fsSL "$kensink_url" -o "$tmp_dir/agenthost.tar.gz" \
+      || { rm -rf "$tmp_dir"; fail "Download failed. Check your network connection."; }
+    tar -xzf "$tmp_dir/agenthost.tar.gz" -C "$tmp_dir" agenthost 2>/dev/null \
+      || { rm -rf "$tmp_dir"; fail "Could not extract binary from kensink archive."; }
+  else
+    # --- Fallback: upstream release (rename to agenthost) ---
+    warn "Kensink release not available yet. Falling back to upstream release..."
+    local latest
+    latest=$(get_latest_upstream_version)
+    [ -n "$latest" ] || fail "Could not fetch upstream release. Check your network connection."
 
-  local extracted="$tmp_dir/agenthost"
-  [ -f "$extracted" ] || extracted="$tmp_dir/multica"
-  chmod +x "$extracted"
+    local version="${latest#v}"
+    local upstream_url="$UPSTREAM_REPO_WEB_URL/releases/download/${latest}/multica-cli-${version}-${OS}-${ARCH}.tar.gz"
+    info "Downloading upstream ${latest} for ${OS}/${ARCH} ..."
+    curl -fsSL "$upstream_url" -o "$tmp_dir/agenthost.tar.gz" \
+      || { rm -rf "$tmp_dir"; fail "Download failed. Check your network connection."; }
+
+    tar -xzf "$tmp_dir/agenthost.tar.gz" -C "$tmp_dir" agenthost 2>/dev/null \
+      || tar -xzf "$tmp_dir/agenthost.tar.gz" -C "$tmp_dir" multica 2>/dev/null \
+      || { rm -rf "$tmp_dir"; fail "Could not extract binary from upstream archive."; }
+
+    # Rename multica → agenthost if needed
+    [ -f "$tmp_dir/agenthost" ] || mv "$tmp_dir/multica" "$tmp_dir/agenthost"
+  fi
+
+  chmod +x "$tmp_dir/agenthost"
 
   # Install to /usr/local/bin (preferred) or ~/.local/bin as fallback
   local bin_dir="/usr/local/bin"
   if [ -w "$bin_dir" ]; then
-    mv "$extracted" "$bin_dir/agenthost"
+    mv "$tmp_dir/agenthost" "$bin_dir/agenthost"
   elif command_exists sudo; then
-    sudo mv "$extracted" "$bin_dir/agenthost"
+    sudo mv "$tmp_dir/agenthost" "$bin_dir/agenthost"
     sudo chmod +x "$bin_dir/agenthost"
   else
     bin_dir="$HOME/.local/bin"
     mkdir -p "$bin_dir"
-    mv "$extracted" "$bin_dir/agenthost"
+    mv "$tmp_dir/agenthost" "$bin_dir/agenthost"
     export PATH="$bin_dir:$PATH"
     for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
       [ -f "$rc" ] && ! grep -qF "$bin_dir" "$rc" && \
@@ -112,17 +129,12 @@ install_cli_binary() {
 
 install_or_upgrade_cli() {
   if command_exists agenthost; then
-    local current_ver latest_ver
+    local current_ver
     current_ver=$(agenthost version 2>/dev/null | awk '{print $2}' || echo "unknown")
-    latest_ver=$(get_latest_version)
-    local cur="${current_ver#v}" lat="${latest_ver#v}"
-    if [ -z "$latest_ver" ] || [ "$cur" = "$lat" ]; then
-      ok "agenthost CLI is already up to date ($current_ver)"
-      return 0
-    fi
-    info "Upgrading $current_ver → $latest_ver ..."
+    # Check if a newer kensink release exists (compare by checking remote headers)
+    info "agenthost CLI already installed ($current_ver). Reinstalling from kensink release..."
     install_cli_binary
-    ok "Upgraded to $(agenthost version 2>/dev/null | awk '{print $2}' || echo '?')"
+    ok "Updated to $(agenthost version 2>/dev/null | awk '{print $2}' || echo '?')"
     return 0
   fi
 
