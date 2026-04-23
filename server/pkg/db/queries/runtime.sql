@@ -64,6 +64,8 @@ WHERE id = $1 AND workspace_id = $2;
 -- (xmax = 0) AS inserted distinguishes a fresh insert (true) from an upsert
 -- that updated an existing row (false). Analytics reads this to fire
 -- runtime_registered/runtime_ready only on first-time registration.
+-- NOTE: `settings` is intentionally omitted from DO UPDATE SET so that
+-- user-configured values (e.g. GitHub PATs) are never overwritten by the daemon.
 INSERT INTO agent_runtime (
     workspace_id,
     daemon_id,
@@ -91,6 +93,15 @@ DO UPDATE SET
     last_seen_at = now(),
     updated_at = now()
 RETURNING *, (xmax = 0) AS inserted;
+
+-- name: UpdateAgentRuntimeSettings :one
+-- Atomically merges the supplied settings patch into the existing JSONB value.
+-- Only keys present in @patch are affected; unrelated keys are preserved.
+UPDATE agent_runtime
+SET settings = settings || @patch::jsonb,
+    updated_at = now()
+WHERE id = @id
+RETURNING *;
 
 -- name: UpsertAgentRuntimeWithProfile :one
 -- Custom-runtime registration: a daemon resolved a workspace runtime_profile's

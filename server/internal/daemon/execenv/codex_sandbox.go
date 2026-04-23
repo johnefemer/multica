@@ -325,7 +325,7 @@ func codexLinuxIsolationHint() string {
 	return "run the daemon inside a VM, container, or dedicated Unix user — tasks can read and write everything that user can"
 }
 
-// multicaManagedBeginMarker / multicaManagedEndMarker delimit the block the
+// agenthostManagedBeginMarker / agenthostManagedEndMarker delimit the block the
 // daemon writes into the per-task config.toml. Everything between the markers
 // is owned by the daemon and will be rewritten idempotently; anything outside
 // the markers is preserved as-is.
@@ -354,11 +354,15 @@ func renderAgenthostManagedBlock(policy codexSandboxPolicy) string {
 
 // managedBlockRe captures the daemon-owned block (including the surrounding
 // markers and any trailing blank lines) so it can be replaced idempotently.
-// `\n*` rather than `\n?` so reruns don't accumulate blank lines when the
-// block coexists with another managed block (e.g. multi-agent) in the file.
+// It also matches the legacy multica-managed block so old config.toml files
+// are migrated cleanly. `\n*` rather than `\n?` so reruns don't accumulate
+// blank lines when the block coexists with another managed block (e.g.
+// multi-agent) in the file.
 var managedBlockRe = regexp.MustCompile(
-	`(?ms)^` + regexp.QuoteMeta(multicaManagedBeginMarker) +
-		`.*?^` + regexp.QuoteMeta(multicaManagedEndMarker) + `\n*`)
+	`(?ms)^(?:` + regexp.QuoteMeta(agenthostManagedBeginMarker) + `|` +
+		regexp.QuoteMeta(legacyManagedBeginMarker) + `(?:[^\n]*)?)` +
+		`.*?^(?:` + regexp.QuoteMeta(agenthostManagedEndMarker) + `|` +
+		regexp.QuoteMeta(legacyManagedEndMarker) + `)\n*`)
 
 // upsertAgenthostManagedBlock returns the config content with the
 // agenthost-managed block placed at the very top of the file. Any previously

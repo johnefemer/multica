@@ -1078,6 +1078,10 @@ type RegisterResponse struct {
 	Repos        []RepoData      `json:"repos"`
 	ReposVersion string          `json:"repos_version"`
 	Settings     json.RawMessage `json:"settings,omitempty"`
+	// GitHubTokens maps runtime ID → plaintext GitHub token from runtime settings.
+	// Delivered once at registration over TLS. Daemon uses this as the
+	// P1 (highest-priority) source in the token-resolution chain.
+	GitHubTokens map[string]string `json:"github_tokens,omitempty"`
 }
 
 func (c *Client) Register(ctx context.Context, req map[string]any) (*RegisterResponse, error) {
