@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   GitBranch,
-  Slack,
+  MessageSquare,
   FileText,
   Mail,
   CheckCircle2,
@@ -15,7 +15,7 @@ import {
   Download,
   Trash2,
   RefreshCw,
-  Webhook,
+  Link,
   Info,
 } from "lucide-react";
 import { Badge } from "@multica/ui/components/ui/badge";
@@ -94,7 +94,7 @@ const CATALOG: ProviderDef[] = [
     tagline: "Task notifications in your Slack workspace",
     description:
       "Get notified in Slack when issues are created, assigned, or resolved. Post agent activity updates to channels. Coming soon.",
-    icon: Slack,
+    icon: MessageSquare,
     iconBg: "bg-[#4A154B]",
     category: "Communication",
     comingSoon: true,
@@ -243,7 +243,7 @@ function GitHubManagePanel({
           className="justify-start gap-2"
           onClick={() => setImportOpen(true)}
         >
-          <Webhook className="size-3.5" />
+          <Link className="size-3.5" />
           Register Webhook
         </Button>
       </div>
