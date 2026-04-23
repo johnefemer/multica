@@ -132,30 +132,30 @@ install_or_upgrade_cli() {
     || fail "'agenthost' not found on PATH. If you see this, run: export PATH=\"\$HOME/.local/bin:\$PATH\""
 }
 
-# Pre-write ~/.agenthost/config.json so that:
-#   agenthost login              → opens agenthost.kensink.com browser flow
-#   agenthost setup self-host    → shows correct current config
+# Pre-write config so that agenthost login / agenthost setup self-host
+# immediately targets agenthost.kensink.com instead of localhost.
 #
-# The distributed binary comes from upstream releases which default to
-# localhost. Seeding the config here avoids a confusing "localhost" prompt.
+# The upstream binary (which we rename to agenthost) stores config in
+# ~/.multica/config.json — our fork changes it to ~/.agenthost, but that
+# change only lives in the server Docker image, not in the released binary.
+# We write BOTH paths so whichever config dir the binary actually reads, it
+# finds the right URL, and a future binary upgrade to our fork also works.
 write_default_config() {
-  local config_dir="$HOME/.agenthost"
-  local config_file="$config_dir/config.json"
+  local config_json
+  config_json="$(printf '{\n  "server_url": "%s",\n  "app_url": "%s"\n}\n' \
+    "$AGENTHOST_SERVER_URL" "$AGENTHOST_SERVER_URL")"
 
-  mkdir -p "$config_dir"
-
-  # Only overwrite if there is no config yet, or if it still points at localhost
-  if [ ! -f "$config_file" ] || grep -q 'localhost' "$config_file" 2>/dev/null; then
-    cat > "$config_file" <<CONFIG
-{
-  "server_url": "${AGENTHOST_SERVER_URL}",
-  "app_url": "${AGENTHOST_SERVER_URL}"
-}
-CONFIG
-    ok "Config pre-written → $config_file"
-  else
-    ok "Existing config kept (already points to a non-localhost server)"
-  fi
+  for config_dir in "$HOME/.multica" "$HOME/.agenthost"; do
+    local config_file="$config_dir/config.json"
+    mkdir -p "$config_dir"
+    # Only overwrite if no existing config, or if it still points at localhost
+    if [ ! -f "$config_file" ] || grep -q 'localhost' "$config_file" 2>/dev/null; then
+      printf '%s\n' "$config_json" > "$config_file"
+      ok "Config written → $config_file"
+    else
+      ok "Existing config kept → $config_file"
+    fi
+  done
 }
 
 main() {
