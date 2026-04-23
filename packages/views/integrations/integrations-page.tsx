@@ -269,7 +269,7 @@ function GitHubManagePanel({
             </DialogDescription>
           </DialogHeader>
 
-          <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+          <Select value={selectedRepo} onValueChange={(v) => setSelectedRepo(v ?? "")}>
             <SelectTrigger>
               <SelectValue placeholder={reposLoading ? "Loading repos…" : "Pick a repository"} />
             </SelectTrigger>
