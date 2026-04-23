@@ -33,6 +33,7 @@ export type RouteIconName =
   | "Server"
   | "BookOpenText"
   | "Settings"
+  | "Plug"
   | "File"
   | "FileText"
   | "FileImage"
@@ -55,6 +56,7 @@ export type NavLabelKey =
   | "usage"
   | "runtimes"
   | "skills"
+  | "integrations"
   | "settings";
 
 /** Stable identifier for each workspace navigation page. */
@@ -70,6 +72,7 @@ export type WorkspacePageKey =
   | "usage"
   | "runtimes"
   | "skills"
+  | "integrations"
   | "settings";
 
 export interface WorkspacePage {
@@ -97,6 +100,8 @@ export const WORKSPACE_PAGES: Record<WorkspacePageKey, WorkspacePage> = {
   usage: { segment: "usage", icon: "BarChart3", navKey: "usage" },
   runtimes: { segment: "runtimes", icon: "Monitor", navKey: "runtimes" },
   skills: { segment: "skills", icon: "BookOpenText", navKey: "skills" },
+  // Kensink: GitHub / Slack integrations page.
+  integrations: { segment: "integrations", icon: "Plug", navKey: "integrations" },
   settings: { segment: "settings", icon: "Settings", navKey: "settings" },
 };
 
