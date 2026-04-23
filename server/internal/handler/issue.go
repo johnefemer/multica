@@ -22,49 +22,59 @@ import (
 
 // IssueResponse is the JSON response for an issue.
 type IssueResponse struct {
-	ID                 string                  `json:"id"`
-	WorkspaceID        string                  `json:"workspace_id"`
-	Number             int32                   `json:"number"`
-	Identifier         string                  `json:"identifier"`
-	Title              string                  `json:"title"`
-	Description        *string                 `json:"description"`
-	Status             string                  `json:"status"`
-	Priority           string                  `json:"priority"`
-	AssigneeType       *string                 `json:"assignee_type"`
-	AssigneeID         *string                 `json:"assignee_id"`
-	CreatorType        string                  `json:"creator_type"`
-	CreatorID          string                  `json:"creator_id"`
-	ParentIssueID      *string                 `json:"parent_issue_id"`
-	ProjectID          *string                 `json:"project_id"`
-	Position           float64                 `json:"position"`
-	DueDate            *string                 `json:"due_date"`
-	CreatedAt          string                  `json:"created_at"`
-	UpdatedAt          string                  `json:"updated_at"`
-	Reactions          []IssueReactionResponse `json:"reactions,omitempty"`
-	Attachments        []AttachmentResponse    `json:"attachments,omitempty"`
+	ID                     string                  `json:"id"`
+	WorkspaceID            string                  `json:"workspace_id"`
+	Number                 int32                   `json:"number"`
+	Identifier             string                  `json:"identifier"`
+	Title                  string                  `json:"title"`
+	Description            *string                 `json:"description"`
+	Status                 string                  `json:"status"`
+	Priority               string                  `json:"priority"`
+	AssigneeType           *string                 `json:"assignee_type"`
+	AssigneeID             *string                 `json:"assignee_id"`
+	CreatorType            string                  `json:"creator_type"`
+	CreatorID              string                  `json:"creator_id"`
+	ParentIssueID          *string                 `json:"parent_issue_id"`
+	ProjectID              *string                 `json:"project_id"`
+	Position               float64                 `json:"position"`
+	DueDate                *string                 `json:"due_date"`
+	CreatedAt              string                  `json:"created_at"`
+	UpdatedAt              string                  `json:"updated_at"`
+	Reactions              []IssueReactionResponse `json:"reactions,omitempty"`
+	Attachments            []AttachmentResponse    `json:"attachments,omitempty"`
+	IntegrationProvider    *string                 `json:"integration_provider,omitempty"`
+	IntegrationExternalID  *string                 `json:"integration_external_id,omitempty"`
+	IntegrationExternalURL *string                 `json:"integration_external_url,omitempty"`
+	IntegrationRepo        *string                 `json:"integration_repo,omitempty"`
+	IntegrationSyncedAt    *string                 `json:"integration_synced_at,omitempty"`
 }
 
 func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 	identifier := issuePrefix + "-" + strconv.Itoa(int(i.Number))
 	return IssueResponse{
-		ID:            uuidToString(i.ID),
-		WorkspaceID:   uuidToString(i.WorkspaceID),
-		Number:        i.Number,
-		Identifier:    identifier,
-		Title:         i.Title,
-		Description:   textToPtr(i.Description),
-		Status:        i.Status,
-		Priority:      i.Priority,
-		AssigneeType:  textToPtr(i.AssigneeType),
-		AssigneeID:    uuidToPtr(i.AssigneeID),
-		CreatorType:   i.CreatorType,
-		CreatorID:     uuidToString(i.CreatorID),
-		ParentIssueID: uuidToPtr(i.ParentIssueID),
-		ProjectID:     uuidToPtr(i.ProjectID),
-		Position:      i.Position,
-		DueDate:       timestampToPtr(i.DueDate),
-		CreatedAt:     timestampToString(i.CreatedAt),
-		UpdatedAt:     timestampToString(i.UpdatedAt),
+		ID:                     uuidToString(i.ID),
+		WorkspaceID:            uuidToString(i.WorkspaceID),
+		Number:                 i.Number,
+		Identifier:             identifier,
+		Title:                  i.Title,
+		Description:            textToPtr(i.Description),
+		Status:                 i.Status,
+		Priority:               i.Priority,
+		AssigneeType:           textToPtr(i.AssigneeType),
+		AssigneeID:             uuidToPtr(i.AssigneeID),
+		CreatorType:            i.CreatorType,
+		CreatorID:              uuidToString(i.CreatorID),
+		ParentIssueID:          uuidToPtr(i.ParentIssueID),
+		ProjectID:              uuidToPtr(i.ProjectID),
+		Position:               i.Position,
+		DueDate:                timestampToPtr(i.DueDate),
+		CreatedAt:              timestampToString(i.CreatedAt),
+		UpdatedAt:              timestampToString(i.UpdatedAt),
+		IntegrationProvider:    textToPtr(i.IntegrationProvider),
+		IntegrationExternalID:  textToPtr(i.IntegrationExternalID),
+		IntegrationExternalURL: textToPtr(i.IntegrationExternalURL),
+		IntegrationRepo:        textToPtr(i.IntegrationRepo),
+		IntegrationSyncedAt:    timestampToPtr(i.IntegrationSyncedAt),
 	}
 }
 

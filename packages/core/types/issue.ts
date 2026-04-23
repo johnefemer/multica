@@ -40,4 +40,10 @@ export interface Issue {
   reactions?: IssueReaction[];
   created_at: string;
   updated_at: string;
+  // Integration sync fields — only present on issues imported from external providers
+  integration_provider?: string | null;
+  integration_external_id?: string | null;
+  integration_external_url?: string | null;
+  integration_repo?: string | null;
+  integration_synced_at?: string | null;
 }
