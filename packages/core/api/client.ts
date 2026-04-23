@@ -2447,6 +2447,16 @@ export class ApiClient {
     );
   }
 
+  async updateRuntimeSettings(
+    runtimeId: string,
+    settings: { github_token?: string | null },
+  ): Promise<AgentRuntime> {
+    return this.fetch(`/api/runtimes/${runtimeId}/settings`, {
+      method: "PATCH",
+      body: JSON.stringify(settings),
+    });
+  }
+
   async getRuntimeUsage(
     runtimeId: string,
     params?: { days?: number; tz?: string },

@@ -65,3 +65,14 @@ export function useUpdateRuntime(wsId: string) {
     },
   });
 }
+
+export function useUpdateRuntimeSettings(wsId: string, runtimeId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: { github_token?: string | null }) =>
+      api.updateRuntimeSettings(runtimeId, settings),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
+    },
+  });
+}

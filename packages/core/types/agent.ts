@@ -75,6 +75,11 @@ export interface RuntimeDevice {
   status: "online" | "offline";
   device_info: string;
   metadata: Record<string, unknown>;
+  /** Kensink: redacted runtime settings (GitHub PAT). Absent on older backends. */
+  settings?: {
+    github_token_set: boolean;
+    github_token_preview?: string;
+  };
   owner_id: string | null;
   /** Defaults to "private" when the backend predates the visibility flag. */
   visibility: RuntimeVisibility;
