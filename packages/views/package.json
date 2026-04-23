@@ -37,6 +37,7 @@
     "./search": "./search/index.ts",
     "./chat": "./chat/index.ts",
     "./settings": "./settings/index.ts",
+    "./integrations": "./integrations/index.ts",
     "./invite": "./invite/index.ts",
     "./onboarding": "./onboarding/index.ts",
     "./platform": "./platform/index.ts"
@@ -47,7 +48,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@floating-ui/dom": "^1.7.6",
-
     "@multica/core": "workspace:*",
     "@multica/ui": "workspace:*",
     "@tiptap/core": "^3.22.1",
