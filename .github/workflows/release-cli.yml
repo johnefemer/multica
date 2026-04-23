@@ -9,6 +9,7 @@ on:
     branches: [kensink]
     paths:
       - "server/**"
+      - "scripts/kensink-install.sh"
       - ".github/workflows/release-cli.yml"
   workflow_dispatch:
 
