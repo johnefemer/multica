@@ -1,0 +1,107 @@
+name: Release CLI (kensink)
+
+# Builds the agenthost CLI binary from the kensink branch with our custom
+# defaults (agenthost.kensink.com) and publishes it as a rolling
+# "kensink-latest" GitHub release. kensink-install.sh downloads from here.
+
+on:
+  push:
+    branches: [kensink]
+    paths:
+      - "server/**"
+      - ".github/workflows/release-cli.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kensink
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache: true
+          cache-dependency-path: server/go.sum
+
+      - name: Build agenthost binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          cd server
+          go build -ldflags="-s -w" -o ../bin/agenthost ./cmd/multica
+          mkdir -p ../dist
+          tar -czf ../dist/agenthost-cli-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
+            -C ../bin agenthost
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/agenthost-cli-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+  release:
+    name: Publish kensink-latest
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kensink
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Delete existing kensink-latest release + tag
+        run: |
+          gh release delete kensink-latest --yes --repo "${{ github.repository }}" 2>/dev/null || true
+          git push origin :refs/tags/kensink-latest 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create kensink-latest release
+        run: |
+          gh release create kensink-latest \
+            --repo "${{ github.repository }}" \
+            --title "Agenthost CLI — kensink-latest" \
+            --notes "$(cat <<'EOF'
+          Latest **agenthost** CLI binary built from the `kensink` branch.
+
+          Pre-configured to connect to **https://agenthost.kensink.com** by default.
+
+          Install via:
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash
+          ```
+          EOF
+          )" \
+            --prerelease \
+            --target kensink \
+            dist/*.tar.gz
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
