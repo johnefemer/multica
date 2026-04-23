@@ -18,8 +18,9 @@ import {
  * repo. The scripts' own headers are the source of truth.
  */
 export const CLI_INSTALL_COMMANDS = {
+  // Kensink fork: the macOS / Linux installer pulls the fork's own CLI build.
   macosLinux:
-    "curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash",
+    "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash",
   windows:
     "irm https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.ps1 | iex",
 } as const;
