@@ -14,21 +14,52 @@ import (
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
+// AgentRuntimeSettings holds user-controlled runtime settings returned in API responses.
+// Sensitive values (e.g. tokens) are redacted; only a masked preview is exposed.
+type AgentRuntimeSettings struct {
+	GitHubTokenSet     bool   `json:"github_token_set"`
+	GitHubTokenPreview string `json:"github_token_preview,omitempty"` // e.g. "ghp_****abcd"
+}
+
 type AgentRuntimeResponse struct {
-	ID           string  `json:"id"`
-	WorkspaceID  string  `json:"workspace_id"`
-	DaemonID     *string `json:"daemon_id"`
-	Name         string  `json:"name"`
-	RuntimeMode  string  `json:"runtime_mode"`
-	Provider     string  `json:"provider"`
-	LaunchHeader string  `json:"launch_header"`
-	Status       string  `json:"status"`
-	DeviceInfo   string  `json:"device_info"`
-	Metadata     any     `json:"metadata"`
-	OwnerID      *string `json:"owner_id"`
-	LastSeenAt   *string `json:"last_seen_at"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID           string               `json:"id"`
+	WorkspaceID  string               `json:"workspace_id"`
+	DaemonID     *string              `json:"daemon_id"`
+	Name         string               `json:"name"`
+	RuntimeMode  string               `json:"runtime_mode"`
+	Provider     string               `json:"provider"`
+	LaunchHeader string               `json:"launch_header"`
+	Status       string               `json:"status"`
+	DeviceInfo   string               `json:"device_info"`
+	Metadata     any                  `json:"metadata"`
+	Settings     AgentRuntimeSettings `json:"settings"`
+	OwnerID      *string              `json:"owner_id"`
+	LastSeenAt   *string              `json:"last_seen_at"`
+	CreatedAt    string               `json:"created_at"`
+	UpdatedAt    string               `json:"updated_at"`
+}
+
+// parseRuntimeSettings parses the JSONB settings and returns a redacted view.
+func parseRuntimeSettings(raw []byte) AgentRuntimeSettings {
+	if len(raw) == 0 {
+		return AgentRuntimeSettings{}
+	}
+	var m map[string]string
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return AgentRuntimeSettings{}
+	}
+	tok := m["github_token"]
+	if tok == "" {
+		return AgentRuntimeSettings{}
+	}
+	preview := tok
+	if len(tok) > 8 {
+		preview = tok[:4] + "****" + tok[len(tok)-4:]
+	}
+	return AgentRuntimeSettings{
+		GitHubTokenSet:     true,
+		GitHubTokenPreview: preview,
+	}
 }
 
 func runtimeToResponse(rt db.AgentRuntime) AgentRuntimeResponse {
@@ -51,6 +82,7 @@ func runtimeToResponse(rt db.AgentRuntime) AgentRuntimeResponse {
 		Status:       rt.Status,
 		DeviceInfo:   rt.DeviceInfo,
 		Metadata:     metadata,
+		Settings:     parseRuntimeSettings(rt.Settings),
 		OwnerID:      uuidToPtr(rt.OwnerID),
 		LastSeenAt:   timestampToPtr(rt.LastSeenAt),
 		CreatedAt:    timestampToString(rt.CreatedAt),
@@ -328,4 +360,64 @@ func (h *Handler) DeleteAgentRuntime(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// UpdateRuntimeSettings allows a workspace member to store user-controlled
+// settings (e.g. a GitHub PAT) for a runtime. Sensitive keys are never
+// returned in plain-text — only a redacted preview is exposed by GET calls.
+func (h *Handler) UpdateRuntimeSettings(w http.ResponseWriter, r *http.Request) {
+	runtimeID := chi.URLParam(r, "runtimeId")
+
+	rt, err := h.Queries.GetAgentRuntime(r.Context(), parseUUID(runtimeID))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "runtime not found")
+		return
+	}
+
+	wsID := uuidToString(rt.WorkspaceID)
+	member, ok := h.requireWorkspaceMember(w, r, wsID, "runtime not found")
+	if !ok {
+		return
+	}
+
+	// Parse the settings patch. Accepts a flat JSON object of string keys/values.
+	// An explicit null or empty string for a key removes that key by setting it to null.
+	var patch map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Remove empty token values (treat "" as "clear").
+	if tok, ok := patch["github_token"]; ok {
+		if s, _ := tok.(string); s == "" {
+			patch["github_token"] = nil
+		}
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to encode settings")
+		return
+	}
+
+	updated, err := h.Queries.UpdateAgentRuntimeSettings(r.Context(), db.UpdateAgentRuntimeSettingsParams{
+		ID:    rt.ID,
+		Patch: patchBytes,
+	})
+	if err != nil {
+		slog.Error("update runtime settings failed", "runtime_id", runtimeID, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update settings")
+		return
+	}
+
+	slog.Info("runtime settings updated", "runtime_id", runtimeID, "updated_by", uuidToString(member.UserID))
+
+	// Broadcast settings change so daemon refreshes its token on next heartbeat.
+	h.publish(protocol.EventDaemonRegister, wsID, "member", uuidToString(member.UserID), map[string]any{
+		"action":     "settings_updated",
+		"runtime_id": runtimeID,
+	})
+
+	writeJSON(w, http.StatusOK, runtimeToResponse(updated))
 }

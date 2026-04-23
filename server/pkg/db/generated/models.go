@@ -58,6 +58,7 @@ type AgentRuntime struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	OwnerID        pgtype.UUID        `json:"owner_id"`
 	LegacyDaemonID pgtype.Text        `json:"legacy_daemon_id"`
+	Settings       []byte             `json:"settings"`
 }
 
 type AgentSkill struct {

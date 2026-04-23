@@ -368,6 +368,7 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 					r.Get("/local-skills/{requestId}", h.GetLocalSkillListRequest)
 					r.Post("/local-skills/import", h.InitiateImportLocalSkill)
 					r.Get("/local-skills/import/{requestId}", h.GetLocalSkillImportRequest)
+					r.Patch("/settings", h.UpdateRuntimeSettings)
 					r.Delete("/", h.DeleteAgentRuntime)
 				})
 			})

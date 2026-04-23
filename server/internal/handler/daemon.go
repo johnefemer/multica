@@ -324,11 +324,34 @@ func (h *Handler) DaemonRegister(w http.ResponseWriter, r *http.Request) {
 	})
 
 	repoResp := workspaceReposResponse(req.WorkspaceID, ws.Repos)
-	writeJSON(w, http.StatusOK, map[string]any{
+
+	// Deliver plaintext GitHub tokens from runtime settings to the daemon.
+	// Tokens are never included in GET responses; this registration endpoint
+	// is the one-time delivery path (over TLS).
+	githubTokens := make(map[string]string)
+	for _, rt := range resp {
+		if rt.Settings.GitHubTokenSet {
+			// Re-read the raw token from the DB row (resp only holds a preview).
+			raw, err := h.Queries.GetAgentRuntime(r.Context(), parseUUID(rt.ID))
+			if err == nil {
+				var s map[string]string
+				if json.Unmarshal(raw.Settings, &s) == nil {
+					if tok := s["github_token"]; tok != "" {
+						githubTokens[rt.ID] = tok
+					}
+				}
+			}
+		}
+	}
+	respBody := map[string]any{
 		"runtimes":      resp,
 		"repos":         repoResp.Repos,
 		"repos_version": repoResp.ReposVersion,
-	})
+	}
+	if len(githubTokens) > 0 {
+		respBody["github_tokens"] = githubTokens
+	}
+	writeJSON(w, http.StatusOK, respBody)
 }
 
 // mergeLegacyRuntimes folds every runtime row keyed on a prior hostname-derived
