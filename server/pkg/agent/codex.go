@@ -1503,8 +1503,8 @@ func (b *codexBackend) executeOnce(ctx context.Context, prompt string, opts Exec
 		b.cfg.Logger.Info("codex lifecycle", "phase", "initialize_sent", "task_id", b.cfg.TaskID, "runtime_id", b.cfg.RuntimeID, "pid", cmd.Process.Pid, "attempt", attempt, "active_launches", activeLaunches)
 		_, err := c.request(runCtx, "initialize", map[string]any{
 			"clientInfo": map[string]any{
-				"name":    "multica-agent-sdk",
-				"title":   "Multica Agent SDK",
+				"name":    "agenthost-agent-sdk",
+				"title":   "Agenthost Agent SDK",
 				"version": "0.2.0",
 			},
 			"capabilities": map[string]any{

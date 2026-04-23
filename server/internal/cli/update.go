@@ -174,11 +174,11 @@ func releaseAssetCandidates(targetVersion, goos, goarch string) []string {
 	tag := normalizeReleaseTag(targetVersion)
 	version := strings.TrimPrefix(tag, "v")
 	ext := releaseArchiveExtension(goos)
-	// Prefer the versioned name (current scheme); fall back to the legacy
-	// `multica_{os}_{arch}` name for releases that still ship it.
+	// Our fork publishes assets as agenthost-cli-{os}-{arch}.tar.gz
 	return []string{
+		fmt.Sprintf("agenthost-cli-%s-%s.%s", goos, goarch, ext),
+		// Legacy names for fallback
 		fmt.Sprintf("multica-cli-%s-%s-%s.%s", version, goos, goarch, ext),
-		fmt.Sprintf("multica_%s_%s.%s", goos, goarch, ext),
 	}
 }
 
@@ -459,7 +459,7 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 	// Extract the binary from the archive.
 	binaryName := "multica"
 	if runtime.GOOS == "windows" {
-		binaryName = "multica.exe"
+		binaryName = "agenthost.exe"
 	}
 	var binaryData []byte
 	if runtime.GOOS == "windows" {

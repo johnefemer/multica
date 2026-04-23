@@ -178,7 +178,7 @@ func appName() string {
 	if name := strings.TrimSpace(os.Getenv("APP_NAME")); name != "" {
 		return name
 	}
-	return "Multica"
+	return "Agenthost by Kensink Labs"
 }
 
 func NewEmailService() *EmailService {
