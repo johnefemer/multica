@@ -17,6 +17,7 @@ describe("paths.workspace(slug)", () => {
     expect(ws.runtimes()).toBe("/acme/runtimes");
     expect(ws.skills()).toBe("/acme/skills");
     expect(ws.settings()).toBe("/acme/settings");
+    expect(ws.integrations()).toBe("/acme/integrations");
   });
 
   it("URL-encodes special characters in ids", () => {

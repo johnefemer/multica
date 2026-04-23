@@ -204,9 +204,9 @@ func (h *Handler) IntegrationOAuthCallback(w http.ResponseWriter, r *http.Reques
 		Payload:     connectionToResponse(conn),
 	})
 
-	// Redirect back to settings with success indicator.
+	// Redirect back to the dedicated integrations page with success indicator.
 	http.Redirect(w, r,
-		fmt.Sprintf("/%s/settings?tab=integrations&connected=%s", wsSlug, providerName),
+		fmt.Sprintf("/%s/integrations?connected=%s", wsSlug, providerName),
 		http.StatusFound,
 	)
 }
@@ -484,7 +484,7 @@ func oauthCallbackURL(r *http.Request, provider string) string {
 
 func redirectWithError(w http.ResponseWriter, r *http.Request, wsSlug, provider, msg string) {
 	http.Redirect(w, r,
-		fmt.Sprintf("/%s/settings?tab=integrations&error=%s&provider=%s",
+		fmt.Sprintf("/%s/integrations?error=%s&provider=%s",
 			wsSlug, msg, provider),
 		http.StatusFound,
 	)
