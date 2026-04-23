@@ -167,7 +167,7 @@ func TestPrepareWithRepoContext(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"multica repo checkout",
+		"agenthost repo checkout",
 		"https://github.com/org/backend",
 		"Go backend",
 		"https://github.com/org/frontend",
@@ -378,8 +378,8 @@ func TestInjectRuntimeConfigClaude(t *testing.T) {
 	s := string(content)
 	for _, want := range []string{
 		"Multica Agent Runtime",
-		"multica issue get",
-		"multica issue comment list",
+		"agenthost issue get",
+		"agenthost issue comment list",
 		"Go Conventions",
 		"PR Review",
 		"discovered automatically",
@@ -411,7 +411,7 @@ func TestInjectRuntimeConfigGemini(t *testing.T) {
 	s := string(content)
 	for _, want := range []string{
 		"Multica Agent Runtime",
-		"multica issue get",
+		"agenthost issue get",
 		"Writing",
 	} {
 		if !strings.Contains(s, want) {
@@ -471,7 +471,7 @@ func TestInjectRuntimeConfigNoSkills(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "multica issue get") {
+	if !strings.Contains(s, "agenthost issue get") {
 		t.Error("should reference multica CLI even without skills")
 	}
 	if strings.Contains(s, "## Skills") {
@@ -661,7 +661,7 @@ func TestPrepareWithRepoContextOpencode(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"multica repo checkout",
+		"agenthost repo checkout",
 		"https://github.com/org/backend",
 		"Go backend",
 	} {
@@ -704,10 +704,10 @@ func TestInjectRuntimeConfigRequiresExplicitCommentPost(t *testing.T) {
 			}
 			s := string(data)
 
-			// The workflow must contain an explicit `multica issue comment add`
+			// The workflow must contain an explicit `agenthost issue comment add`
 			// invocation for this issue — not just a prose mention of posting.
 			mustContain := []string{
-				"multica issue comment add issue-1",
+				"agenthost issue comment add issue-1",
 				"mandatory",
 			}
 			for _, want := range mustContain {
@@ -720,7 +720,7 @@ func TestInjectRuntimeConfigRequiresExplicitCommentPost(t *testing.T) {
 			// output is not user-visible. This is the second line of defense
 			// in case the agent skips past the workflow steps.
 			for _, want := range []string{
-				"Final results MUST be delivered via `multica issue comment add`",
+				"Final results MUST be delivered via `agenthost issue comment add`",
 				"does NOT see your terminal output",
 			} {
 				if !strings.Contains(s, want) {

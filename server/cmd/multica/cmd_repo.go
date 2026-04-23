@@ -34,7 +34,7 @@ func runRepoCheckout(cmd *cobra.Command, args []string) error {
 
 	daemonPort := os.Getenv("MULTICA_DAEMON_PORT")
 	if daemonPort == "" {
-		return fmt.Errorf("MULTICA_DAEMON_PORT not set (this command is intended to be run by an agent inside a daemon task)")
+		return fmt.Errorf("AGENTHOST_DAEMON_PORT not set (this command is intended to be run by an agent inside a daemon task)")
 	}
 
 	workspaceID := os.Getenv("MULTICA_WORKSPACE_ID")

@@ -168,9 +168,9 @@ func (d *Daemon) resolveAuth() error {
 		return fmt.Errorf("load CLI config: %w", err)
 	}
 	if cfg.Token == "" {
-		loginHint := "'multica login'"
+		loginHint := "'agenthost login'"
 		if d.cfg.Profile != "" {
-			loginHint = fmt.Sprintf("'multica login --profile %s'", d.cfg.Profile)
+			loginHint = fmt.Sprintf("'agenthost login --profile %s'", d.cfg.Profile)
 		}
 		d.logger.Warn("not authenticated — run " + loginHint + " to authenticate, then restart the daemon")
 		return fmt.Errorf("not authenticated: run %s first", loginHint)
@@ -1050,7 +1050,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 
 	// Prepare isolated execution environment.
 	// Repos are passed as metadata only — the agent checks them out on demand
-	// via `multica repo checkout <url>`.
+	// via `agenthost repo checkout <url>`.
 	taskCtx := execenv.TaskContextForEnv{
 		IssueID:           task.IssueID,
 		TriggerCommentID:  task.TriggerCommentID,
@@ -1095,7 +1095,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, taskLo
 	prompt := BuildPrompt(task)
 
 	// Pass the daemon's auth credentials and context so the spawned agent CLI
-	// can call the Multica API and the local daemon (e.g. `multica repo checkout`).
+	// can call the Agenthost API and the local daemon (e.g. `agenthost repo checkout`).
 	agentEnv := map[string]string{
 		"MULTICA_TOKEN":        d.client.Token(),
 		"MULTICA_SERVER_URL":   d.cfg.ServerBaseURL,
