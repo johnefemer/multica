@@ -89,14 +89,16 @@ WHERE workspace_id       = @workspace_id
 
 -- name: CreateIntegrationIssue :one
 -- Creates an issue that originated from an external provider (e.g. GitHub).
+-- Caller must pass @number from IncrementIssueCounter to satisfy the
+-- UNIQUE (workspace_id, number) constraint.
 INSERT INTO issue (
     workspace_id, title, description, status, priority,
-    creator_type, creator_id, origin_type,
+    creator_type, creator_id, origin_type, number,
     integration_provider, integration_external_id, integration_external_url,
     integration_repo, integration_synced_at
 ) VALUES (
     @workspace_id, @title, @description, @status, @priority,
-    @creator_type, @creator_id, 'integration',
+    @creator_type, @creator_id, 'integration', @number,
     @integration_provider, @integration_external_id, @integration_external_url,
     @integration_repo, now()
 )

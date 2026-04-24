@@ -187,11 +187,21 @@ function GitHubManagePanel({
     if (!selectedRepo) return;
     try {
       const result = await importIssues.mutateAsync(selectedRepo);
-      toast.success(`Imported ${result.imported} issues · ${result.skipped} already existed`);
+      const parts = [`${result.imported} imported`];
+      if (result.skipped > 0) parts.push(`${result.skipped} already existed`);
+      if (result.failed > 0) parts.push(`${result.failed} failed`);
+      const summary = parts.join(" · ");
+      if (result.failed > 0 && result.imported === 0) {
+        toast.error(`Import failed: ${summary}`);
+      } else if (result.failed > 0) {
+        toast.warning(summary);
+      } else {
+        toast.success(summary);
+      }
       setImportOpen(false);
       setSelectedRepo("");
-    } catch {
-      toast.error("Failed to import issues");
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to import issues");
     }
   };
 

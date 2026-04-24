@@ -14,14 +14,14 @@ import (
 const createIntegrationIssue = `-- name: CreateIntegrationIssue :one
 INSERT INTO issue (
     workspace_id, title, description, status, priority,
-    creator_type, creator_id, origin_type,
+    creator_type, creator_id, origin_type, number,
     integration_provider, integration_external_id, integration_external_url,
     integration_repo, integration_synced_at
 ) VALUES (
     $1, $2, $3, $4, $5,
-    $6, $7, 'integration',
-    $8, $9, $10,
-    $11, now()
+    $6, $7, 'integration', $8,
+    $9, $10, $11,
+    $12, now()
 )
 RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, integration_provider, integration_external_id, integration_external_url, integration_repo, integration_synced_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id
 `
@@ -34,6 +34,7 @@ type CreateIntegrationIssueParams struct {
 	Priority               string      `json:"priority"`
 	CreatorType            string      `json:"creator_type"`
 	CreatorID              pgtype.UUID `json:"creator_id"`
+	Number                 int32       `json:"number"`
 	IntegrationProvider    pgtype.Text `json:"integration_provider"`
 	IntegrationExternalID  pgtype.Text `json:"integration_external_id"`
 	IntegrationExternalUrl pgtype.Text `json:"integration_external_url"`
@@ -41,6 +42,8 @@ type CreateIntegrationIssueParams struct {
 }
 
 // Creates an issue that originated from an external provider (e.g. GitHub).
+// Caller must pass @number from IncrementIssueCounter to satisfy the
+// UNIQUE (workspace_id, number) constraint.
 func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrationIssueParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, createIntegrationIssue,
 		arg.WorkspaceID,
@@ -50,6 +53,7 @@ func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrat
 		arg.Priority,
 		arg.CreatorType,
 		arg.CreatorID,
+		arg.Number,
 		arg.IntegrationProvider,
 		arg.IntegrationExternalID,
 		arg.IntegrationExternalUrl,

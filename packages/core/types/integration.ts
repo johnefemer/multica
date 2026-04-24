@@ -23,4 +23,5 @@ export interface GitHubRepo {
 export interface ImportIssuesResult {
   imported: number;
   skipped: number;
+  failed: number;
 }
