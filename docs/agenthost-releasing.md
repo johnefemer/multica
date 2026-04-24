@@ -16,7 +16,12 @@
 git push origin kensink
 ```
 
-That's it for 95% of cases. A GitHub Actions workflow rebuilds the backend and/or frontend images, pushes them to GHCR, SSHes to the EC2 server, pulls the new images, and restarts. Backend migrations apply automatically on container start.
+That's it for 95% of cases. Two workflows fan out from the push:
+
+1. **`build-kensink-images.yml`** — rebuilds the backend/frontend Docker images, pushes to GHCR, SSHes to EC2, pulls, restarts. Backend migrations apply automatically on container start.
+2. **`release-cli.yml`** — rebuilds the `agenthost` CLI binary (4 platforms), replaces the rolling `kensink-latest` GitHub Release. [`kensink-install.sh`](../scripts/kensink-install.sh) downloads from that URL, so anyone running the install command gets the new CLI immediately.
+
+Both fire in parallel on `server/**` changes. One push ships backend + CLI together.
 
 > **Note:** The "Stack" section of [kensink-deploy.md](./kensink-deploy.md#L70-L79) mentions *upstream* `ghcr.io/multica-ai/*` images. That statement is outdated — the server now runs **kensink-forked** images from `ghcr.io/johnefemer/*:kensink`. This doc is authoritative on the release pipeline; update `kensink-deploy.md` when convenient.
 
@@ -71,14 +76,18 @@ That's it for 95% of cases. A GitHub Actions workflow rebuilds the backend and/o
 
 ### Trigger rules (which workflow fires when)
 
-| File changed | Workflow | Effect |
-|---|---|---|
-| `server/**`, `Dockerfile` | `build-kensink-images.yml` | Rebuilds **both** images, redeploys both |
-| `apps/web/**`, `packages/**`, `Dockerfile.web` | `build-kensink-images.yml` | Rebuilds **both** images, redeploys both |
-| `docker-compose.selfhost*.yml` | `build-kensink-images.yml` | Rebuilds both |
-| Anything outside the path filter | None | No deploy — merge safely |
+| File changed | `build-kensink-images.yml` (Docker → EC2) | `release-cli.yml` (GitHub Release) |
+|---|:---:|:---:|
+| `server/**` | ✓ rebuilds both images | ✓ republishes `kensink-latest` |
+| `Dockerfile` | ✓ | — |
+| `apps/web/**`, `packages/**`, `Dockerfile.web` | ✓ (rebuilds both, even though only web changed) | — |
+| `docker-compose.selfhost*.yml` | ✓ | — |
+| `scripts/kensink-install.sh` | — | ✓ |
+| `docker-compose.datadog.yml`, docs, other scripts | — | — |
 
-The workflow rebuilds both services on any match because the path filter is a single union; if you want to save ~2 min on a frontend-only change, the logic in [`build-kensink-images.yml`](../.github/workflows/build-kensink-images.yml) would need per-service path filters.
+Key observations:
+- `build-kensink-images.yml` rebuilds **both** services on any match because the path filter is a single union. For per-service filtering you'd need to split the workflow.
+- `docker-compose.datadog.yml` is **not** in any path filter, so changes to it don't trigger a rebuild — intentional, since the Datadog agent is an independent container (see [Datadog agent deploy](#datadog-agent-deploy)).
 
 ---
 
@@ -139,7 +148,9 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 ---
 
-## Three ways to deploy
+## Three ways to deploy the app (backend/frontend)
+
+> The Datadog agent and CLI have their own flows — see [Agenthost CLI release](#agenthost-cli-release) and [Datadog agent deploy](#datadog-agent-deploy) below.
 
 | # | Flow | When to use |
 |---|---|---|
@@ -195,6 +206,206 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
 Key detail: the extra `-f docker-compose.selfhost.build.yml` override adds a `build:` directive that retags the local build as `multica-backend:dev`. Without the override, `--build` has no effect.
 
 **Caveat:** an on-server build produces a `:dev`-tagged image that lives only on that box. The next GHA deploy will overwrite it with the GHCR `:kensink` tag — which is fine and usually what you want. Don't rely on the on-server image surviving long-term.
+
+---
+
+## Agenthost CLI release
+
+The `agenthost` CLI is the binary that developers install on their local machines to connect as a runtime (see [kensink-runtime.md](./kensink-runtime.md)). It ships as a **rolling GitHub Release** — `kensink-latest` — which is deleted and recreated on every push that changes `server/**` or `scripts/kensink-install.sh`.
+
+### Pipeline
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  git push origin kensink                                     │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│  .github/workflows/release-cli.yml                           │
+│    Matrix: {darwin, linux} × {amd64, arm64}                  │
+│    Build: cd server && go build -o agenthost ./cmd/multica   │
+│    Pack:  tar -czf agenthost-cli-<os>-<arch>.tar.gz          │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│  release job                                                 │
+│    gh release delete kensink-latest                          │
+│    git push origin :refs/tags/kensink-latest                 │
+│    gh release create kensink-latest --prerelease             │
+│      --target kensink (points at current HEAD)               │
+│      dist/*.tar.gz                                           │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ downloads from
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│  https://github.com/johnefemer/multica/releases/             │
+│    download/kensink-latest/agenthost-cli-<os>-<arch>.tar.gz  │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ referenced by
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│  scripts/kensink-install.sh  (raw.githubusercontent.com URL) │
+│    Detects OS/arch, downloads the matching tarball,          │
+│    extracts `agenthost` to /usr/local/bin (or ~/.local/bin), │
+│    writes ~/.multica/config.json pointing at                 │
+│      https://agenthost.kensink.com                           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Binary name
+
+The upstream CLI is called `multica`. The kensink build renames it to **`agenthost`** via `go build -o agenthost ./cmd/multica`. Both binaries share the same source at [`server/cmd/multica/`](../server/cmd/multica/). The rename is the only kensink customization — everything else is upstream code.
+
+### User-facing install
+
+From the onboarding flow (and [kensink-runtime.md § Installation](./kensink-runtime.md#installation-for-runtime-operators)):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash
+agenthost setup self-host --server-url https://agenthost.kensink.com
+```
+
+The install script uses a *fixed* URL — `kensink-latest` never changes. Every push that lands on kensink with a backend change silently upgrades every future install to the new binary. Existing installs need to re-run the install command to pick up the new version.
+
+### Versioning model
+
+There is **no** semver tagging of the kensink CLI. It's one rolling tag. Pros: zero ceremony, always "what's on kensink". Cons: no way for a client to pin to a specific build; no changelog beyond the commit log; every push overwrites the download URL.
+
+If you ever need pinned builds:
+1. Create a second workflow that fires on `v*-kensink` tags and publishes a non-rolling release (e.g. `v0.2.3-kensink`).
+2. Point a separate install script (`kensink-install-pinned.sh`) at that tag.
+3. Keep `kensink-latest` for the onboarding flow.
+
+### Manually triggering a release
+
+If you want to re-release without a code change (e.g. workflow fix, bumping the default server URL in `kensink-install.sh`):
+
+**GitHub UI:** Actions → **Release CLI (kensink)** → Run workflow → branch `kensink` → Run.
+
+**CLI:**
+```bash
+gh workflow run release-cli.yml -R johnefemer/multica --ref kensink
+gh run watch -R johnefemer/multica
+```
+
+### Verifying a CLI release
+
+```bash
+# Latest release exists and points at the right commit
+gh release view kensink-latest -R johnefemer/multica
+
+# Direct download test (arm64 mac)
+curl -fsSL -o /tmp/agenthost.tar.gz \
+  https://github.com/johnefemer/multica/releases/download/kensink-latest/agenthost-cli-darwin-arm64.tar.gz
+tar -tzf /tmp/agenthost.tar.gz   # should list "agenthost"
+
+# End-to-end installer test
+bash <(curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh)
+agenthost version
+```
+
+### Upstream vs kensink CLI — don't confuse them
+
+| | Upstream (`multica`) | Kensink (`agenthost`) |
+|---|---|---|
+| Source | `multica-ai/multica@main` | `johnefemer/multica@kensink` |
+| Binary name | `multica` | `agenthost` |
+| Release workflow | [`release.yml`](../.github/workflows/release.yml) | [`release-cli.yml`](../.github/workflows/release-cli.yml) |
+| Trigger | `v*.*.*` tag on main | any push touching `server/**` |
+| GitHub Release | `v0.1.23`, immutable | `kensink-latest`, rolling |
+| Archive name | `multica-cli-<version>-<os>-<arch>.tar.gz` | `agenthost-cli-<os>-<arch>.tar.gz` |
+| Distribution | GitHub Releases + `multica-ai/homebrew-tap` | GitHub Releases only |
+| Install | `install.sh` or `brew install multica-ai/tap/multica` | `kensink-install.sh` |
+| Default server | None (user configures) | `https://agenthost.kensink.com` prewired |
+
+`CLAUDE.md` still describes the upstream tag-and-release flow ("A CLI release must accompany every Production deployment"). That doesn't apply to kensink — our CLI releases automatically on every relevant push.
+
+---
+
+## Datadog agent deploy
+
+The Datadog agent (`dd-agent` container) runs alongside the main stack but is managed by a **separate** compose file, [`docker-compose.datadog.yml`](../docker-compose.datadog.yml). It is **not** covered by the main release pipeline, by design: the Datadog agent image (`gcr.io/datadoghq/agent:7`) is a third-party image, not built from our source.
+
+### What triggers a Datadog agent change
+
+Nothing automatic. Edits to `docker-compose.datadog.yml` are **not** in the path filter of `build-kensink-images.yml`, so a push won't redeploy it. You must SSH and apply the change manually. Most common reasons to redeploy:
+
+- Rotating `DD_API_KEY`
+- Changing `DD_SITE` (e.g. us5 → us1)
+- Toggling features like `DD_SYSTEM_PROBE_ENABLED`
+- Updating the agent major version in the `image:` tag
+
+### Configuration split
+
+- **Secrets** → `/opt/multica/.env` on the server (not in git). Currently: `DD_API_KEY`.
+- **Non-secret config** → committed in `docker-compose.datadog.yml` (site, tags, log collection flags). Compose reads secrets via `${VAR:?...}` interpolation, which errors loudly if the `.env` var is missing — prevents a silent empty-key ship.
+
+### Rotating `DD_API_KEY`
+
+1. Generate a new key in Datadog → Organization Settings → API Keys.
+2. Update `.env` on the server (don't echo the key in shell history):
+   ```bash
+   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 bash << 'EOF'
+   cd /opt/multica
+   if grep -q '^DD_API_KEY=' .env; then
+     sed -i "s|^DD_API_KEY=.*|DD_API_KEY=<NEW_KEY_HERE>|" .env
+   else
+     printf '\nDD_API_KEY=<NEW_KEY_HERE>\n' >> .env
+   fi
+   docker compose -f docker-compose.datadog.yml up -d --force-recreate datadog-agent
+   EOF
+   ```
+3. Verify the new key is valid:
+   ```bash
+   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+     'docker exec dd-agent agent status 2>&1 | grep -E "API key ending|API Key valid"'
+   ```
+   Expected: `API key ending with <last4>: API Key valid`.
+4. **Revoke the old key** in Datadog UI. Until you do this, the old key is still a valid auth credential to Datadog and sits in your shell / git history.
+
+### Restarting the agent (no config change)
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker compose -f /opt/multica/docker-compose.datadog.yml restart datadog-agent'
+```
+
+### Updating the agent major version
+
+Edit the `image:` tag in `docker-compose.datadog.yml` (currently `gcr.io/datadoghq/agent:7`), commit, push. **Then** SSH and recreate:
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
+  cd /opt/multica
+  git pull origin kensink
+  docker compose -f docker-compose.datadog.yml pull datadog-agent
+  docker compose -f docker-compose.datadog.yml up -d --force-recreate datadog-agent
+'
+```
+
+Because the compose file isn't in any workflow's path filter, the `git pull` is required — GHA will not bring the new tag down for you.
+
+### Service vs container naming
+
+A common trip-hazard: the **compose service name** is `datadog-agent`, but the **container name** is `dd-agent` (set via `container_name:` in the compose file). Use `datadog-agent` when issuing compose commands (`docker compose ... restart datadog-agent`) and `dd-agent` when issuing direct Docker commands (`docker logs dd-agent`, `docker exec dd-agent ...`).
+
+### Verifying agent health
+
+```bash
+# Container is healthy
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker ps --filter name=dd-agent --format "{{.Names}}\t{{.Status}}"'
+
+# Forwarder is shipping (not stuck/backoff)
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker exec dd-agent agent status 2>&1 | grep -E "API key ending|Transactions successfully"'
+
+# No auth errors in recent logs
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker logs dd-agent --since 5m 2>&1 | grep -iE "forbidden|unauthori|invalid.key|401|403" || echo "clean"'
+```
 
 ---
 
@@ -297,6 +508,10 @@ Plus `GITHUB_TOKEN` (auto-provided) with `packages: write` — granted via the j
 | Disk full mid-deploy | Layer accumulation | `docker system prune -af` then re-run deploy |
 | Health stays unhealthy after deploy | App-level crash after migrations | Tail logs — usually an env var missing (`GITHUB_CLIENT_ID`, etc.) |
 | `connection refused` on SSH from GHA | EC2 restarted, fresh fingerprint | The workflow does `ssh-keyscan` fresh each run, so this is rare. If persistent, check AWS Security Group still allows GHA runner IPs (they're wide) |
+| `kensink-install.sh` gives `Download failed` | `release-cli.yml` didn't run or failed | Check `gh run list --workflow=release-cli.yml -R johnefemer/multica`; re-run it manually if needed |
+| `agenthost version` shows an old build after install | User already had a binary, `install_or_upgrade_cli` path only reinstalls current — but install was successful. | Usually nothing — the script always overwrites. If truly stuck, `which agenthost` and remove stale copies in `~/.local/bin` and `/usr/local/bin` |
+| `dd-agent` restarts in a loop, log says `You must set an DD_API_KEY` | `.env` on server missing/empty `DD_API_KEY` after a compose file change | `grep ^DD_API_KEY= /opt/multica/.env` — if empty, populate and `docker compose -f docker-compose.datadog.yml up -d --force-recreate datadog-agent` |
+| Compose errors with `DD_API_KEY must be set in /opt/multica/.env` | Intended guardrail — no key set | Add `DD_API_KEY=<key>` to `.env`, then recreate the agent |
 
 ---
 
@@ -308,3 +523,5 @@ Plus `GITHUB_TOKEN` (auto-provided) with `packages: write` — granted via the j
 - [ ] Go code compiles (`cd server && go build ./...`)
 - [ ] If touching the frontend, `NEXT_PUBLIC_*` vars don't need rebuild args unless added to `build-args:` in [`build-kensink-images.yml`](../.github/workflows/build-kensink-images.yml)
 - [ ] DB backup taken if the migration is destructive
+- [ ] If the change affects CLI behavior (`server/cmd/multica/`, `server/internal/daemon/`), remember `release-cli.yml` will auto-publish the new binary — existing installs need `kensink-install.sh` re-run to pick it up
+- [ ] If touching `docker-compose.datadog.yml`, remember no workflow will redeploy it — you must SSH and `docker compose ... up -d --force-recreate datadog-agent` manually
