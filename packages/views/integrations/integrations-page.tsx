@@ -2,10 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  GitBranch,
-  MessageSquare,
-  FileText,
-  Mail,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -18,6 +14,10 @@ import {
   Link,
   Info,
 } from "lucide-react";
+import { GitHubLogo } from "./logos/github-logo";
+import { SlackLogo } from "./logos/slack-logo";
+import { NotionLogo } from "./logos/notion-logo";
+import { EmailLogo } from "./logos/email-logo";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent, CardHeader } from "@multica/ui/components/ui/card";
@@ -63,6 +63,8 @@ interface ProviderDef {
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   iconBg: string;
+  /** When false the icon manages its own colours (e.g. full-colour SVGs like Slack). */
+  iconWhite?: boolean;
   category: ProviderCategory;
   comingSoon?: boolean;
   docsUrl?: string;
@@ -76,8 +78,9 @@ const CATALOG: ProviderDef[] = [
     tagline: "Sync issues, track PRs, monitor CI",
     description:
       "Connect your GitHub account to import issues, receive real-time webhook updates, monitor GitHub Actions runs, and manage pull requests — all from within Agenthost.",
-    icon: GitBranch,
+    icon: GitHubLogo,
     iconBg: "bg-zinc-900 dark:bg-zinc-800",
+    iconWhite: true,
     category: "Dev",
     docsUrl: "https://docs.github.com/en/developers/apps",
     features: [
@@ -94,8 +97,8 @@ const CATALOG: ProviderDef[] = [
     tagline: "Task notifications in your Slack workspace",
     description:
       "Get notified in Slack when issues are created, assigned, or resolved. Post agent activity updates to channels. Coming soon.",
-    icon: MessageSquare,
-    iconBg: "bg-[#4A154B]",
+    icon: SlackLogo,
+    iconBg: "bg-white dark:bg-zinc-800",
     category: "Communication",
     comingSoon: true,
     features: [
@@ -110,8 +113,9 @@ const CATALOG: ProviderDef[] = [
     tagline: "Sync pages and database rows",
     description:
       "Map Agenthost issues to Notion database rows. Keep acceptance criteria, context refs, and status in sync bidirectionally. Coming soon.",
-    icon: FileText,
-    iconBg: "bg-zinc-900 dark:bg-zinc-700",
+    icon: NotionLogo,
+    iconBg: "bg-zinc-900 dark:bg-zinc-800",
+    iconWhite: true,
     category: "Productivity",
     comingSoon: true,
     features: [
@@ -126,8 +130,9 @@ const CATALOG: ProviderDef[] = [
     tagline: "Turn inbound emails into issues",
     description:
       "Forward emails to your workspace address and Agenthost creates issues automatically. Replies are threaded as comments. Coming soon.",
-    icon: Mail,
+    icon: EmailLogo,
     iconBg: "bg-blue-600",
+    iconWhite: true,
     category: "Communication",
     comingSoon: true,
     features: [
@@ -363,7 +368,7 @@ function IntegrationCard({
         <div className="flex items-start gap-3">
           {/* Icon */}
           <div className={`rounded-lg p-2.5 shrink-0 ${def.iconBg}`}>
-            <Icon className="size-5 text-white" />
+            <Icon className={`size-5 ${def.iconWhite ? "text-white" : ""}`} />
           </div>
 
           {/* Info */}
