@@ -50,12 +50,23 @@ services:
 
       # --- Container + process monitoring ---
       DD_PROCESS_AGENT_ENABLED: "true"
-      DD_CONTAINER_EXCLUDE: "name:dd-agent"   # don't monitor itself
+      # General autodiscovery exclusion — stops metrics/checks on the agent itself.
+      DD_CONTAINER_EXCLUDE: "name:dd-agent"
 
-      # --- Log collection ---
+      # --- Log collection (all containers, opt-out model) ---
+      # CONTAINER_COLLECT_ALL tails every container on the host. Any container
+      # that exposes stdout/stderr will stream to Datadog without per-service
+      # config. Opt out by adding entries to DD_CONTAINER_EXCLUDE_LOGS or by
+      # setting the `com.datadoghq.ad.logs` label on the container.
       DD_LOGS_ENABLED: "true"
       DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "true"
       DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION: "true"
+      # Log-specific exclusion. Complements DD_CONTAINER_EXCLUDE so the agent's
+      # own log lines don't loop back in. Additional patterns are comma-separated,
+      # e.g. "name:dd-agent,image:gcr.io/datadoghq/.*".
+      DD_CONTAINER_EXCLUDE_LOGS: "name:dd-agent"
+      # Attach Docker labels (com.docker.compose.service, etc.) as Datadog tags,
+      # so log-search filters like `service:backend` work out of the box.
       DD_CONTAINER_LABELS_AS_TAGS: "true"
 
       # --- System probe (network performance monitoring) ---
