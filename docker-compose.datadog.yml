@@ -30,7 +30,10 @@ services:
 
     environment:
       # --- Core ---
-      DD_API_KEY: "cd01dbdb89413ee83bddea26bec0ec62"
+      # DD_API_KEY is read from /opt/multica/.env on the server.
+      # Compose errors with a clear message if the variable is missing,
+      # so a misconfigured .env can't silently ship an empty-key agent.
+      DD_API_KEY: "${DD_API_KEY:?DD_API_KEY must be set in /opt/multica/.env}"
       DD_SITE: "us5.datadoghq.com"
       DD_ENV: "prod"
       DD_HOSTNAME: "agenthost"
