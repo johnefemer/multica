@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -368,6 +369,8 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 
 	imported := 0
 	skipped := 0
+	failed := 0
+	var firstErr error
 	for _, ghi := range ghIssues {
 		extID := fmt.Sprintf("%d", ghi.Number)
 		// Check if already imported.
@@ -377,7 +380,11 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 			continue // already exists
 		}
 		if !errors.Is(lookupErr, pgx.ErrNoRows) {
-			slog.Warn("import: db lookup error", "error", lookupErr)
+			slog.Error("import: db lookup error", "repo", req.Repo, "number", ghi.Number, "error", lookupErr)
+			failed++
+			if firstErr == nil {
+				firstErr = lookupErr
+			}
 			continue
 		}
 
@@ -387,21 +394,13 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 			status = "done"
 		}
 
-		issue, createErr := h.Queries.CreateIntegrationIssue(ctx, db.CreateIntegrationIssueParams{
-			WorkspaceID:            wsID,
-			Title:                  ghi.Title,
-			Description:            pgtype.Text{String: ghi.Body, Valid: ghi.Body != ""},
-			Status:                 status,
-			Priority:               "medium",
-			CreatorType:            "member",
-			CreatorID:              creatorUUID,
-			IntegrationProvider:    "github",
-			IntegrationExternalID:  extID,
-			IntegrationExternalURL: ghi.HTMLURL,
-			IntegrationRepo:        req.Repo,
-		})
+		issue, createErr := h.createIntegrationIssueTx(ctx, wsID, creatorUUID, status, req.Repo, extID, ghi)
 		if createErr != nil {
-			slog.Warn("import: failed to create issue", "repo", req.Repo, "number", ghi.Number, "error", createErr)
+			slog.Error("import: failed to create issue", "repo", req.Repo, "number", ghi.Number, "error", createErr)
+			failed++
+			if firstErr == nil {
+				firstErr = createErr
+			}
 			continue
 		}
 
@@ -413,7 +412,65 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 		imported++
 	}
 
-	writeJSON(w, http.StatusOK, map[string]int{"imported": imported, "skipped": skipped})
+	resp := map[string]any{
+		"imported": imported,
+		"skipped":  skipped,
+		"failed":   failed,
+	}
+	// If every issue failed to create, surface the underlying cause so the UI
+	// stops claiming success when nothing was imported.
+	if failed > 0 && imported == 0 && firstErr != nil {
+		resp["error"] = firstErr.Error()
+		writeJSON(w, http.StatusInternalServerError, resp)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// createIntegrationIssueTx atomically reserves the next per-workspace issue
+// number and inserts the imported issue using it. The tx is required because
+// number is bounded by a UNIQUE (workspace_id, number) constraint — without
+// it two concurrent imports could pick the same counter value.
+func (h *Handler) createIntegrationIssueTx(
+	ctx context.Context,
+	wsID pgtype.UUID,
+	creatorUUID pgtype.UUID,
+	status, repo, extID string,
+	ghi githubprovider.GitHubIssue,
+) (db.Issue, error) {
+	tx, err := h.TxStarter.Begin(ctx)
+	if err != nil {
+		return db.Issue{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := h.Queries.WithTx(tx)
+
+	number, err := qtx.IncrementIssueCounter(ctx, wsID)
+	if err != nil {
+		return db.Issue{}, fmt.Errorf("increment issue counter: %w", err)
+	}
+
+	issue, err := qtx.CreateIntegrationIssue(ctx, db.CreateIntegrationIssueParams{
+		WorkspaceID:            wsID,
+		Title:                  ghi.Title,
+		Description:            pgtype.Text{String: ghi.Body, Valid: ghi.Body != ""},
+		Status:                 status,
+		Priority:               "medium",
+		CreatorType:            "member",
+		CreatorID:              creatorUUID,
+		Number:                 number,
+		IntegrationProvider:    "github",
+		IntegrationExternalID:  extID,
+		IntegrationExternalURL: ghi.HTMLURL,
+		IntegrationRepo:        repo,
+	})
+	if err != nil {
+		return db.Issue{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return db.Issue{}, err
+	}
+	return issue, nil
 }
 
 // RegisterGitHubWebhookRequest is the request body for webhook registration.

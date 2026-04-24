@@ -232,11 +232,11 @@ func (q *Queries) GetIssueByIntegration(ctx context.Context, workspaceID pgtype.
 const createIntegrationIssue = `-- name: CreateIntegrationIssue :one
 INSERT INTO issue (
     workspace_id, title, description, status, priority,
-    creator_type, creator_id, origin_type,
+    creator_type, creator_id, origin_type, number,
     integration_provider, integration_external_id, integration_external_url,
     integration_repo, integration_synced_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, 'integration', $8, $9, $10, $11, now()
+    $1, $2, $3, $4, $5, $6, $7, 'integration', $8, $9, $10, $11, $12, now()
 )
 RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, integration_provider, integration_external_id, integration_external_url, integration_repo, integration_synced_at
 `
@@ -249,6 +249,7 @@ type CreateIntegrationIssueParams struct {
 	Priority               string      `json:"priority"`
 	CreatorType            string      `json:"creator_type"`
 	CreatorID              pgtype.UUID `json:"creator_id"`
+	Number                 int32       `json:"number"`
 	IntegrationProvider    string      `json:"integration_provider"`
 	IntegrationExternalID  string      `json:"integration_external_id"`
 	IntegrationExternalURL string      `json:"integration_external_url"`
@@ -258,7 +259,7 @@ type CreateIntegrationIssueParams struct {
 func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrationIssueParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, createIntegrationIssue,
 		arg.WorkspaceID, arg.Title, arg.Description, arg.Status, arg.Priority,
-		arg.CreatorType, arg.CreatorID,
+		arg.CreatorType, arg.CreatorID, arg.Number,
 		arg.IntegrationProvider, arg.IntegrationExternalID,
 		arg.IntegrationExternalURL, arg.IntegrationRepo,
 	)

@@ -170,7 +170,21 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 			return fmt.Errorf("get github connection: %w", err)
 		}
 
-		issue, err := h.Queries.CreateIntegrationIssue(ctx, db.CreateIntegrationIssueParams{
+		// Reserve the next per-workspace issue number and insert atomically so
+		// concurrent webhook deliveries cannot collide on UNIQUE(workspace_id, number).
+		tx, err := h.TxStarter.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx: %w", err)
+		}
+		defer tx.Rollback(ctx)
+		qtx := h.Queries.WithTx(tx)
+
+		number, err := qtx.IncrementIssueCounter(ctx, wsID)
+		if err != nil {
+			return fmt.Errorf("increment issue counter: %w", err)
+		}
+
+		issue, err := qtx.CreateIntegrationIssue(ctx, db.CreateIntegrationIssueParams{
 			WorkspaceID:            wsID,
 			Title:                  ev.Issue.Title,
 			Description:            pgtype.Text{String: ev.Issue.Body, Valid: ev.Issue.Body != ""},
@@ -178,6 +192,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 			Priority:               "medium",
 			CreatorType:            "system",
 			CreatorID:              conn.ConnectedBy,
+			Number:                 number,
 			IntegrationProvider:    "github",
 			IntegrationExternalID:  extID,
 			IntegrationExternalURL: ev.Issue.HTMLURL,
@@ -185,6 +200,9 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 		})
 		if err != nil {
 			return fmt.Errorf("create issue: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit: %w", err)
 		}
 		h.Bus.Publish(events.Event{
 			Type:        protocol.EventIssueCreated,
