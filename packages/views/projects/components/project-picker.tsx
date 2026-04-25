@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Check, FolderKanban, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { projectListOptions } from "@multica/core/projects/queries";
@@ -16,26 +17,48 @@ import {
 export function ProjectPicker({
   projectId,
   onUpdate,
+  trigger,
   triggerRender,
   align = "start",
+  open,
+  onOpenChange,
+  alwaysShowRemove = false,
 }: {
   projectId: string | null;
   onUpdate: (updates: Partial<UpdateIssueRequest>) => void;
+  /** Override the default "[icon] <title|No project>" trigger content. Useful
+   *  for bulk-action toolbars where the categorical label ("Project") is
+   *  preferred over the per-issue current value. */
+  trigger?: ReactNode;
   triggerRender?: React.ReactElement;
   align?: "start" | "center" | "end";
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  /** Show the "Remove from project" item even when projectId is null. The
+   *  default (false) hides it for the single-issue case where there's nothing
+   *  to remove. Bulk callers set this true so users can clear project across
+   *  the selection regardless of any single issue's current value. */
+  alwaysShowRemove?: boolean;
 }) {
   const wsId = useWorkspaceId();
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
   const current = projects.find((p) => p.id === projectId);
+  const showRemove = alwaysShowRemove || projectId !== null;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
         className={triggerRender ? undefined : "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-accent/30 transition-colors overflow-hidden"}
         render={triggerRender}
       >
-        <FolderKanban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate">{current ? current.title : "No project"}</span>
+        {trigger ?? (
+          <>
+            <FolderKanban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">
+              {current ? current.title : "No project"}
+            </span>
+          </>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-52">
         {projects.map((p) => (
@@ -45,8 +68,8 @@ export function ProjectPicker({
             {p.id === projectId && <Check className="ml-auto h-3.5 w-3.5 shrink-0" />}
           </DropdownMenuItem>
         ))}
-        {projects.length > 0 && projectId && <DropdownMenuSeparator />}
-        {projectId && (
+        {projects.length > 0 && showRemove && <DropdownMenuSeparator />}
+        {showRemove && (
           <DropdownMenuItem onClick={() => onUpdate({ project_id: null })}>
             <X className="h-3.5 w-3.5 text-muted-foreground" />
             Remove from project

@@ -18,6 +18,7 @@ import type { UpdateIssueRequest } from "@multica/core/types";
 import { useIssueSelectionStore } from "@multica/core/issues/stores/selection-store";
 import { useBatchUpdateIssues, useBatchDeleteIssues } from "@multica/core/issues/mutations";
 import { StatusPicker, PriorityPicker, AssigneePicker } from "./pickers";
+import { ProjectPicker } from "../../projects/components/project-picker";
 
 export function BatchActionToolbar() {
   const selectedIds = useIssueSelectionStore((s) => s.selectedIds);
@@ -27,6 +28,7 @@ export function BatchActionToolbar() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const batchUpdate = useBatchUpdateIssues();
   const batchDelete = useBatchDeleteIssues();
@@ -103,6 +105,21 @@ export function BatchActionToolbar() {
           triggerRender={<Button variant="ghost" size="sm" disabled={loading} />}
           trigger="Assignee"
           align="center"
+        />
+
+        {/* Project — bulk move. projectId={null} because there's no single
+            "current" value across the selection; the picker is purely a target
+            chooser here. alwaysShowRemove keeps the "Remove from project"
+            option available so users can clear project across the selection. */}
+        <ProjectPicker
+          projectId={null}
+          onUpdate={handleBatchUpdate}
+          open={projectOpen}
+          onOpenChange={setProjectOpen}
+          triggerRender={<Button variant="ghost" size="sm" disabled={loading} />}
+          trigger="Project"
+          align="center"
+          alwaysShowRemove
         />
 
         {/* Delete */}
