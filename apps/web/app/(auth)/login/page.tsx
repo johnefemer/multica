@@ -94,7 +94,12 @@ function LoginPageContent() {
       settledLoggedOutRef.current = true;
       return;
     }
-    if (cliCallbackRaw) return;
+    // Bail out when the user landed on /login to authorize the CLI — for
+    // both the browser callback flow (cli_callback) AND the device-code
+    // flow (cli_state alone, Kensink). Otherwise an already-authenticated user
+    // gets bounced into a workspace and the LoginPage never renders the
+    // cli_confirm step that would mint and surface the auth code.
+    if (cliCallbackRaw || cliState) return;
     if (isDesktopHandoff) {
       // Desktop opened the browser for login but the web session is already
       // authenticated — mint a bearer token from the cookie session and hand
@@ -134,7 +139,7 @@ function LoginPageContent() {
       .catch(() => [] as Workspace[])
       .then((list) => resolveLoggedInDestination(qc, hasOnboarded, list))
       .then((dest) => router.replace(dest));
-  }, [isLoading, user, router, nextUrl, cliCallbackRaw, isDesktopHandoff, hasOnboarded, qc]);
+  }, [isLoading, user, router, nextUrl, cliCallbackRaw, cliState, isDesktopHandoff, hasOnboarded, qc]);
 
   const handleSuccess = async () => {
     // Read the latest user snapshot directly — the closure's `hasOnboarded`
@@ -237,7 +242,12 @@ function LoginPageContent() {
       cliCallback={
         cliCallbackRaw && validateCliCallback(cliCallbackRaw)
           ? { url: cliCallbackRaw, state: cliState }
-          : undefined
+          : cliState
+            ? // Device-code flow: cli_state present without a callback URL.
+              // The login page renders an "Authentication Code" view instead
+              // of redirecting; the CLI exchanges the code for the JWT.
+              { state: cliState }
+            : undefined
       }
       onTokenObtained={setLoggedInCookie}
       extra={

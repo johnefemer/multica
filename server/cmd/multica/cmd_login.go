@@ -61,7 +61,7 @@ func init() {
 	// consume the value normally.
 	loginCmd.Flags().Lookup("token").NoOptDefVal = tokenPromptSentinel
 	loginCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
-	loginCmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the post-OAuth callback URL (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
+	loginCmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {

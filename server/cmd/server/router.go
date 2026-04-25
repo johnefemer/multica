@@ -1520,6 +1520,11 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	r.With(authRL).Post("/auth/google", h.GoogleLogin)
 	r.Post("/auth/logout", h.Logout)
 
+	// CLI device-code flow: exchange is unauthenticated (the (code, state)
+	// pair is the proof). The companion code-issue endpoint requires the
+	// usual user auth and lives below in the protected block.
+	r.Post("/api/auth/cli/exchange", h.ExchangeCliAuthCode)
+
 	// OAuth integration start (requires auth — user must be logged in)
 	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/start", h.IntegrationOAuthStart)
 	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/callback", h.IntegrationOAuthCallback)
@@ -1685,6 +1690,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		// string (Desktop, mobile). Browsers get theirs re-issued inline by
 		// middleware.Auth and never call this (MUL-7436).
 		r.Post("/api/auth/refresh", h.RefreshSession)
+		r.Post("/api/auth/cli/codes", h.IssueCliAuthCode)
 		r.Post("/api/upload-file", h.UploadFile)
 		r.Post("/api/feedback", h.CreateFeedback)
 		r.With(handler.RequireHumanActor).Post("/api/client-usage", h.UpsertClientUsage)
