@@ -37,6 +37,7 @@ var loginCmd = &cobra.Command{
 
 func init() {
 	loginCmd.Flags().Bool("token", false, "Authenticate by pasting a personal access token")
+	loginCmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the post-OAuth callback URL (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
