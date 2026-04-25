@@ -9,7 +9,7 @@ name: Build & Push Kensink Images
 
 on:
   push:
-    branches: [kensink]
+    branches: [kensink-v2]
     paths:
       - "server/**"
       - "apps/web/**"
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink
+          ref: kensink-v2
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -69,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink
+          ref: kensink-v2
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -107,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink
+          ref: kensink-v2
 
       - name: Set up SSH
         run: |

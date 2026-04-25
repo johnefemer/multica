@@ -14,7 +14,9 @@
 set -euo pipefail
 
 INSTALL_DIR="/opt/multica"
-BRANCH="kensink"
+# Respect $BRANCH from caller (deploy.yml passes it); fall back to kensink-v2
+# (the active deploy line; kensink itself is held as a stable snapshot).
+BRANCH="${BRANCH:-kensink-v2}"
 COMPOSE_FILE="docker-compose.selfhost.yml"
 HEALTH_URL="http://localhost:8080/health"
 HEALTH_RETRIES=30

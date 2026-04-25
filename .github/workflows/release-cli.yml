@@ -6,7 +6,7 @@ name: Release CLI (kensink)
 
 on:
   push:
-    branches: [kensink]
+    branches: [kensink-v2]
     paths:
       - "server/**"
       - "scripts/kensink-install.sh"
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink
+          ref: kensink-v2
 
       - uses: actions/setup-go@v5
         with:
@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink
+          ref: kensink-v2
 
       - uses: actions/download-artifact@v4
         with:
