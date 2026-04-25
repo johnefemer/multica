@@ -776,6 +776,7 @@
     "status": "ステータス",
     "priority": "優先度",
     "assignee": "担当者",
+    "project": "プロジェクト",
     "delete": "削除",
     "update_success_other": "タスク {{count}} 件を更新しました",
     "update_failed": "タスクを更新できませんでした",

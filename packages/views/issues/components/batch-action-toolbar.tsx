@@ -20,6 +20,7 @@ import { commonIssueFields } from "@multica/core/issues/batch";
 import { useBatchUpdateIssues, useBatchDeleteIssues } from "@multica/core/issues/mutations";
 import { useModalStore } from "@multica/core/modals";
 import { StatusPicker, PriorityPicker, AssigneePicker } from "./pickers";
+import { ProjectPicker } from "../../projects/components/project-picker";
 import { useT } from "../../i18n";
 import { cn } from "@multica/ui/lib/utils";
 import {
@@ -76,6 +77,7 @@ export function BatchActionToolbar({
   const [statusOpen, setStatusOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const surfaceActions = useIssueSurfaceActionsOptional();
   const batchUpdate = useBatchUpdateIssues();
@@ -90,6 +92,7 @@ export function BatchActionToolbar({
     setStatusOpen(false);
     setPriorityOpen(false);
     setAssigneeOpen(false);
+    setProjectOpen(false);
     setDeleteOpen(false);
   }, [count]);
 
@@ -251,6 +254,19 @@ export function BatchActionToolbar({
           onOpenChange={setAssigneeOpen}
           triggerRender={<Button variant="ghost" size="sm" disabled={loading} />}
           trigger={t(($) => $.batch.assignee)}
+          align="center"
+        />
+
+        {/* Project — bulk move (Kensink). projectId={null} because there's no
+            single current value across the selection; the picker's "No
+            project" row clears project for every selected issue. */}
+        <ProjectPicker
+          projectId={null}
+          onUpdate={handleBatchUpdate}
+          open={projectOpen}
+          onOpenChange={setProjectOpen}
+          triggerRender={<Button variant="ghost" size="sm" disabled={loading} />}
+          trigger={t(($) => $.batch.project)}
           align="center"
         />
 

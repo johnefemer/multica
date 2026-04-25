@@ -25,6 +25,7 @@ export function ProjectPicker({
   open: controlledOpen,
   onOpenChange,
   disabled = false,
+  trigger: triggerLabel,
 }: {
   projectId: string | null;
   onUpdate: (updates: Partial<UpdateIssueRequest>) => void;
@@ -41,6 +42,9 @@ export function ProjectPicker({
    *  the menu locks clearing too. Callers that must freeze the selection
    *  during a transient window (an in-flight chat send) pass this. */
   disabled?: boolean;
+  /** Static trigger label (bulk toolbar) — replaces the current-project
+   *  display, matching the other pickers' `trigger` prop. */
+  trigger?: React.ReactNode;
 }) {
   const { t } = useT("projects");
   const wsId = useWorkspaceId();
@@ -82,7 +86,7 @@ export function ProjectPicker({
         onSearchChange={setFilter}
         triggerRender={resolvedTriggerRender}
         trigger={
-          current ? (
+          triggerLabel ?? (current ? (
             <>
               <ProjectIcon project={current} size="sm" />
               <span className="truncate">{current.title}</span>
@@ -92,7 +96,7 @@ export function ProjectPicker({
               <FolderKanban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{t(($) => $.picker.no_project)}</span>
             </>
-          )
+          ))
         }
       >
         {/* "No project" — always the first row, search active or not, and the

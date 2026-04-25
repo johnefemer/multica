@@ -811,6 +811,7 @@
     "status": "Statut",
     "priority": "Priorité",
     "assignee": "Assigné à",
+    "project": "Projet",
     "delete": "Supprimer",
     "update_success_one": "{{count}} tâche mise à jour",
     "update_success_other": "{{count}} tâches mises à jour",
