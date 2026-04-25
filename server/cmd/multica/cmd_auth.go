@@ -127,6 +127,10 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	if err := requireHumanLocalCommand("login"); err != nil {
 		return err
 	}
+	useManual, _ := cmd.Flags().GetBool("manual")
+	if useManual && cmd.Flags().Changed("token") {
+		return fmt.Errorf("--token and --manual are mutually exclusive")
+	}
 	if cmd.Flags().Changed("token") {
 		tokenFlag, _ := cmd.Flags().GetString("token")
 		// `--token mul_xxx` (space form) is what users actually type — that's
@@ -137,6 +141,9 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 			tokenFlag = args[0]
 		}
 		return runAuthLoginToken(cmd, tokenFlag)
+	}
+	if useManual {
+		return runAuthLoginManual(cmd)
 	}
 	return runAuthLoginBrowser(cmd)
 }
@@ -312,7 +319,13 @@ func runAuthLoginBrowser(cmd *cobra.Command) error {
 		return fmt.Errorf("timed out waiting for authentication")
 	}
 
-	// Use the JWT to create a PAT via the existing API.
+	return finishLoginWithJWT(cmd, serverURL, appURL, jwtToken)
+}
+
+// finishLoginWithJWT exchanges the short-lived browser JWT for a long-lived
+// PAT, verifies it, and saves the resulting config. Shared by the browser
+// and manual login flows.
+func finishLoginWithJWT(cmd *cobra.Command, serverURL, appURL, jwtToken string) error {
 	client := cli.NewAPIClient(serverURL, "", jwtToken)
 
 	ctx, cancel := cli.APIContext(context.Background())
@@ -328,15 +341,13 @@ func runAuthLoginBrowser(cmd *cobra.Command) error {
 	var patResp struct {
 		Token string `json:"token"`
 	}
-	err = client.PostJSON(ctx, "/api/tokens", map[string]any{
+	if err := client.PostJSON(ctx, "/api/tokens", map[string]any{
 		"name":            patName,
 		"expires_in_days": expiresInDays,
-	}, &patResp)
-	if err != nil {
+	}, &patResp); err != nil {
 		return cli.WithUserMessageUnlessNetwork("Sign-in did not complete: the server could not issue an access token for the CLI. Run `multica login` again.", err)
 	}
 
-	// Verify the PAT works.
 	patClient := cli.NewAPIClient(serverURL, "", patResp.Token)
 	var me struct {
 		Name  string `json:"name"`
@@ -427,6 +438,7 @@ func runAuthLoginToken(cmd *cobra.Command, providedToken string) error {
 			return fmt.Errorf("no input")
 		}
 		token = strings.TrimSpace(scanner.Text())
+
 	}
 	if token == "" {
 		return fmt.Errorf("token is required")
@@ -463,6 +475,69 @@ func runAuthLoginToken(cmd *cobra.Command, providedToken string) error {
 
 	fmt.Fprintf(os.Stderr, "Authenticated as %s (%s)\nToken saved to config.\n", me.Name, me.Email)
 	return nil
+}
+
+// runAuthLoginManual handles the headless / SSH login flow. Instead of
+// running a local HTTP listener (which the user's browser can't reach
+// across machines), it prints the auth URL, lets the post-OAuth redirect
+// fail in the browser, and reads the redirected URL back from stdin.
+//
+// The frontend's validateCliCallback only allows localhost / 127.0.0.1 /
+// RFC 1918 hosts (packages/views/auth/login-page.tsx), so we send a
+// known-closed localhost port (`:1`) — the browser fails fast on the
+// connection refused, but the address bar still shows the redirect target
+// with the JWT and CSRF state intact for the user to copy.
+func runAuthLoginManual(cmd *cobra.Command) error {
+	serverURL := resolveServerURL(cmd)
+	appURL := resolveAppURL(cmd)
+
+	stateBytes := make([]byte, 16)
+	if _, err := rand.Read(stateBytes); err != nil {
+		return fmt.Errorf("failed to generate state: %w", err)
+	}
+	state := hex.EncodeToString(stateBytes)
+
+	callbackURL := "http://localhost:1/callback"
+	loginURL := fmt.Sprintf("%s/login?cli_callback=%s&cli_state=%s",
+		appURL, url.QueryEscape(callbackURL), url.QueryEscape(state))
+
+	fmt.Fprintln(os.Stderr, "Manual login (for headless / SSH environments).")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  1. Open this URL in any browser:")
+	fmt.Fprintf(os.Stderr, "       %s\n\n", loginURL)
+	fmt.Fprintln(os.Stderr, "  2. Log in. Your browser will redirect to a URL that fails to load")
+	fmt.Fprintf(os.Stderr, "     (%s?token=...&state=...) — that is expected.\n", callbackURL)
+	fmt.Fprintln(os.Stderr, "     Copy the FULL redirected URL from the address bar.")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  3. Paste it below and press Enter.")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprint(os.Stderr, "Paste callback URL: ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	// JWTs run ~500-1000 bytes; bump the line buffer well above the 64KB default.
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	if !scanner.Scan() {
+		return fmt.Errorf("no input")
+	}
+	pasted := strings.TrimSpace(scanner.Text())
+	if pasted == "" {
+		return fmt.Errorf("URL is required")
+	}
+
+	parsed, err := url.Parse(pasted)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	jwtToken := parsed.Query().Get("token")
+	returnedState := parsed.Query().Get("state")
+	if jwtToken == "" {
+		return fmt.Errorf("missing token in pasted URL — expected %s?token=...&state=...", callbackURL)
+	}
+	if returnedState != state {
+		return fmt.Errorf("state mismatch — pasted URL does not match this login attempt (CSRF check failed). Re-run 'agenthost login --manual' and paste the URL from THIS session")
+	}
+
+	return finishLoginWithJWT(cmd, serverURL, appURL, jwtToken)
 }
 
 func runAuthStatus(cmd *cobra.Command, _ []string) error {
