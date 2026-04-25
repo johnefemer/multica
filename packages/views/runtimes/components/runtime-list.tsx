@@ -13,6 +13,11 @@ import {
 import { ActorAvatar } from "../../common/actor-avatar";
 import { PageHeader } from "../../layout/page-header";
 import { ProviderLogo } from "./provider-logo";
+import {
+  getMulticaCliVersion,
+  getRuntimeDisplayNameShort,
+  groupRuntimesByDestination,
+} from "../utils";
 
 type RuntimeFilter = "mine" | "all";
 
@@ -22,25 +27,32 @@ function RuntimeListItem({
   ownerMember,
   hasUpdate,
   onClick,
+  nameOverride,
+  nested = false,
 }: {
   runtime: AgentRuntime;
   isSelected: boolean;
   ownerMember: MemberWithUser | null;
   hasUpdate: boolean;
   onClick: () => void;
+  /** Under a destination group, show "Cursor" instead of "Cursor (kensink.local)". */
+  nameOverride?: string;
+  nested?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
-        isSelected ? "bg-accent" : "hover:bg-accent/50"
-      }`}
+      className={`flex w-full items-center gap-3 text-left transition-colors ${
+        nested ? "px-4 py-2.5 pl-7" : "px-4 py-3"
+      } ${isSelected ? "bg-accent" : "hover:bg-accent/50"}`}
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center">
         <ProviderLogo provider={runtime.provider} className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{runtime.name}</div>
+        <div className="truncate text-sm font-medium">
+          {nameOverride ?? runtime.name}
+        </div>
         <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           {ownerMember ? (
             <>
@@ -129,13 +141,16 @@ export function RuntimeList({
 
   const selectedOwner = ownerFilter ? getOwnerMember(ownerFilter) : null;
 
+  const groups = groupRuntimesByDestination(filteredRuntimes);
+
   return (
     <div className="overflow-y-auto h-full border-r">
       <PageHeader className="justify-between">
-        <h1 className="text-sm font-semibold">Runtimes</h1>
+        <h1 className="text-sm font-semibold">Destinations</h1>
         <span className="text-xs text-muted-foreground">
+          {groups.length} {groups.length === 1 ? "destination" : "destinations"} ·{" "}
           {filteredRuntimes.filter((r) => r.status === "online").length}/
-          {filteredRuntimes.length} online
+          {filteredRuntimes.length} runtimes online
         </span>
       </PageHeader>
 
@@ -239,16 +254,38 @@ export function RuntimeList({
         )
       ) : (
         <div className="divide-y">
-          {filteredRuntimes.map((runtime) => (
-            <RuntimeListItem
-              key={runtime.id}
-              runtime={runtime}
-              isSelected={runtime.id === selectedId}
-              ownerMember={getOwnerMember(runtime.owner_id)}
-              hasUpdate={updatableIds?.has(runtime.id) ?? false}
-              onClick={() => onSelect(runtime.id)}
-            />
-          ))}
+          {groups.map((group) => {
+            const head = group.runtimes[0]!;
+            const cli = getMulticaCliVersion(head.metadata);
+            return (
+              <div key={group.key} className="py-0">
+                <div className="px-4 pt-3 pb-1.5 border-b border-border/50 bg-muted/20">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {group.label}
+                    </p>
+                    {cli && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Multica CLI {cli}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {group.runtimes.map((runtime) => (
+                  <RuntimeListItem
+                    key={runtime.id}
+                    runtime={runtime}
+                    isSelected={runtime.id === selectedId}
+                    ownerMember={getOwnerMember(runtime.owner_id)}
+                    hasUpdate={updatableIds?.has(runtime.id) ?? false}
+                    onClick={() => onSelect(runtime.id)}
+                    nameOverride={getRuntimeDisplayNameShort(runtime)}
+                    nested
+                  />
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

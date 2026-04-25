@@ -22,23 +22,12 @@ import {
   AlertDialogTitle,
 } from "@multica/ui/components/ui/alert-dialog";
 import { ActorAvatar } from "../../common/actor-avatar";
-import { formatLastSeen } from "../utils";
+import { formatLastSeen, getMulticaCliVersion } from "../utils";
 import { StatusBadge, InfoField } from "./shared";
 import { ProviderLogo } from "./provider-logo";
 import { PingSection } from "./ping-section";
 import { UpdateSection } from "./update-section";
 import { UsageSection } from "./usage-section";
-
-function getCliVersion(metadata: Record<string, unknown>): string | null {
-  if (
-    metadata &&
-    typeof metadata.cli_version === "string" &&
-    metadata.cli_version
-  ) {
-    return metadata.cli_version;
-  }
-  return null;
-}
 
 function getLaunchedBy(metadata: Record<string, unknown>): string | null {
   if (
@@ -213,7 +202,7 @@ function GitHubTokenSection({
 
 export function RuntimeDetail({ runtime }: { runtime: AgentRuntime }) {
   const cliVersion =
-    runtime.runtime_mode === "local" ? getCliVersion(runtime.metadata) : null;
+    runtime.runtime_mode === "local" ? getMulticaCliVersion(runtime.metadata) : null;
   const launchedBy =
     runtime.runtime_mode === "local" ? getLaunchedBy(runtime.metadata) : null;
 

@@ -1,4 +1,90 @@
-import type { RuntimeUsage } from "@multica/core/types";
+import type { AgentRuntime, RuntimeUsage } from "@multica/core/types";
+
+// ---------------------------------------------------------------------------
+// Runtime / destination helpers
+// ---------------------------------------------------------------------------
+
+/** Multica CLI version reported by the daemon (metadata.cli_version). */
+export function getMulticaCliVersion(
+  metadata: Record<string, unknown> | undefined,
+): string | null {
+  if (
+    metadata &&
+    typeof metadata.cli_version === "string" &&
+    metadata.cli_version
+  ) {
+    return metadata.cli_version;
+  }
+  return null;
+}
+
+/**
+ * Grouping key: one machine/daemon (multiple agent CLIs) shares `daemon_id`.
+ * When missing, the runtime is its own "destination" (e.g. cloud or legacy).
+ */
+export function getRuntimeDestinationKey(runtime: AgentRuntime): string {
+  if (runtime.daemon_id) {
+    return `daemon:${runtime.daemon_id}`;
+  }
+  return `runtime:${runtime.id}`;
+}
+
+/**
+ * Human label for a machine/destination, e.g. the host in "Cursor (kensink.local)".
+ */
+export function getDestinationLabel(runtime: AgentRuntime): string {
+  const name = runtime.name.trim();
+  const paren = name.lastIndexOf(" (");
+  if (paren > 0 && name.endsWith(")")) {
+    return name.slice(paren + 2, -1);
+  }
+  const di = runtime.device_info?.trim() ?? "";
+  if (di) {
+    const sep = di.indexOf(" · ");
+    return sep >= 0 ? di.slice(0, sep) : di;
+  }
+  return runtime.daemon_id ?? "Unknown";
+}
+
+/**
+ * Name without the " (host)" suffix for nested lists under a destination.
+ */
+export function getRuntimeDisplayNameShort(runtime: AgentRuntime): string {
+  const name = runtime.name.trim();
+  const paren = name.lastIndexOf(" (");
+  if (paren > 0 && name.endsWith(")")) {
+    return name.slice(0, paren);
+  }
+  return name;
+}
+
+export interface RuntimeDestinationGroup {
+  key: string;
+  label: string;
+  runtimes: AgentRuntime[];
+}
+
+export function groupRuntimesByDestination(
+  runtimes: AgentRuntime[],
+): RuntimeDestinationGroup[] {
+  const map = new Map<string, AgentRuntime[]>();
+  for (const r of runtimes) {
+    const k = getRuntimeDestinationKey(r);
+    const list = map.get(k) ?? [];
+    list.push(r);
+    map.set(k, list);
+  }
+  const groups: RuntimeDestinationGroup[] = [];
+  for (const [key, list] of map) {
+    const sorted = [...list].sort((a, b) =>
+      a.provider.localeCompare(b.provider),
+    );
+    const label = getDestinationLabel(sorted[0]!);
+    groups.push({ key, label, runtimes: sorted });
+  }
+  groups.sort((a, b) => a.label.localeCompare(b.label));
+  return groups;
+}
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
