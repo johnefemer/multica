@@ -38,6 +38,7 @@ var loginCmd = &cobra.Command{
 func init() {
 	loginCmd.Flags().Bool("token", false, "Authenticate by pasting a personal access token")
 	loginCmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
+	loginCmd.Flags().String(callbackHostFlag, "", "Host the OAuth callback URL points at (auto-detected from the server's route when empty). Use this for reverse-proxy / FQDN setups where auto-detection picks the wrong interface.")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {

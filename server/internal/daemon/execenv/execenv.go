@@ -42,6 +42,17 @@ type TaskContextForEnv struct {
 	// GHAvailable is true when the daemon detected an authenticated gh CLI at startup.
 	// When true, agents are informed they can use `gh` for GitHub interactions.
 	GHAvailable bool
+	// Autopilot context — only populated for autopilot run-only tasks. The
+	// fields are merged in from upstream so context.go's env injection
+	// compiles; daemon.go on kensink does not yet wire these through (see
+	// merge notes in the kensink-merge-main branch). Safe to leave empty —
+	// context.go's emitter is a no-op when AutopilotRunID is "".
+	AutopilotRunID          string
+	AutopilotID             string
+	AutopilotTitle          string
+	AutopilotDescription    string
+	AutopilotSource         string
+	AutopilotTriggerPayload string
 }
 
 // SkillContextForEnv represents a skill to be written into the execution environment.
