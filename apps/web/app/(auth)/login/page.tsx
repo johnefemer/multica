@@ -54,7 +54,12 @@ function LoginPageContent() {
   // (or /onboarding if the user has none). Skip this entire path when
   // the user arrived to authorize the CLI.
   useEffect(() => {
-    if (isLoading || !user || cliCallbackRaw) return;
+    // Bail out when the user landed on /login to authorize the CLI — for
+    // both the browser callback flow (cli_callback) AND the device-code
+    // flow (cli_state alone). Otherwise an already-authenticated user gets
+    // bounced into a workspace and the LoginPage never renders the cli_confirm
+    // step that would mint and surface the auth code.
+    if (isLoading || !user || cliCallbackRaw || cliState) return;
     if (isDesktopHandoff) {
       // Desktop opened the browser for login but the web session is already
       // authenticated — mint a bearer token from the cookie session and hand
@@ -82,7 +87,7 @@ function LoginPageContent() {
     }
     const list = qc.getQueryData<Workspace[]>(workspaceKeys.list()) ?? [];
     router.replace(resolvePostAuthDestination(list, hasOnboarded));
-  }, [isLoading, user, router, nextUrl, cliCallbackRaw, isDesktopHandoff, hasOnboarded, qc]);
+  }, [isLoading, user, router, nextUrl, cliCallbackRaw, cliState, isDesktopHandoff, hasOnboarded, qc]);
 
   const handleSuccess = () => {
     // Read the latest user snapshot directly — the closure's `hasOnboarded`
@@ -178,7 +183,12 @@ function LoginPageContent() {
       cliCallback={
         cliCallbackRaw && validateCliCallback(cliCallbackRaw)
           ? { url: cliCallbackRaw, state: cliState }
-          : undefined
+          : cliState
+            ? // Device-code flow: cli_state present without a callback URL.
+              // The login page renders an "Authentication Code" view instead
+              // of redirecting; the CLI exchanges the code for the JWT.
+              { state: cliState }
+            : undefined
       }
       onTokenObtained={setLoggedInCookie}
       extra={

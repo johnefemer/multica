@@ -242,67 +242,70 @@ func finishLoginWithJWT(cmd *cobra.Command, serverURL, appURL, jwtToken string) 
 	return nil
 }
 
-// runAuthLoginManual handles the headless / SSH login flow. Instead of
-// running a local HTTP listener (which the user's browser can't reach
-// across machines), it prints the auth URL, lets the post-OAuth redirect
-// fail in the browser, and reads the redirected URL back from stdin.
+// runAuthLoginManual handles the headless / SSH login flow using a
+// device-code rendezvous. The CLI generates a random verifier (`state`),
+// prints a login URL with `cli_state` (no `cli_callback`), and waits for
+// the user to paste back a short opaque code. The browser-side login page
+// recognises the missing callback, mints a fresh JWT after the user
+// authenticates, stashes it under (code, state) on the server, and
+// displays the code. The CLI then exchanges (code, state) for the JWT.
 //
-// The frontend's validateCliCallback only allows localhost / 127.0.0.1 /
-// RFC 1918 hosts (packages/views/auth/login-page.tsx), so we send a
-// known-closed localhost port (`:1`) — the browser fails fast on the
-// connection refused, but the address bar still shows the redirect target
-// with the JWT and CSRF state intact for the user to copy.
+// This is a closer fit to the OAuth 2.0 device-authorization pattern than
+// the older URL-paste flow it replaces: the user pastes a ~32-char code
+// instead of a 600-byte URL, the JWT never appears in chat / screenshots,
+// and the code is one-shot with a 5-minute TTL.
 func runAuthLoginManual(cmd *cobra.Command) error {
 	serverURL := resolveServerURL(cmd)
 	appURL := resolveAppURL(cmd)
 
-	stateBytes := make([]byte, 16)
+	stateBytes := make([]byte, 32)
 	if _, err := rand.Read(stateBytes); err != nil {
 		return fmt.Errorf("failed to generate state: %w", err)
 	}
 	state := hex.EncodeToString(stateBytes)
 
-	callbackURL := "http://localhost:1/callback"
-	loginURL := fmt.Sprintf("%s/login?cli_callback=%s&cli_state=%s",
-		appURL, url.QueryEscape(callbackURL), url.QueryEscape(state))
+	loginURL := fmt.Sprintf("%s/login?cli_state=%s", appURL, url.QueryEscape(state))
 
-	fmt.Fprintln(os.Stderr, "Manual login (for headless / SSH environments).")
+	fmt.Fprintln(os.Stderr, "Headless login (for SSH / no-browser environments).")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "  1. Open this URL in any browser:")
 	fmt.Fprintf(os.Stderr, "       %s\n\n", loginURL)
-	fmt.Fprintln(os.Stderr, "  2. Log in. Your browser will redirect to a URL that fails to load")
-	fmt.Fprintf(os.Stderr, "     (%s?token=...&state=...) — that is expected.\n", callbackURL)
-	fmt.Fprintln(os.Stderr, "     Copy the FULL redirected URL from the address bar.")
+	fmt.Fprintln(os.Stderr, "  2. Log in. The page will display an authentication code.")
+	fmt.Fprintln(os.Stderr, "  3. Paste the code below and press Enter.")
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "  3. Paste it below and press Enter.")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprint(os.Stderr, "Paste callback URL: ")
+	fmt.Fprint(os.Stderr, "Authentication code: ")
 
 	scanner := bufio.NewScanner(os.Stdin)
-	// JWTs run ~500-1000 bytes; bump the line buffer well above the 64KB default.
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 4096), 64*1024)
 	if !scanner.Scan() {
 		return fmt.Errorf("no input")
 	}
-	pasted := strings.TrimSpace(scanner.Text())
-	if pasted == "" {
-		return fmt.Errorf("URL is required")
+	code := strings.TrimSpace(scanner.Text())
+	if code == "" {
+		return fmt.Errorf("code is required")
 	}
 
-	parsed, err := url.Parse(pasted)
-	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
+	// Exchange (code, state) → JWT via the public /api/auth/cli/exchange
+	// endpoint. The endpoint is unauthenticated; the (code, state) pair is
+	// the proof of possession.
+	client := cli.NewAPIClient(serverURL, "", "")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var resp struct {
+		Token string `json:"token"`
 	}
-	jwtToken := parsed.Query().Get("token")
-	returnedState := parsed.Query().Get("state")
-	if jwtToken == "" {
-		return fmt.Errorf("missing token in pasted URL — expected %s?token=...&state=...", callbackURL)
+	if err := client.PostJSON(ctx, "/api/auth/cli/exchange", map[string]string{
+		"code":  code,
+		"state": state,
+	}, &resp); err != nil {
+		return fmt.Errorf("exchange failed: %w", err)
 	}
-	if returnedState != state {
-		return fmt.Errorf("state mismatch — pasted URL does not match this login attempt (CSRF check failed). Re-run 'agenthost login --manual' and paste the URL from THIS session")
+	if resp.Token == "" {
+		return fmt.Errorf("server returned empty token")
 	}
 
-	return finishLoginWithJWT(cmd, serverURL, appURL, jwtToken)
+	return finishLoginWithJWT(cmd, serverURL, appURL, resp.Token)
 }
 
 func runAuthLoginToken(cmd *cobra.Command) error {

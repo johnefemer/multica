@@ -145,6 +145,11 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 	r.Post("/auth/google", h.GoogleLogin)
 	r.Post("/auth/logout", h.Logout)
 
+	// CLI device-code flow: exchange is unauthenticated (the (code, state)
+	// pair is the proof). The companion code-issue endpoint requires the
+	// usual user auth and lives below in the protected block.
+	r.Post("/api/auth/cli/exchange", h.ExchangeCliAuthCode)
+
 	// OAuth integration start (requires auth — user must be logged in)
 	r.With(middleware.Auth(queries)).Get("/auth/{provider}/start", h.IntegrationOAuthStart)
 	r.With(middleware.Auth(queries)).Get("/auth/{provider}/callback", h.IntegrationOAuthCallback)
@@ -201,6 +206,7 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 		r.Post("/api/me/starter-content/import", h.ImportStarterContent)
 		r.Post("/api/me/starter-content/dismiss", h.DismissStarterContent)
 		r.Post("/api/cli-token", h.IssueCliToken)
+		r.Post("/api/auth/cli/codes", h.IssueCliAuthCode)
 		r.Post("/api/upload-file", h.UploadFile)
 
 		r.Route("/api/workspaces", func(r chi.Router) {

@@ -35,9 +35,12 @@ interface GoogleAuthConfig {
 }
 
 interface CliCallbackConfig {
-  /** Validated localhost callback URL */
-  url: string;
-  /** Opaque state to pass back to CLI */
+  /** Validated localhost callback URL. Omit to use the device-code (paste-in)
+   *  flow — required for headless / SSH CLI logins where the browser can't
+   *  reach a localhost listener on the CLI's machine. */
+  url?: string;
+  /** Opaque state to pass back to CLI (also used as the verifier for the
+   *  device-code rendezvous). */
   state: string;
 }
 
@@ -106,13 +109,18 @@ export function LoginPage({
   extra,
 }: LoginPageProps) {
   const qc = useQueryClient();
-  const [step, setStep] = useState<"email" | "code" | "cli_confirm">("email");
+  const [step, setStep] = useState<
+    "email" | "code" | "cli_confirm" | "cli_show_code"
+  >("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [existingUser, setExistingUser] = useState<User | null>(null);
+  // Code shown to the user in the device-code flow (no `cliCallback.url`).
+  const [cliAuthCode, setCliAuthCode] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
   // Tracks how the existing session was detected so handleCliAuthorize
   // uses the matching token source (cookie → issueCliToken, localStorage → direct).
   const authSourceRef = useRef<"cookie" | "localStorage">("cookie");
@@ -194,12 +202,22 @@ export function LoginPage({
       setError("");
       try {
         if (cliCallback) {
-          // CLI path: get token directly for the redirect URL
+          // CLI path: mint a token for the CLI session.
           const { token } = await api.verifyCode(email, value);
           localStorage.setItem("multica_token", token);
           api.setToken(token);
           onTokenObtained?.();
-          redirectToCliCallback(cliCallback.url, token, cliCallback.state);
+          if (cliCallback.url) {
+            // Browser flow: redirect to the CLI's local callback listener.
+            redirectToCliCallback(cliCallback.url, token, cliCallback.state);
+          } else {
+            // Device flow: stash JWT under a one-shot opaque code paired to
+            // the CLI's verifier, then render the code for the user to paste.
+            const { code: cc } = await api.issueCliAuthCode(cliCallback.state);
+            setCliAuthCode(cc);
+            setStep("cli_show_code");
+            setLoading(false);
+          }
           return;
         }
 
@@ -241,26 +259,45 @@ export function LoginPage({
     setLoading(true);
 
     try {
-      let token: string;
+      onTokenObtained?.();
 
-      if (authSourceRef.current === "localStorage") {
-        // Session was detected via localStorage — reuse that token directly.
-        const stored = localStorage.getItem("multica_token");
-        if (!stored) throw new Error("token missing");
-        token = stored;
-      } else {
-        // Session was detected via cookie — obtain a bearer token from the server.
-        const res = await api.issueCliToken();
-        token = res.token;
+      if (cliCallback.url) {
+        // Browser flow: hand a JWT to the CLI via its localhost callback.
+        let token: string;
+        if (authSourceRef.current === "localStorage") {
+          const stored = localStorage.getItem("multica_token");
+          if (!stored) throw new Error("token missing");
+          token = stored;
+        } else {
+          const res = await api.issueCliToken();
+          token = res.token;
+        }
+        redirectToCliCallback(cliCallback.url, token, cliCallback.state);
+        return;
       }
 
-      onTokenObtained?.();
-      redirectToCliCallback(cliCallback.url, token, cliCallback.state);
+      // Device flow: server mints + stashes the JWT under an opaque code.
+      // The localStorage and cookie paths both work — issueCliAuthCode reads
+      // whichever auth the API client is currently sending (bearer or cookie).
+      const { code: cc } = await api.issueCliAuthCode(cliCallback.state);
+      setCliAuthCode(cc);
+      setStep("cli_show_code");
+      setLoading(false);
     } catch {
       setError("Failed to authorize CLI. Please log in again.");
       setExistingUser(null);
       setStep("email");
       setLoading(false);
+    }
+  };
+
+  const copyCliAuthCode = async () => {
+    try {
+      await navigator.clipboard.writeText(cliAuthCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 1500);
+    } catch {
+      // Clipboard API can fail in non-secure contexts; user can still select+copy.
     }
   };
 
@@ -281,6 +318,57 @@ export function LoginPage({
     if (google.state) params.set("state", google.state);
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   };
+
+  // -------------------------------------------------------------------------
+  // CLI device-code flow: show the code for the user to paste into the CLI
+  // -------------------------------------------------------------------------
+
+  if (step === "cli_show_code" && cliAuthCode) {
+    return (
+      <div className="flex min-h-svh items-center justify-center px-6">
+        <div className="flex w-full max-w-xl flex-col items-center gap-8 text-center">
+          {logo && <div>{logo}</div>}
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Authentication Code
+          </h1>
+          <p className="text-base text-muted-foreground">
+            Paste this into the Multica CLI:
+          </p>
+          <div className="w-full rounded-xl border bg-muted/40 px-6 py-5">
+            <code className="block w-full break-all font-mono text-sm">
+              {cliAuthCode}
+            </code>
+          </div>
+          <button
+            type="button"
+            onClick={copyCliAuthCode}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+            {codeCopied ? "Copied" : "Copy code"}
+          </button>
+          <p className="text-xs text-muted-foreground">
+            This code expires in 5 minutes and can only be used once. You can
+            close this tab once the CLI shows &ldquo;Authenticated&rdquo;.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // -------------------------------------------------------------------------
   // CLI confirm step

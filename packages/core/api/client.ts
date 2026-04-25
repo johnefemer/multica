@@ -286,6 +286,15 @@ export class ApiClient {
     return this.fetch("/api/cli-token", { method: "POST" });
   }
 
+  /** Device-flow rendezvous: stash the freshly minted CLI JWT under an
+   *  opaque code paired to the CLI's verifier. Caller must be authenticated. */
+  async issueCliAuthCode(state: string): Promise<{ code: string }> {
+    return this.fetch("/api/auth/cli/codes", {
+      method: "POST",
+      body: JSON.stringify({ state }),
+    });
+  }
+
   async getMe(): Promise<User> {
     return this.fetch("/api/me");
   }
