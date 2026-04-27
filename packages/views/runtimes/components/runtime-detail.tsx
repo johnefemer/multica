@@ -47,6 +47,12 @@ function getGHUser(metadata: Record<string, unknown>): string | null {
   return typeof metadata?.gh_user === "string" ? metadata.gh_user : null;
 }
 
+function truncateMiddle(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const half = Math.floor((max - 1) / 2);
+  return s.slice(0, half) + "…" + s.slice(s.length - half);
+}
+
 function GitHubTokenSection({
   runtime,
   wsId,
@@ -61,6 +67,9 @@ function GitHubTokenSection({
 
   const isSet = runtime.settings?.github_token_set === true;
   const preview = runtime.settings?.github_token_preview;
+  const patLogin = runtime.settings?.github_token_user;
+  const patScopes = runtime.settings?.github_token_scopes;
+  const patAt = runtime.settings?.github_token_validated_at;
   const ghAvailable = getGHAvailable(runtime.metadata);
   const ghUser = getGHUser(runtime.metadata);
 
@@ -69,8 +78,11 @@ function GitHubTokenSection({
     updateSettings.mutate(
       { github_token: token.trim() },
       {
-        onSuccess: () => {
-          toast.success("GitHub token saved");
+        onSuccess: (rt) => {
+          const u = rt.settings?.github_token_user;
+          toast.success(
+            u ? `GitHub token saved — verified as @${u}` : "GitHub token saved",
+          );
           setToken("");
         },
         onError: (e) => {
@@ -82,7 +94,12 @@ function GitHubTokenSection({
 
   const handleClear = () => {
     updateSettings.mutate(
-      { github_token: null },
+      {
+        github_token: null,
+        github_token_user: null,
+        github_token_scopes: null,
+        github_token_validated_at: null,
+      },
       {
         onSuccess: () => {
           toast.success("GitHub token cleared");
@@ -110,9 +127,39 @@ function GitHubTokenSection({
             ? ghUser
               ? `gh CLI authenticated as ${ghUser}`
               : "gh CLI available (not authenticated)"
-            : "gh CLI not detected on this runtime"}
+            : isSet
+              ? "gh CLI not on PATH — saved runtime token still applies to git/HTTPS (see below)"
+              : "gh CLI not detected on this runtime"}
         </span>
       </div>
+
+      {patLogin && (
+        <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-sm">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-success mt-0.5" />
+          <div className="min-w-0 space-y-0.5">
+            <p className="font-medium text-foreground">Runtime PAT verified with GitHub</p>
+            <p className="text-xs text-muted-foreground break-words">
+              Authenticated as{" "}
+              <span className="font-mono text-foreground">@{patLogin}</span>
+              {patScopes ? (
+                <>
+                  {" "}
+                  · scopes{" "}
+                  <span className="font-mono" title={patScopes}>
+                    {truncateMiddle(patScopes, 96)}
+                  </span>
+                </>
+              ) : null}
+              {patAt ? (
+                <>
+                  {" "}
+                  · checked {new Date(patAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                </>
+              ) : null}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stored PAT */}
       {isSet && preview && (
@@ -160,8 +207,21 @@ function GitHubTokenSection({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Stored tokens are used by the daemon for private repo access and{" "}
-        <code className="font-mono">gh</code> CLI calls. Generate a token at{" "}
+        Priority for git/GitHub: <strong>this runtime token</strong>, then{" "}
+        <code className="font-mono">GH_TOKEN</code> /{" "}
+        <code className="font-mono">GITHUB_TOKEN</code> on the daemon process, then{" "}
+        <code className="font-mono">gh auth login</code> on this machine (status above). Used for private
+        repo checkout and <code className="font-mono">gh</code> calls — not the same as workspace
+        Integrations OAuth.{" "}
+        <a
+          href="/docs/github-auth-for-agents"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          GitHub auth for agents
+        </a>
+        . Generate a PAT at{" "}
         <a
           href="https://github.com/settings/tokens"
           target="_blank"
@@ -170,7 +230,7 @@ function GitHubTokenSection({
         >
           github.com/settings/tokens
         </a>{" "}
-        with <code className="font-mono">repo</code> scope.
+        with <code className="font-mono">repo</code> scope when needed.
       </p>
 
       {/* Clear confirmation */}

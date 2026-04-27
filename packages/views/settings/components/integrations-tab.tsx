@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plug, GitBranch, ExternalLink, Trash2, RefreshCw, Download } from "lucide-react";
+import { Plug, GitBranch, Trash2, RefreshCw, Download } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
 import { Badge } from "@multica/ui/components/ui/badge";
@@ -173,7 +173,7 @@ function IntegrationCard({
                     </>
                   )}
                   {providerKey === "github" && (
-                    <GitHubActions wsId={wsId} connection={connection} canManage={canManage} />
+                    <GitHubActions wsId={wsId} canManage={canManage} />
                   )}
                 </>
               ) : (
@@ -201,11 +201,9 @@ function IntegrationCard({
 
 function GitHubActions({
   wsId,
-  connection,
   canManage,
 }: {
   wsId: string;
-  connection: IntegrationConnection;
   canManage: boolean;
 }) {
   const [importOpen, setImportOpen] = useState(false);

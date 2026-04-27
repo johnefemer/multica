@@ -57,8 +57,10 @@ vi.mock("@multica/core/pins", () => ({
 }));
 
 const mockUpdateMutate = vi.fn();
+const mockRerunMutate = vi.fn();
 vi.mock("@multica/core/issues/mutations", () => ({
   useUpdateIssue: () => ({ mutate: mockUpdateMutate }),
+  useRerunIssue: () => ({ mutate: mockRerunMutate, isPending: false }),
 }));
 
 vi.mock("@multica/core/paths", async () => {
@@ -120,6 +122,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   mockOpenModal.mockReset();
   mockUpdateMutate.mockReset();
+  mockRerunMutate.mockReset();
   mockCreatePinMutate.mockReset();
   mockDeletePinMutate.mockReset();
   pinListRef.value = [];
@@ -261,10 +264,36 @@ describe("useIssueActions", () => {
       result.current.updateField({ status: "done" });
       result.current.togglePin();
       result.current.openSetParent();
+      result.current.rerunAgent();
     });
 
     expect(mockUpdateMutate).not.toHaveBeenCalled();
     expect(mockOpenModal).not.toHaveBeenCalled();
+    expect(mockRerunMutate).not.toHaveBeenCalled();
+  });
+
+  it("canRerunAgent is true only for agent assignee; rerunAgent calls useRerunIssue.mutate", () => {
+    const { result: r0 } = renderHook(() => useIssueActions(mockIssue), { wrapper });
+    expect(r0.current.canRerunAgent).toBe(false);
+    act(() => {
+      r0.current.rerunAgent();
+    });
+    expect(mockRerunMutate).not.toHaveBeenCalled();
+
+    const agentIssue = {
+      ...mockIssue,
+      assignee_type: "agent" as const,
+      assignee_id: "agent-1",
+    };
+    const { result } = renderHook(() => useIssueActions(agentIssue), { wrapper });
+    expect(result.current.canRerunAgent).toBe(true);
+    act(() => {
+      result.current.rerunAgent();
+    });
+    expect(mockRerunMutate).toHaveBeenCalledWith(
+      "issue-1",
+      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
+    );
   });
 
   it("members and filtered agents are exposed on the result", async () => {

@@ -1,14 +1,17 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/githubpat"
 	"github.com/multica-ai/multica/server/pkg/agent"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -17,8 +20,11 @@ import (
 // AgentRuntimeSettings holds user-controlled runtime settings returned in API responses.
 // Sensitive values (e.g. tokens) are redacted; only a masked preview is exposed.
 type AgentRuntimeSettings struct {
-	GitHubTokenSet     bool   `json:"github_token_set"`
-	GitHubTokenPreview string `json:"github_token_preview,omitempty"` // e.g. "ghp_****abcd"
+	GitHubTokenSet           bool   `json:"github_token_set"`
+	GitHubTokenPreview       string `json:"github_token_preview,omitempty"` // e.g. "ghp_****abcd"
+	GitHubTokenUser          string `json:"github_token_user,omitempty"`      // from GET /user after PAT save
+	GitHubTokenScopes        string `json:"github_token_scopes,omitempty"`    // X-OAuth-Scopes when available
+	GitHubTokenValidatedAt   string `json:"github_token_validated_at,omitempty"` // RFC3339
 }
 
 type AgentRuntimeResponse struct {
@@ -56,10 +62,20 @@ func parseRuntimeSettings(raw []byte) AgentRuntimeSettings {
 	if len(tok) > 8 {
 		preview = tok[:4] + "****" + tok[len(tok)-4:]
 	}
-	return AgentRuntimeSettings{
+	out := AgentRuntimeSettings{
 		GitHubTokenSet:     true,
 		GitHubTokenPreview: preview,
 	}
+	if v := m["github_token_user"]; v != "" {
+		out.GitHubTokenUser = v
+	}
+	if v := m["github_token_scopes"]; v != "" {
+		out.GitHubTokenScopes = v
+	}
+	if v := m["github_token_validated_at"]; v != "" {
+		out.GitHubTokenValidatedAt = v
+	}
+	return out
 }
 
 func runtimeToResponse(rt db.AgentRuntime) AgentRuntimeResponse {
@@ -395,6 +411,33 @@ func (h *Handler) UpdateRuntimeSettings(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	// Clearing the PAT must also clear validation metadata stored alongside it.
+	if tok, ok := patch["github_token"]; ok && tok == nil {
+		patch["github_token_user"] = nil
+		patch["github_token_scopes"] = nil
+		patch["github_token_validated_at"] = nil
+	}
+
+	// Validate new tokens against GitHub before persisting (and record user/scopes for the UI).
+	if tok, ok := patch["github_token"]; ok {
+		if s, ok := tok.(string); ok && strings.TrimSpace(s) != "" {
+			vctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+			defer cancel()
+			res, err := githubpat.ValidateToken(vctx, s)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "GitHub token validation failed: "+err.Error())
+				return
+			}
+			patch["github_token_user"] = res.Login
+			if strings.TrimSpace(res.Scopes) != "" {
+				patch["github_token_scopes"] = res.Scopes
+			} else {
+				patch["github_token_scopes"] = nil
+			}
+			patch["github_token_validated_at"] = time.Now().UTC().Format(time.RFC3339)
+		}
+	}
+
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to encode settings")
@@ -413,7 +456,9 @@ func (h *Handler) UpdateRuntimeSettings(w http.ResponseWriter, r *http.Request) 
 
 	slog.Info("runtime settings updated", "runtime_id", runtimeID, "updated_by", uuidToString(member.UserID))
 
-	// Broadcast settings change so daemon refreshes its token on next heartbeat.
+	// Broadcast settings change so UIs refetch; the daemon loads runtime PATs
+	// from the registration response (restart the daemon if a new token should
+	// apply immediately — heartbeat does not re-deliver tokens today).
 	h.publish(protocol.EventDaemonRegister, wsID, "member", uuidToString(member.UserID), map[string]any{
 		"action":     "settings_updated",
 		"runtime_id": runtimeID,

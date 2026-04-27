@@ -9,6 +9,7 @@ import {
   Pin,
   PinOff,
   Plus,
+  RotateCcw,
   Trash2,
   UserMinus,
 } from "lucide-react";
@@ -93,6 +94,9 @@ export function IssueActionsMenuItems({
     openSetParent,
     openAddChild,
     openDeleteConfirm,
+    canRerunAgent,
+    rerunAgentPending,
+    rerunAgent,
   } = actions;
 
   const now = () => new Date();
@@ -195,6 +199,13 @@ export function IssueActionsMenuItems({
           ))}
         </P.SubContent>
       </P.Sub>
+
+      {canRerunAgent && (
+        <P.Item onClick={rerunAgent} disabled={rerunAgentPending}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          Rerun agent
+        </P.Item>
+      )}
 
       {/* Due date */}
       <P.Sub>

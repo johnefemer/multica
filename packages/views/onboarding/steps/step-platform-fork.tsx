@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Download } from "lucide-react";
-import {
-  captureDownloadIntent,
-  captureEvent,
-  setPersonProperties,
-} from "@multica/core/analytics";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { captureEvent, setPersonProperties } from "@multica/core/analytics";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   Dialog,
@@ -17,7 +13,6 @@ import {
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
 import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
-import { cn } from "@multica/ui/lib/utils";
 import type { AgentRuntime } from "@multica/core/types";
 import { DragStrip } from "@multica/views/platform";
 import { StepHeader } from "../components/step-header";
@@ -29,33 +24,17 @@ import { CloudWaitlistExpand } from "../components/cloud-waitlist-expand";
 /**
  * Step 3 on **web**. The user is in a browser and hasn't downloaded
  * the desktop app yet, so we can't scan their machine for runtimes.
- * This screen is a fan-out: three clearly clickable cards, each with
- * an explicit right-side button that says what clicking does:
- *
- *   1. **Download desktop** — primary card, black bg, "Download" pill.
- *      Opens the installer in a new tab; the user finishes onboarding
- *      inside the desktop app.
- *   2. **Install the CLI** — alt card, "Show steps" pill → opens a
- *      dialog containing the real install instructions + live runtime
- *      probe. When a runtime appears and the user selects it, the
- *      dialog's "Connect & continue" button fires `onNext(runtime)`
- *      and advances the flow.
- *   3. **Cloud waitlist** — alt card, "Join waitlist" pill → opens a
- *      dialog with an email + reason form. Submitting is pure interest
- *      capture; the dialog doesn't advance the flow. The user then
- *      closes the dialog and can hit Skip in the footer.
+ * Primary path: **Install the CLI** — "Show steps" opens a dialog with
+ * install instructions + live runtime probe. When a runtime appears and
+ * the user selects it, "Connect & continue" fires `onNext(runtime)`.
+ * A cloud waitlist dialog remains wired for optional expansion; Skip
+ * exits without a runtime.
  *
  * Footer is simplified — no Continue button, since the CLI dialog
  * owns that advancement itself. Only Skip remains.
  */
 
 type DialogState = "cli" | "cloud" | null;
-
-// Single canonical download destination — the /download page owns
-// OS + arch detection, the All-Platforms matrix, release-note links,
-// and the CLI / Cloud alternates. Kept in sync with landing-hero.tsx
-// and landing footer nav, both of which target the same path.
-const DOWNLOAD_PAGE_URL = "/download";
 
 export function StepPlatformFork({
   wsId,
@@ -78,7 +57,6 @@ export function StepPlatformFork({
   const fadeStyle = useScrollFade(mainRef);
 
   const [dialog, setDialog] = useState<DialogState>(null);
-  const [downloaded, setDownloaded] = useState(false);
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
 
   // Platform signal retained purely for PostHog dimensions — the UI
@@ -92,24 +70,6 @@ export function StepPlatformFork({
 
   const picker = useRuntimePicker(wsId);
 
-  const pickDesktop = () => {
-    window.open(DOWNLOAD_PAGE_URL, "_blank", "noopener,noreferrer");
-    setDownloaded(true);
-    // Step-3-scoped path selection event (kept for existing funnels);
-    // `source: "step3"` future-proofs if the event is reused from
-    // another surface later.
-    captureEvent("onboarding_runtime_path_selected", {
-      path: "download_desktop",
-      source: "step3",
-      is_mac: isMac,
-    });
-    // Cross-surface Desktop intent event — also fires from landing
-    // hero / footer / login / Welcome. Enables the top-of-funnel
-    // split without retrofitting `onboarding_runtime_path_selected`
-    // to non-onboarding contexts.
-    captureDownloadIntent("step3");
-  };
-
   const handleOpenCli = () => {
     setDialog("cli");
     captureEvent("onboarding_runtime_path_selected", {
@@ -118,15 +78,6 @@ export function StepPlatformFork({
       is_mac: isMac,
     });
     setPersonProperties({ platform_preference: "web" });
-  };
-
-  const handleOpenCloud = () => {
-    setDialog("cloud");
-    captureEvent("onboarding_runtime_path_selected", {
-      path: "cloud_waitlist",
-      source: "step3",
-      is_mac: isMac,
-    });
   };
 
   const handleCliConnect = () => {
@@ -138,9 +89,6 @@ export function StepPlatformFork({
   const footerHint = (() => {
     if (waitlistSubmitted) {
       return "You're on the waitlist — pick Skip to keep exploring.";
-    }
-    if (downloaded) {
-      return "Finish setup on the download page, then come back to this tab.";
     }
     return "Pick a path above — or skip and configure a runtime later.";
   })();
@@ -250,44 +198,6 @@ export function StepPlatformFork({
 // ------------------------------------------------------------
 // Fork cards
 // ------------------------------------------------------------
-
-function ForkPrimary({
-  onClick,
-  downloaded,
-}: {
-  onClick: () => void;
-  downloaded: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "group flex items-center justify-between gap-4 rounded-xl bg-foreground px-6 py-5 text-left text-background transition-transform",
-        "hover:-translate-y-0.5",
-      )}
-    >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-[17px] font-medium tracking-tight">
-          <Download className="h-4 w-4" aria-hidden />
-          {downloaded ? "Continuing on the download page…" : "Download the desktop app"}
-        </div>
-        <div className="mt-1 text-[13px] text-background/60">
-          {downloaded
-            ? "Opened in a new tab. Pick your installer there, then finish setup on desktop."
-            : "Bundled daemon, zero setup. Pick your platform on the next page."}
-        </div>
-      </div>
-      <span
-        aria-hidden
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-background/10 px-4 py-2 text-[13px] font-medium transition-colors group-hover:bg-background/20"
-      >
-        Download
-        <ArrowRight className="h-3.5 w-3.5" />
-      </span>
-    </button>
-  );
-}
 
 /**
  * Alt card with an explicit right-side action pill. The whole card is

@@ -16,7 +16,7 @@ import {
 } from "./cache-helpers";
 import { useWorkspaceId } from "../hooks";
 import { useRecentIssuesStore } from "./stores";
-import type { Issue, IssueReaction, IssueStatus } from "../types";
+import type { AgentTask, Issue, IssueReaction, IssueStatus } from "../types";
 import type {
   CreateIssueRequest,
   UpdateIssueRequest,
@@ -220,6 +220,21 @@ export function useDeleteIssue() {
         qc.invalidateQueries({ queryKey: issueKeys.children(wsId, ctx.parentIssueId) });
         qc.invalidateQueries({ queryKey: issueKeys.childProgress(wsId) });
       }
+    },
+  });
+}
+
+/** Queue a new agent run for the issue's current assignee (same as `multica issue rerun`). */
+export function useRerunIssue() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation<AgentTask, Error, string>({
+    mutationFn: (issueId: string) => api.rerunIssue(issueId),
+    onSettled: (_data, _err, issueId) => {
+      qc.invalidateQueries({ queryKey: issueKeys.detail(wsId, issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.usage(issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.list(wsId) });
     },
   });
 }

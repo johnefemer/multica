@@ -584,7 +584,7 @@ export class ApiClient {
 
   async updateRuntimeSettings(
     runtimeId: string,
-    settings: { github_token?: string | null },
+    settings: Record<string, string | null | undefined>,
   ): Promise<AgentRuntime> {
     return this.fetch(`/api/runtimes/${runtimeId}/settings`, {
       method: "PATCH",
@@ -685,6 +685,14 @@ export class ApiClient {
   async cancelTask(issueId: string, taskId: string): Promise<AgentTask> {
     return this.fetch(`/api/issues/${issueId}/tasks/${taskId}/cancel`, {
       method: "POST",
+    });
+  }
+
+  /** Enqueue a fresh agent task for the issue's current assignee (manual rerun). */
+  async rerunIssue(issueId: string): Promise<AgentTask> {
+    return this.fetch(`/api/issues/${issueId}/rerun`, {
+      method: "POST",
+      body: JSON.stringify({}),
     });
   }
 

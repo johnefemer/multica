@@ -123,6 +123,7 @@ export function EnvTab({
           </Label>
           <p className="text-xs text-muted-foreground mt-0.5">
             Injected into the agent process at launch. Values are hidden — only the agent owner or workspace admin can view and edit them.
+            GitHub credentials for private repos are not set here: configure the GitHub token on the agent&apos;s runtime (or <code className="text-[11px]">gh auth login</code> on the daemon host).
           </p>
         </div>
         {envEntries.length > 0 ? (
@@ -162,7 +163,10 @@ export function EnvTab({
           </Label>
           <p className="text-xs text-muted-foreground mt-0.5">
             Injected into the agent process at launch (e.g. ANTHROPIC_API_KEY,
-            ANTHROPIC_BASE_URL)
+            ANTHROPIC_BASE_URL).{" "}
+            <span className="text-muted-foreground/90">
+              Do not use <code className="text-[11px]">GH_TOKEN</code> here — it is managed by the daemon from the runtime&apos;s GitHub token or host auth.
+            </span>
           </p>
         </div>
         <Button

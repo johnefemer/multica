@@ -18,6 +18,12 @@ export interface RuntimeDevice {
   settings: {
     github_token_set: boolean;
     github_token_preview?: string;
+    /** GitHub login from GET /user after the saved PAT was validated. */
+    github_token_user?: string;
+    /** X-OAuth-Scopes from validation (classic PATs); may be empty for fine-grained tokens. */
+    github_token_scopes?: string;
+    /** RFC3339 timestamp of last successful PAT validation. */
+    github_token_validated_at?: string;
   };
   owner_id: string | null;
   last_seen_at: string | null;

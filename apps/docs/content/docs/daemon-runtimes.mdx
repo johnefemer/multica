@@ -105,6 +105,10 @@ When you hit a "my agent isn't working" problem, run this three-step checklist f
 
 More scenarios in [Troubleshooting](/troubleshooting).
 
+## GitHub authentication and private repositories
+
+Private GitHub access for local `git` / `multica repo checkout` uses tokens **on the daemon host**, not the workspace GitHub OAuth integration. See **[GitHub authentication for agents](/github-auth-for-agents)** for the three-tier token priority, how to verify `gh` on a runtime, workspace repos, and per-identity workarounds.
+
 ## Next
 
 - [Tasks](/tasks) — the full lifecycle of a task once the daemon picks it up
