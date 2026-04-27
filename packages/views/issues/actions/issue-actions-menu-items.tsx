@@ -16,6 +16,7 @@ import {
   Pin,
   PinOff,
   Plus,
+  RotateCcw,
   Trash2,
   Unlink,
   UserMinus,
@@ -122,6 +123,9 @@ export function IssueActionsMenuItems({
     openAddChild,
     openMarkDuplicate,
     openDeleteConfirm,
+    canRerunAgent,
+    rerunAgentPending,
+    rerunAgent,
   } = actions;
 
   // Subscribe to the issue's task list so the cache is warm by the time the
@@ -270,6 +274,13 @@ export function IssueActionsMenuItems({
           )}
         </P.SubContent>
       </P.Sub>
+
+      {canRerunAgent && (
+        <P.Item onClick={rerunAgent} disabled={rerunAgentPending}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          Rerun agent
+        </P.Item>
+      )}
 
       {/* Due date */}
       <P.Sub>

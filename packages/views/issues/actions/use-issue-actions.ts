@@ -8,7 +8,7 @@ import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { useModalStore } from "@multica/core/modals";
-import { useUpdateIssue } from "@multica/core/issues/mutations";
+import { useRerunIssue, useUpdateIssue } from "@multica/core/issues/mutations";
 import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
 import { errorCode } from "@multica/core/api";
 import { pinListOptions, useCreatePin, useDeletePin } from "@multica/core/pins";
@@ -35,6 +35,10 @@ export interface UseIssueActionsResult {
   openAddChild: () => void;
   openMarkDuplicate: () => void;
   openDeleteConfirm: (opts?: { onDeletedFallbackPath?: string }) => void;
+  /** True when the issue is assigned to an agent (rerun is meaningful). */
+  canRerunAgent: boolean;
+  rerunAgentPending: boolean;
+  rerunAgent: () => void;
 }
 
 /**
@@ -63,6 +67,7 @@ export function useIssueActions(issue: Issue | null): UseIssueActionsResult {
 
   const updateIssue = useUpdateIssue();
   const surfaceActions = useIssueSurfaceActionsOptional();
+  const rerunIssue = useRerunIssue();
   const createPin = useCreatePin();
   const deletePin = useDeletePin();
   const openModal = useModalStore((s) => s.open);
@@ -287,6 +292,18 @@ export function useIssueActions(issue: Issue | null): UseIssueActionsResult {
     [openModal, issueId, issueIdentifier],
   );
 
+  const canRerunAgent =
+    !!issue && issue.assignee_type === "agent" && !!issue.assignee_id;
+
+  const rerunAgent = useCallback(() => {
+    if (!issueId || !canRerunAgent) return;
+    rerunIssue.mutate(issueId, {
+      onSuccess: () => toast.success("Agent run queued"),
+      onError: (err) =>
+        toast.error(err instanceof Error ? err.message : "Failed to queue agent run"),
+    });
+  }, [issueId, canRerunAgent, rerunIssue]);
+
   return {
     isPinned,
     updateField,
@@ -300,5 +317,8 @@ export function useIssueActions(issue: Issue | null): UseIssueActionsResult {
     openAddChild,
     openMarkDuplicate,
     openDeleteConfirm,
+    canRerunAgent,
+    rerunAgentPending: rerunIssue.isPending,
+    rerunAgent,
   };
 }

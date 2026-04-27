@@ -38,7 +38,7 @@ import {
 import { useWorkspaceId } from "../hooks";
 import { useRecentContextStore } from "../chat/recent-context-store";
 import { useRecentIssuesStore } from "./stores";
-import type { InboxItem, Issue, IssueReaction } from "../types";
+import type { AgentTask, InboxItem, Issue, IssueReaction } from "../types";
 import type {
   CreateCommentSubIssueManualRequest,
   CreateIssueRequest,
@@ -499,6 +499,21 @@ export function useDeleteIssue() {
       qc.invalidateQueries({ queryKey: issueKeys.projectGanttAll(wsId) });
       qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
       if (ctx?.metadata) invalidateDeletedIssueParentCaches(qc, wsId, ctx.metadata);
+    },
+  });
+}
+
+/** Queue a new agent run for the issue's current assignee (same as `multica issue rerun`). */
+export function useRerunIssue() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation<AgentTask, Error, string>({
+    mutationFn: (issueId: string) => api.rerunIssue(issueId),
+    onSettled: (_data, _err, issueId) => {
+      qc.invalidateQueries({ queryKey: issueKeys.detail(wsId, issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.usage(issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.list(wsId) });
     },
   });
 }

@@ -65,11 +65,17 @@ export function useUpdateRuntime(wsId: string) {
     },
   });
 }
+export type RuntimeSettingsPatch = {
+  github_token?: string | null;
+  github_token_user?: string | null;
+  github_token_scopes?: string | null;
+  github_token_validated_at?: string | null;
+};
 
 export function useUpdateRuntimeSettings(wsId: string, runtimeId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (settings: { github_token?: string | null }) =>
+    mutationFn: (settings: RuntimeSettingsPatch) =>
       api.updateRuntimeSettings(runtimeId, settings),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });

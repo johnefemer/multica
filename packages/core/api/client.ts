@@ -2459,7 +2459,7 @@ export class ApiClient {
 
   async updateRuntimeSettings(
     runtimeId: string,
-    settings: { github_token?: string | null },
+    settings: Record<string, string | null | undefined>,
   ): Promise<AgentRuntime> {
     return this.fetch(`/api/runtimes/${runtimeId}/settings`, {
       method: "PATCH",
