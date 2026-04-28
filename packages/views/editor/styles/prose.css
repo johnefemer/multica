@@ -297,6 +297,8 @@
 /* Tables */
 .rich-text-editor .tableWrapper {
   overflow-x: auto;
+  /* Keep wide tables scrolling inside the wrapper, not the page (mobile). */
+  max-width: 100%;
   margin: 1rem 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);

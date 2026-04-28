@@ -38,6 +38,9 @@ pre.rich-text-editor {
      two renderers. overflow-x stays as a fallback for unbreakable tokens. */
   white-space: pre-wrap;
   overflow-x: auto;
+  /* Cap to parent width so an unbreakable line scrolls inside the block
+     instead of pushing the page horizontally on narrow viewports. */
+  max-width: 100%;
 }
 
 .rich-text-editor pre code,
