@@ -242,6 +242,7 @@ export function RepositoriesTab() {
                         value={`${r.full_name} ${r.description ?? ""}`}
                         onSelect={() => {
                           addGitHubRepo(r);
+                          setGithubPickerOpen(false);
                         }}
                       >
                         <span className="truncate font-medium">{r.full_name}</span>
