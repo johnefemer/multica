@@ -31,6 +31,9 @@
   color: var(--foreground);
   caret-color: var(--foreground);
   min-height: 100%;
+  /* Long URLs / unbroken tokens (e.g. GitHub paste of a 600-char url-encoded
+     query) would otherwise push the page horizontally on narrow viewports. */
+  overflow-wrap: anywhere;
 }
 
 .rich-text-editor.ProseMirror:focus {
@@ -190,6 +193,9 @@
   border-radius: var(--radius);
   padding: 0.75rem 1rem;
   margin: 0.75rem 0;
+  /* Cap to parent width so a wide line scrolls inside the pre instead of
+     pushing the page horizontally. */
+  max-width: 100%;
   overflow-x: auto;
 }
 
@@ -261,6 +267,9 @@
 
 /* Tables */
 .rich-text-editor .tableWrapper {
+  /* Same containment as pre/code blocks — keep wide tables scrolling
+     inside the wrapper, not the page. */
+  max-width: 100%;
   overflow-x: auto;
   margin: 1rem 0;
   border: 1px solid var(--border);

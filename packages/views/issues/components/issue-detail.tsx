@@ -326,8 +326,8 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
           <Skeleton className="h-4 w-24" />
         </div>
         <div className="flex flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-4xl px-8 py-8 space-y-6">
+          <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+            <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8 sm:py-8 space-y-6">
               <Skeleton className="h-8 w-3/4" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-full" />
@@ -495,28 +495,28 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
       <ResizablePanel id="content" minSize="50%">
       <div className="flex h-full flex-col">
         <PageHeader className="gap-2 bg-background text-sm">
-          <div className="flex flex-1 items-center gap-1.5 min-w-0">
+          <div className="flex flex-1 items-center gap-1.5 min-w-0 overflow-hidden">
             {workspace && (
-              <>
+              <span className="hidden sm:inline-flex items-center gap-1.5 shrink-0">
                 <AppLink
                   href={paths.issues()}
-                  className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {workspace.name}
                 </AppLink>
-                <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-              </>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {parentIssue && (
-              <>
+              <span className="hidden sm:inline-flex items-center gap-1.5 shrink-0">
                 <AppLink
                   href={paths.issueDetail(parentIssue.id)}
-                  className="text-muted-foreground hover:text-foreground transition-colors truncate shrink-0"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {parentIssue.identifier}
                 </AppLink>
-                <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-              </>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             <span className="shrink-0 text-muted-foreground">
               {issue.identifier}
@@ -581,8 +581,8 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
         </PageHeader>
 
         {/* Content — scrollable */}
-        <div ref={scrollContainerRef} className="relative flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl px-8 py-8">
+        <div ref={scrollContainerRef} className="relative flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+        <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8 sm:py-8">
           <TitleEditor
             key={`title-${id}`}
             defaultValue={issue.title}
