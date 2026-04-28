@@ -30,12 +30,15 @@ import {
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@multica/ui/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@multica/ui/components/ui/command";
+import { Checkbox } from "@multica/ui/components/ui/checkbox";
+import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "@multica/core/hooks";
@@ -179,9 +182,21 @@ function GitHubManagePanel({
 }) {
   const [importOpen, setImportOpen] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState("");
+  const [alsoRegisterWebhook, setAlsoRegisterWebhook] = useState(false);
   const { data: repos = [], isLoading: reposLoading } = useGitHubRepos(wsId, importOpen);
   const importIssues = useImportGitHubIssues(wsId);
   const registerWebhook = useRegisterGitHubWebhook(wsId);
+
+  // Reset transient picker state every time the dialog closes.
+  useEffect(() => {
+    if (!importOpen) {
+      setSelectedRepo("");
+      setAlsoRegisterWebhook(false);
+    }
+  }, [importOpen]);
+
+  const selectedRepoMeta = repos.find((r: GitHubRepo) => r.full_name === selectedRepo);
+  const isWorking = importIssues.isPending || registerWebhook.isPending;
 
   const handleImport = async () => {
     if (!selectedRepo) return;
@@ -198,18 +213,27 @@ function GitHubManagePanel({
       } else {
         toast.success(summary);
       }
+
+      if (alsoRegisterWebhook) {
+        try {
+          const r = await registerWebhook.mutateAsync(selectedRepo);
+          toast.success(`Webhook registered on ${r.repo}`);
+        } catch (e: unknown) {
+          toast.error((e as Error)?.message ?? "Webhook registration failed");
+        }
+      }
       setImportOpen(false);
-      setSelectedRepo("");
     } catch (e: unknown) {
       toast.error((e as Error)?.message ?? "Failed to import issues");
     }
   };
 
-  const handleRegisterWebhook = async () => {
+  const handleRegisterWebhookOnly = async () => {
     if (!selectedRepo) return;
     try {
       const r = await registerWebhook.mutateAsync(selectedRepo);
       toast.success(`Webhook registered on ${r.repo} (ID ${r.hook_id})`);
+      setImportOpen(false);
     } catch (e: unknown) {
       toast.error((e as Error)?.message ?? "Failed to register webhook");
     }
@@ -276,54 +300,153 @@ function GitHubManagePanel({
 
       {/* Import dialog */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="gap-0 p-0 sm:max-w-lg overflow-hidden flex flex-col max-h-[min(85vh,640px)]">
+          <DialogHeader className="p-4 pb-3">
             <DialogTitle>Import GitHub Issues</DialogTitle>
             <DialogDescription>
-              Select a repository to import open issues. Already-imported issues are skipped.
+              Select a repository to import its open issues. Already-imported issues are skipped.
             </DialogDescription>
           </DialogHeader>
 
-          <Select value={selectedRepo} onValueChange={(v) => setSelectedRepo(v ?? "")}>
-            <SelectTrigger>
-              <SelectValue placeholder={reposLoading ? "Loading repos…" : "Pick a repository"} />
-            </SelectTrigger>
-            <SelectContent>
-              {repos.map((r: GitHubRepo) => (
-                <SelectItem key={r.full_name} value={r.full_name}>
-                  <span className="flex items-center gap-1.5">
-                    {r.full_name}
-                    {r.private && (
-                      <span className="text-[10px] text-muted-foreground">(private)</span>
-                    )}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Command
+            className="border-t rounded-none bg-transparent flex-1 min-h-0"
+            // cmdk's built-in scoring trips on slashes; full_name includes a slash so
+            // we match against owner / repo / description ourselves below.
+            filter={(value, search) => {
+              if (!search) return 1;
+              return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+            }}
+          >
+            <CommandInput placeholder="Search repositories…" />
+            <CommandList className="max-h-none flex-1">
+              {reposLoading ? (
+                <div className="py-10 text-center text-xs text-muted-foreground">
+                  Loading repositories…
+                </div>
+              ) : repos.length === 0 ? (
+                <div className="py-10 text-center text-xs text-muted-foreground">
+                  No repositories accessible with this GitHub account.
+                </div>
+              ) : (
+                <>
+                  <CommandEmpty>No matching repositories.</CommandEmpty>
+                  <CommandGroup>
+                    {repos.map((r: GitHubRepo) => {
+                      const checked = r.full_name === selectedRepo;
+                      return (
+                        <CommandItem
+                          key={r.full_name}
+                          value={`${r.full_name} ${r.description ?? ""}`}
+                          data-checked={checked || undefined}
+                          onSelect={() => setSelectedRepo(r.full_name)}
+                          className="py-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate" title={r.full_name}>
+                                {r.full_name}
+                              </span>
+                              {r.private && (
+                                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">
+                                  <Lock className="size-3" /> Private
+                                </span>
+                              )}
+                            </div>
+                            {r.description && (
+                              <p
+                                className="text-xs text-muted-foreground truncate"
+                                title={r.description}
+                              >
+                                {r.description}
+                              </p>
+                            )}
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </>
+              )}
+            </CommandList>
+          </Command>
 
-          {selectedRepo && (
-            <div className="text-xs text-muted-foreground rounded-md bg-muted p-3 space-y-2">
-              <p>
-                Imports all open issues from <strong>{selectedRepo}</strong>.
+          {/* Selection summary + webhook toggle */}
+          <div className="border-t p-4 space-y-3">
+            {selectedRepo ? (
+              <div className="flex items-start gap-2 text-xs">
+                <CheckCircle2 className="size-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate" title={selectedRepo}>
+                    {selectedRepo}
+                  </p>
+                  {selectedRepoMeta?.description && (
+                    <p className="text-muted-foreground truncate">{selectedRepoMeta.description}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Pick a repository above to continue.
               </p>
+            )}
+
+            <label
+              className={`flex items-start gap-2 text-xs ${
+                selectedRepo ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground/60"
+              }`}
+            >
+              <Checkbox
+                checked={alsoRegisterWebhook}
+                onCheckedChange={(c) => setAlsoRegisterWebhook(!!c)}
+                disabled={!selectedRepo || isWorking}
+                className="mt-0.5"
+              />
+              <span>
+                Also register webhook for real-time sync
+                <span className="block text-muted-foreground">
+                  Pushes new / closed / edited issues to Agenthost as they happen.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setImportOpen(false)}
+              disabled={isWorking}
+              className="sm:w-auto w-full"
+            >
+              Cancel
+            </Button>
+            {selectedRepo && alsoRegisterWebhook && !importIssues.isPending && (
               <Button
                 variant="outline"
-                size="sm"
-                className="h-6 text-xs"
-                disabled={registerWebhook.isPending || !selectedRepo}
-                onClick={handleRegisterWebhook}
+                onClick={handleRegisterWebhookOnly}
+                disabled={isWorking}
+                className="sm:w-auto w-full gap-1.5"
+                title="Register the webhook without importing issues"
               >
-                <RefreshCw className={`size-3 mr-1 ${registerWebhook.isPending ? "animate-spin" : ""}`} />
-                Also register webhook for real-time sync
+                <Link className="size-3.5" />
+                {registerWebhook.isPending ? "Registering…" : "Webhook only"}
               </Button>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
-            <Button onClick={handleImport} disabled={!selectedRepo || importIssues.isPending}>
-              {importIssues.isPending ? "Importing…" : "Import Issues"}
+            )}
+            <Button
+              onClick={handleImport}
+              disabled={!selectedRepo || isWorking}
+              className="sm:w-auto w-full gap-1.5"
+            >
+              {importIssues.isPending ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  Importing…
+                </>
+              ) : (
+                <>
+                  <Download className="size-3.5" />
+                  {alsoRegisterWebhook ? "Import + register" : "Import Issues"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
