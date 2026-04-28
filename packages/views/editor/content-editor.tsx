@@ -202,11 +202,23 @@ const ContentEditor = forwardRef<ContentEditorRef, ContentEditorProps>(
       };
     }, []);
 
-    // Readonly content update: when defaultValue changes and editor is readonly,
-    // re-set the content (e.g. after editing a comment, the readonly view updates)
+    // Content sync when defaultValue changes after mount.
+    //
+    // Two cases trigger this:
+    // 1. Readonly view (e.g. after editing a comment, the readonly preview
+    //    needs to reflect the new value).
+    // 2. Editable view that mounted with empty defaultValue because parent
+    //    data hadn't loaded yet (e.g. issue detail page navigated from a
+    //    list cache that omits description, then the detail query resolves).
+    //    Without this, the editor would stay empty until full remount.
+    //
+    // In editable mode, we only sync if the editor is still empty -- a
+    // non-empty editor means the user (or initial mount) already produced
+    // content we must not clobber.
     useEffect(() => {
-      if (!editor || editable) return;
+      if (!editor) return;
       if (defaultValue === prevContentRef.current) return;
+      if (editable && !editor.isEmpty) return;
       prevContentRef.current = defaultValue;
       const processed = defaultValue ? preprocessMarkdown(defaultValue) : "";
       if (processed) {
