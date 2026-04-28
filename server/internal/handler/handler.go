@@ -220,12 +220,14 @@ type Handler struct {
 	Entitlements entitlement.Provider
 	// SeatCapacity executes Cloud's pre-purchased human-seat protocol. Nil or
 	// disabled preserves self-hosted behavior.
-	SeatCapacity          seatcapacity.Executor
-	SeatCapacityLocker    seatcapacity.WorkspaceLocker
-	SeatCapacityWorker    *seatcapacity.Worker
-	EmailService          *service.EmailService
-	UpdateStore           UpdateStore
-	ModelListStore        ModelListStore
+	SeatCapacity       seatcapacity.Executor
+	SeatCapacityLocker seatcapacity.WorkspaceLocker
+	SeatCapacityWorker *seatcapacity.Worker
+	EmailService       *service.EmailService
+	UpdateStore        UpdateStore
+	ModelListStore     ModelListStore
+	// Kensink: in-memory flags for runtimes whose settings (GitHub PAT) changed.
+	SettingsReloadStore   *SettingsReloadStore
 	LocalSkillListStore   LocalSkillListStore
 	LocalSkillImportStore LocalSkillImportStore
 	FeatureFlags          *featureflag.Service
@@ -498,6 +500,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		EmailService:                 emailService,
 		UpdateStore:                  NewInMemoryUpdateStore(),
 		ModelListStore:               NewInMemoryModelListStore(),
+		SettingsReloadStore:          NewSettingsReloadStore(),
 		ModelCatalogCache:            NewInMemoryModelCatalogCache(),
 		LocalSkillListStore:          NewInMemoryLocalSkillListStore(),
 		LocalSkillImportStore:        NewInMemoryLocalSkillImportStore(),

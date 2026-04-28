@@ -695,11 +695,13 @@ type Daemon struct {
 	// without touching the real network or the brew CLI.
 	runUpdateFn func(targetVersion string) (string, error)
 
-	// GitHub token resolution (four-tier priority chain, resolved once at startup).
-	// ghTokenSettings is the P1 token from runtime settings (delivered by server at registration).
+	// GitHub token resolution (four-tier priority chain).
+	// ghTokenSettings is the P1 token from runtime settings (delivered by server at registration
+	//   and refreshed via heartbeat-driven settings reload after the user updates the PAT in the UI).
 	// ghTokenEnv is the P2 token from GH_TOKEN/GITHUB_TOKEN in the daemon's process environment.
 	// ghTokenCLI is the P3 token from `gh auth token` (detected once at startup).
 	// The resolved token is kept in repoCache (via SetToken) and injected into agentEnv.
+	tokenMu         sync.RWMutex // guards ghTokenSettings (others are write-once at startup)
 	ghTokenSettings string
 	ghTokenEnv      string
 	ghTokenCLI      string
@@ -2275,18 +2277,22 @@ func (d *Daemon) probeGHCLI(ctx context.Context) {
 	}
 
 	// Parse key fields from `gh auth status` output (human-readable text).
+	// Modern gh prefixes the line with a "✓ " status glyph, e.g.
+	//   "  ✓ Logged in to github.com account johnefemer (keyring)"
+	// Older gh writes "as <user>" instead of "account <user>". Both forms
+	// produce the same field offsets after splitting on whitespace from
+	// the "Logged in to" anchor, so we slice from the anchor and ignore
+	// any leading glyph or indentation.
 	for _, line := range strings.Split(string(statusOut), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Logged in to ") {
-			// "Logged in to github.com account username (keyring)"
-			parts := strings.Fields(line)
-			if len(parts) >= 7 {
+		if idx := strings.Index(line, "Logged in to "); idx >= 0 {
+			parts := strings.Fields(line[idx:])
+			// parts: ["Logged" "in" "to" "<host>" "{account|as}" "<user>" ...]
+			if len(parts) >= 6 {
 				d.ghHost = parts[3]
 				d.ghUser = parts[5]
 			}
 		}
-		if strings.Contains(line, "Token scopes:") {
-			idx := strings.Index(line, "Token scopes:")
+		if idx := strings.Index(line, "Token scopes:"); idx >= 0 {
 			d.ghScopes = strings.TrimSpace(line[idx+len("Token scopes:"):])
 		}
 	}
@@ -2307,13 +2313,17 @@ func (d *Daemon) probeGHCLI(ctx context.Context) {
 
 // resolveGitHubToken implements the four-tier priority chain:
 //
-//	P1: runtime settings token (delivered at registration from server DB)
+//	P1: runtime settings token (delivered at registration from server DB,
+//	    refreshed via heartbeat after the user updates it in the UI)
 //	P2: GH_TOKEN / GITHUB_TOKEN in daemon process environment
 //	P3: `gh auth token` output (local gh CLI)
 //	P4: "" (no token — credential helpers in the system may still work)
 func (d *Daemon) resolveGitHubToken() string {
-	if d.ghTokenSettings != "" {
-		return d.ghTokenSettings
+	d.tokenMu.RLock()
+	settings := d.ghTokenSettings
+	d.tokenMu.RUnlock()
+	if settings != "" {
+		return settings
 	}
 	if d.ghTokenEnv != "" {
 		return d.ghTokenEnv
@@ -2322,6 +2332,37 @@ func (d *Daemon) resolveGitHubToken() string {
 		return d.ghTokenCLI
 	}
 	return ""
+}
+
+// applySettingsReload updates the cached settings token (and downstream repo
+// cache) when the server reports the user has changed runtime settings via
+// the UI. An empty token means the user cleared the value, in which case
+// resolveGitHubToken falls through to the lower-priority sources.
+func (d *Daemon) applySettingsReload(token string) {
+	d.tokenMu.Lock()
+	prevPreview := previewToken(d.ghTokenSettings)
+	d.ghTokenSettings = token
+	d.tokenMu.Unlock()
+
+	if tc, ok := d.repoCache.(interface{ SetToken(string) }); ok {
+		tc.SetToken(d.resolveGitHubToken())
+	}
+
+	d.logger.Info("runtime settings reloaded",
+		"github_token_set", token != "",
+		"github_token_changed", previewToken(token) != prevPreview,
+	)
+}
+
+// previewToken returns a 4-char suffix preview (or "" if empty) for safe logging.
+func previewToken(t string) string {
+	if t == "" {
+		return ""
+	}
+	if len(t) <= 4 {
+		return "****"
+	}
+	return "****" + t[len(t)-4:]
 }
 
 // allRuntimeIDs returns all runtime IDs across all watched workspaces.
@@ -3149,12 +3190,19 @@ func (d *Daemon) registerBuiltinRuntimesForWorkspaceLocked(ctx context.Context, 
 	// Kensink: extract the P1 GitHub token from the registration response.
 	// We use the first non-empty token found across all runtimes for this
 	// workspace (all runtimes on a daemon share the same token pool).
+	var settingsTok string
 	for _, tok := range resp.GitHubTokens {
 		if tok != "" {
-			d.ghTokenSettings = tok
+			settingsTok = tok
 			break
 		}
 	}
+	if settingsTok != "" {
+		d.tokenMu.Lock()
+		d.ghTokenSettings = settingsTok
+		d.tokenMu.Unlock()
+	}
+
 	// Resolve and push the current best token to the repo cache.
 	if tc, ok := d.repoCache.(interface{ SetToken(string) }); ok {
 		tc.SetToken(d.resolveGitHubToken())
@@ -4701,6 +4749,10 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	}
 	if resp.PendingUpdate != nil {
 		go d.handleUpdate(ctx, runtimeID, resp.PendingUpdate)
+	}
+	// Kensink: the user updated runtime settings (GitHub PAT) in the UI.
+	if resp.PendingSettingsReload != nil {
+		d.applySettingsReload(resp.PendingSettingsReload.GitHubToken)
 	}
 	if resp.PendingModelList != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {

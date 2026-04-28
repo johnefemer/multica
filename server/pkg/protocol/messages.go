@@ -428,6 +428,15 @@ type DaemonHeartbeatAckPayload struct {
 	// that don't know this field silently ignore it (standard JSON behavior)
 	// and fall back to the singular PendingLocalSkillImport above.
 	PendingLocalSkillImports []DaemonHeartbeatPendingLocalSkillImport `json:"pending_local_skill_imports,omitempty"`
+	// PendingSettingsReload (Kensink) re-delivers runtime settings — currently
+	// the GitHub PAT — after the user changed them in the UI. An empty token
+	// means cleared; the daemon falls back to its env / gh CLI sources.
+	PendingSettingsReload *DaemonHeartbeatPendingSettingsReload `json:"pending_settings_reload,omitempty"`
+}
+
+// DaemonHeartbeatPendingSettingsReload carries refreshed runtime settings.
+type DaemonHeartbeatPendingSettingsReload struct {
+	GitHubToken string `json:"github_token"`
 }
 
 // HeartbeatStatusRuntimeGone is the ack Status used when the runtime row no
