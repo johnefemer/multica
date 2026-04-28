@@ -53,15 +53,23 @@ var loginCmd = &cobra.Command{
 const tokenPromptSentinel = "prompt"
 
 func init() {
+	loginCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
+	addLoginFlags(loginCmd)
+}
+
+// addLoginFlags registers the login-mode flags that runAuthLogin reads (via
+// cmd.Flags()) on any cobra command that ends up calling runLogin: `login`
+// and the `setup` family, which logs in internally (Kensink). Each command
+// registers --callback-host itself, so it is not repeated here.
+func addLoginFlags(cmd *cobra.Command) {
 	// No backticks in the usage string: pflag's UnquoteUsage treats the first
 	// backquoted segment as the flag's value placeholder in help output.
-	loginCmd.Flags().String("token", "", "Authenticate using a personal access token (mul_... user PAT or mcn_... Cloud Node PAT). Pass --token mul_... / --token mcn_... to supply it inline, or --token alone to be prompted interactively.")
+	cmd.Flags().String("token", "", "Authenticate using a personal access token (mul_... user PAT or mcn_... Cloud Node PAT). Pass --token mul_... / --token mcn_... to supply it inline, or --token alone to be prompted interactively.")
 	// NoOptDefVal lets `--token` (no value) keep its old prompt-mode behavior
 	// while `--token mul_...` / `--token mcn_...` and the `=value` form
 	// consume the value normally.
-	loginCmd.Flags().Lookup("token").NoOptDefVal = tokenPromptSentinel
-	loginCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
-	loginCmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
+	cmd.Flags().Lookup("token").NoOptDefVal = tokenPromptSentinel
+	cmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {

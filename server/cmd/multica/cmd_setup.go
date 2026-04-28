@@ -77,6 +77,14 @@ func init() {
 	setupSelfHostCmd.Flags().Int("frontend-port", 3000, "Frontend port (used when --app-url is not set)")
 	setupSelfHostCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
 
+	// runSetupCloud / runSetupSelfHost both call runLogin, which reads
+	// --token / --manual / --callback-host off the invoking command's flags.
+	// Mirror the login flags here so `agenthost setup --manual` works on
+	// headless boxes the same way `agenthost login --manual` does.
+	addLoginFlags(setupCmd)
+	addLoginFlags(setupCloudCmd)
+	addLoginFlags(setupSelfHostCmd)
+
 	setupCmd.AddCommand(setupCloudCmd)
 	setupCmd.AddCommand(setupSelfHostCmd)
 }
