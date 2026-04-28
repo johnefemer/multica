@@ -5,8 +5,8 @@ import { Check, Copy, Terminal } from "lucide-react";
 import { useLocale } from "../../i18n";
 
 const INSTALL_CMD =
-  "curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash";
-const SETUP_CMD = "multica setup";
+  "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash";
+const SETUP_CMD = "agenthost setup self-host --server-url https://agenthost.kensink.com";
 
 /**
  * Scenario-first CLI section. Copy leans into servers / remote dev
