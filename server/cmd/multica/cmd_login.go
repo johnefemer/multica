@@ -36,9 +36,18 @@ var loginCmd = &cobra.Command{
 }
 
 func init() {
-	loginCmd.Flags().Bool("token", false, "Authenticate by pasting a personal access token")
-	loginCmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
-	loginCmd.Flags().String(callbackHostFlag, "", "Host the OAuth callback URL points at (auto-detected from the server's route when empty). Use this for reverse-proxy / FQDN setups where auto-detection picks the wrong interface.")
+	addLoginFlags(loginCmd)
+}
+
+// addLoginFlags registers the flags that runAuthLogin reads (via cmd.Flags())
+// on any cobra command that ends up calling runLogin. The flag names MUST
+// match what runAuthLogin looks up, so keep this as the single registration
+// point for both `agenthost login` and `agenthost setup` (which invokes login
+// internally).
+func addLoginFlags(cmd *cobra.Command) {
+	cmd.Flags().Bool("token", false, "Authenticate by pasting a personal access token")
+	cmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
+	cmd.Flags().String(callbackHostFlag, "", "Host the OAuth callback URL points at (auto-detected from the server's route when empty). Use this for reverse-proxy / FQDN setups where auto-detection picks the wrong interface.")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {

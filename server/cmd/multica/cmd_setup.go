@@ -55,6 +55,14 @@ func init() {
 	setupSelfHostCmd.Flags().String("server-url", "", "Backend server URL (overrides default https://agenthost.kensink.com)")
 	setupSelfHostCmd.Flags().String("app-url", "", "Frontend app URL (overrides default https://agenthost.kensink.com)")
 
+	// runSetupCloud / runSetupSelfHost both call runLogin, which reads
+	// --token / --manual / --callback-host off the invoking command's flags.
+	// Mirror the login flags here so `agenthost setup --manual` works on
+	// headless boxes the same way `agenthost login --manual` does.
+	addLoginFlags(setupCmd)
+	addLoginFlags(setupCloudCmd)
+	addLoginFlags(setupSelfHostCmd)
+
 	setupCmd.AddCommand(setupCloudCmd)
 	setupCmd.AddCommand(setupSelfHostCmd)
 }
