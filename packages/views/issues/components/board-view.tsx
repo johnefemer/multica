@@ -301,7 +301,7 @@ export function BoardView({
 
       <DragOverlay dropAnimation={null}>
         {activeIssue ? (
-          <div className="w-[280px] rotate-2 scale-105 cursor-grabbing opacity-90 shadow-lg shadow-black/10">
+          <div className="w-[min(85vw,280px)] sm:w-[280px] rotate-2 scale-105 cursor-grabbing opacity-90 shadow-lg shadow-black/10">
             <BoardCardContent issue={activeIssue} childProgress={childProgressMap.get(activeIssue.id)} />
           </div>
         ) : null}
@@ -351,7 +351,7 @@ function HiddenColumnsPanel({
   myIssuesOpts?: { scope: string; filter: MyIssuesFilter };
 }) {
   return (
-    <div className="flex w-[240px] shrink-0 flex-col">
+    <div className="flex w-[min(85vw,240px)] sm:w-[240px] shrink-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
         <span className="text-sm font-medium text-muted-foreground">
           Hidden columns

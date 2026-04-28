@@ -139,16 +139,16 @@ function AutopilotRow({ autopilot }: { autopilot: Autopilot }) {
         <span className="min-w-0 flex-1 truncate font-medium">{autopilot.title}</span>
       </AppLink>
 
-      {/* Agent */}
-      <span className="flex w-32 items-center gap-1.5 shrink-0">
+      {/* Agent — hidden on mobile to keep title + status visible */}
+      <span className="hidden md:flex w-32 items-center gap-1.5 shrink-0">
         <ActorAvatar actorType="agent" actorId={autopilot.assignee_id} size={18} />
         <span className="truncate text-xs text-muted-foreground">
           {getActorName("agent", autopilot.assignee_id)}
         </span>
       </span>
 
-      {/* Mode */}
-      <span className="w-24 shrink-0 text-center text-xs text-muted-foreground">
+      {/* Mode — hidden on mobile */}
+      <span className="hidden md:inline-block w-24 shrink-0 text-center text-xs text-muted-foreground">
         {EXECUTION_MODE_LABELS[autopilot.execution_mode] ?? autopilot.execution_mode}
       </span>
 
@@ -158,8 +158,8 @@ function AutopilotRow({ autopilot }: { autopilot: Autopilot }) {
         {statusCfg.label}
       </span>
 
-      {/* Last run */}
-      <span className="w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+      {/* Last run — hidden on the very narrowest viewports */}
+      <span className="hidden sm:inline-block w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
         {autopilot.last_run_at ? formatRelativeDate(autopilot.last_run_at) : "--"}
       </span>
     </div>

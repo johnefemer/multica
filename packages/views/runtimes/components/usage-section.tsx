@@ -149,20 +149,20 @@ export function UsageSection({ runtimeId }: { runtimeId: string }) {
 
       {/* Daily breakdown table */}
       <div className="rounded-lg border">
-        <div className="grid grid-cols-[100px_1fr_80px_80px_80px_80px] gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-[80px_1fr_70px_70px] md:grid-cols-[100px_1fr_80px_80px_80px_80px] gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
           <div>Date</div>
           <div>Model</div>
           <div className="text-right">Input</div>
           <div className="text-right">Output</div>
-          <div className="text-right">Cache R</div>
-          <div className="text-right">Cache W</div>
+          <div className="hidden md:block text-right">Cache R</div>
+          <div className="hidden md:block text-right">Cache W</div>
         </div>
         <div className="max-h-64 overflow-y-auto divide-y">
           {[...byDate.entries()].map(([date, rows]) =>
             rows.map((row, i) => (
               <div
                 key={`${date}-${row.model}-${i}`}
-                className="grid grid-cols-[100px_1fr_80px_80px_80px_80px] gap-2 px-3 py-1.5 text-xs"
+                className="grid grid-cols-[80px_1fr_70px_70px] md:grid-cols-[100px_1fr_80px_80px_80px_80px] gap-2 px-3 py-1.5 text-xs"
               >
                 <div className="text-muted-foreground">{date}</div>
                 <div className="truncate font-mono">{row.model}</div>
@@ -172,10 +172,10 @@ export function UsageSection({ runtimeId }: { runtimeId: string }) {
                 <div className="text-right tabular-nums">
                   {formatTokens(row.output_tokens)}
                 </div>
-                <div className="text-right tabular-nums">
+                <div className="hidden md:block text-right tabular-nums">
                   {formatTokens(row.cache_read_tokens)}
                 </div>
-                <div className="text-right tabular-nums">
+                <div className="hidden md:block text-right tabular-nums">
                   {formatTokens(row.cache_write_tokens)}
                 </div>
               </div>

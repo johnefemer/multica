@@ -81,11 +81,11 @@ function ProjectRow({ project }: { project: Project }) {
         <span className="min-w-0 flex-1 truncate font-medium">{project.title}</span>
       </AppLink>
 
-      {/* Priority — dropdown */}
+      {/* Priority — dropdown (hidden on mobile to keep name + status visible) */}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <button type="button" className="flex w-24 items-center justify-center gap-1 shrink-0 rounded px-1 py-0.5 hover:bg-accent/60 transition-colors cursor-pointer">
+            <button type="button" className="hidden md:flex w-24 items-center justify-center gap-1 shrink-0 rounded px-1 py-0.5 hover:bg-accent/60 transition-colors cursor-pointer">
               <PriorityIcon priority={project.priority} />
               <span className={cn("text-xs", priorityCfg.color)}>{priorityCfg.label}</span>
             </button>
@@ -125,8 +125,8 @@ function ProjectRow({ project }: { project: Project }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Progress (read-only) */}
-      <span className="flex w-24 items-center justify-center gap-1.5 shrink-0">
+      {/* Progress (read-only) — hidden on mobile */}
+      <span className="hidden sm:flex w-24 items-center justify-center gap-1.5 shrink-0">
         {project.issue_count > 0 ? (
           <>
             <span className="relative h-1.5 w-12 rounded-full bg-muted overflow-hidden">
@@ -144,11 +144,11 @@ function ProjectRow({ project }: { project: Project }) {
         )}
       </span>
 
-      {/* Lead — popover */}
+      {/* Lead — popover (hidden on mobile) */}
       <Popover open={leadOpen} onOpenChange={(v) => { setLeadOpen(v); if (!v) setLeadFilter(""); }}>
         <PopoverTrigger
           render={
-            <button type="button" className="flex w-10 items-center justify-center shrink-0 rounded-full hover:ring-2 hover:ring-accent transition-all cursor-pointer">
+            <button type="button" className="hidden sm:flex w-10 items-center justify-center shrink-0 rounded-full hover:ring-2 hover:ring-accent transition-all cursor-pointer">
               {project.lead_type && project.lead_id ? (
                 <Tooltip>
                   <TooltipTrigger render={<span><ActorAvatar actorType={project.lead_type} actorId={project.lead_id} size={22} /></span>} />
@@ -218,8 +218,8 @@ function ProjectRow({ project }: { project: Project }) {
         </PopoverContent>
       </Popover>
 
-      {/* Created */}
-      <span className="w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+      {/* Created — hidden on mobile */}
+      <span className="hidden md:inline-block w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
         {formatRelativeDate(project.created_at)}
       </span>
     </div>
@@ -278,16 +278,16 @@ export function ProjectsPage() {
           </div>
         ) : (
           <>
-            {/* Column headers */}
+            {/* Column headers — match the row's responsive visibility */}
             <div className="sticky top-0 z-[1] flex h-8 items-center gap-2 border-b bg-muted/30 px-5 text-xs font-medium text-muted-foreground">
               {/* Icon spacer + Name */}
               <span className="shrink-0 w-[24px]" />
               <span className="min-w-0 flex-1">Name</span>
-              <span className="w-24 text-center shrink-0">Priority</span>
+              <span className="hidden md:inline-block w-24 text-center shrink-0">Priority</span>
               <span className="w-28 text-center shrink-0">Status</span>
-              <span className="w-24 text-center shrink-0">Progress</span>
-              <span className="w-10 text-center shrink-0">Lead</span>
-              <span className="w-20 text-right shrink-0">Created</span>
+              <span className="hidden sm:inline-block w-24 text-center shrink-0">Progress</span>
+              <span className="hidden sm:inline-block w-10 text-center shrink-0">Lead</span>
+              <span className="hidden md:inline-block w-20 text-right shrink-0">Created</span>
             </div>
             {/* Rows */}
             {projects.map((project) => (
