@@ -590,6 +590,22 @@ func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 		resp["pending_model_list"] = map[string]string{"id": pending.ID}
 	}
 
+	// Deliver the latest runtime settings (currently just the GitHub PAT) when
+	// the user has updated them via UpdateRuntimeSettings. The flag is set in
+	// memory by the API handler and consumed exactly once here. An empty
+	// github_token signals "cleared" so the daemon falls back through its
+	// resolution chain (env / gh CLI).
+	if h.SettingsReloadStore != nil && h.SettingsReloadStore.PopMarked(req.RuntimeID) {
+		token := ""
+		if rt, err := h.Queries.GetAgentRuntime(r.Context(), parseUUID(req.RuntimeID)); err == nil {
+			var s map[string]string
+			if json.Unmarshal(rt.Settings, &s) == nil {
+				token = s["github_token"]
+			}
+		}
+		resp["pending_settings_reload"] = map[string]string{"github_token": token}
+	}
+
 	// Probe then claim the local-skill list queue. The probe is bounded so a
 	// slow shared store cannot stall the heartbeat on empty-queue ticks; the
 	// claim runs unbounded (it inherits only r.Context()) because its Lua

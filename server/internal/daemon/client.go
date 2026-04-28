@@ -222,6 +222,7 @@ type HeartbeatResponse struct {
 	PendingModelList        *PendingModelList        `json:"pending_model_list,omitempty"`
 	PendingLocalSkills      *PendingLocalSkills      `json:"pending_local_skills,omitempty"`
 	PendingLocalSkillImport *PendingLocalSkillImport `json:"pending_local_skill_import,omitempty"`
+	PendingSettingsReload   *PendingSettingsReload   `json:"pending_settings_reload,omitempty"`
 }
 
 // PendingPing represents a ping test request from the server.
@@ -249,6 +250,13 @@ type PendingLocalSkills struct {
 type PendingLocalSkillImport struct {
 	ID       string `json:"id"`
 	SkillKey string `json:"skill_key"`
+}
+
+// PendingSettingsReload carries the latest user-controlled runtime settings
+// (currently just the GitHub PAT) when they have changed since the last
+// registration. An empty GitHubToken means the user cleared the value.
+type PendingSettingsReload struct {
+	GitHubToken string `json:"github_token"`
 }
 
 func (c *Client) SendHeartbeat(ctx context.Context, runtimeID string) (*HeartbeatResponse, error) {

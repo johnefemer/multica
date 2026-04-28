@@ -456,9 +456,14 @@ func (h *Handler) UpdateRuntimeSettings(w http.ResponseWriter, r *http.Request) 
 
 	slog.Info("runtime settings updated", "runtime_id", runtimeID, "updated_by", uuidToString(member.UserID))
 
-	// Broadcast settings change so UIs refetch; the daemon loads runtime PATs
-	// from the registration response (restart the daemon if a new token should
-	// apply immediately — heartbeat does not re-deliver tokens today).
+	// Mark the runtime so the next heartbeat re-delivers the fresh settings
+	// (e.g. updated PAT) to the daemon. Without this, the daemon's in-memory
+	// ghTokenSettings stays at whatever was loaded at registration time.
+	if h.SettingsReloadStore != nil {
+		h.SettingsReloadStore.Mark(runtimeID)
+	}
+
+	// Broadcast settings change so UIs refetch.
 	h.publish(protocol.EventDaemonRegister, wsID, "member", uuidToString(member.UserID), map[string]any{
 		"action":     "settings_updated",
 		"runtime_id": runtimeID,

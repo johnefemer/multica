@@ -59,6 +59,7 @@ type Handler struct {
 	EmailService          *service.EmailService
 	UpdateStore           *UpdateStore
 	ModelListStore        *ModelListStore
+	SettingsReloadStore   *SettingsReloadStore
 	LocalSkillListStore   LocalSkillListStore
 	LocalSkillImportStore LocalSkillImportStore
 	Storage               storage.Storage
@@ -89,6 +90,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		EmailService:          emailService,
 		UpdateStore:           NewUpdateStore(),
 		ModelListStore:        NewModelListStore(),
+		SettingsReloadStore:   NewSettingsReloadStore(),
 		LocalSkillListStore:   NewInMemoryLocalSkillListStore(),
 		LocalSkillImportStore: NewInMemoryLocalSkillImportStore(),
 		Storage:               store,
