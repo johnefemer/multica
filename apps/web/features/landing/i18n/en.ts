@@ -194,14 +194,14 @@ export function createEnDict(
     headline: "Questions & answers.",
     items: [
       {
-        question: "What coding agents does Multica support?",
+        question: "What coding agents does Agenthost support?",
         answer:
           "Multica supports 26 coding tools out of the box: Antigravity, Claude Code, CodeBuddy, CodeArts, Codex, Copilot, Cursor, DeepSeek Harness, DevEco Code, Dim, Grok, Hermes, Kimi, Kiro CLI, MiniMax Code, Oh-My-Pi, OpenClaw, OpenCode, Pi, Qoder, Qoder CN, Qwen Code, QwenPaw, Reasonix, Trae CLI, and ZeroClaw. The daemon auto-detects whichever CLIs you already have installed and registers a runtime for each one. Since the source code is public, you can also add your own backends.",
       },
       {
         question: "Do I need to self-host, or is there a cloud version?",
         answer:
-          "Both. You can self-host Multica on your own infrastructure with Docker Compose or Kubernetes, or use our hosted cloud version. Your data, your choice.",
+          "Both. You can self-host Agenthost on your own infrastructure with Docker Compose or Kubernetes, or use our hosted cloud version. Your data, your choice.",
       },
       {
         question: "Can I use Multica commercially?",
@@ -212,12 +212,12 @@ export function createEnDict(
         question:
           "How is this different from just using coding agents directly?",
         answer:
-          "Coding agents are great at executing. Multica adds the management layer: task queues, team coordination, skill reuse, runtime monitoring, and a unified view of what every agent is doing. Think of it as the project manager for your agents.",
+          "Coding agents are great at executing. Agenthost adds the management layer: task queues, team coordination, skill reuse, runtime monitoring, and a unified view of what every agent is doing. Think of it as the project manager for your agents.",
       },
       {
         question: "Can agents work on long-running tasks autonomously?",
         answer:
-          "Yes. Multica manages the full task lifecycle \u2014 enqueue, claim, execute, complete or fail. Agents report blockers proactively and stream progress in real time. You can check in whenever you want or let them run overnight.",
+          "Yes. Agenthost manages the full task lifecycle \u2014 enqueue, claim, execute, complete or fail. Agents report blockers proactively and stream progress in real time. You can check in whenever you want or let them run overnight.",
       },
       {
         question: "Is my code safe? Where does agent execution happen?",
@@ -267,7 +267,7 @@ export function createEnDict(
         ],
       },
     },
-    copyright: "\u00a9 {year} Multica. All rights reserved.",
+    copyright: "\u00a9 {year} Agenthost. All rights reserved.",
   },
 
   about: {
@@ -514,7 +514,7 @@ export function createEnDict(
 
   changelog: {
     title: "Changelog",
-    subtitle: "New updates and improvements to Multica.",
+    subtitle: "New updates and improvements to Agenthost.",
     toc: "All releases",
     categories: {
       features: "New Features",
@@ -3453,7 +3453,7 @@ export function createEnDict(
         changes: [],
         features: [
           "Desktop app cross-platform packaging — macOS, Windows, and Linux artifacts from a single release pipeline",
-          "`multica update` self-update command — upgrade the CLI and local daemon without reinstalling",
+          "`agenthost update` self-update command — upgrade the CLI and local daemon without reinstalling",
           "Issue board paginates every status column, not only Done — large backlogs stay responsive",
         ],
         fixes: [
@@ -3470,7 +3470,7 @@ export function createEnDict(
         title: "Per-Agent Models, Kimi Runtime & Self-Host Auth",
         changes: [],
         features: [
-          "Per-agent `model` field with a provider-aware dropdown — pick the LLM model for each agent from the UI or via `multica agent create/update --model`, with live discovery from each runtime's CLI",
+          "Per-agent `model` field with a provider-aware dropdown — pick the LLM model for each agent from the UI or via `agenthost agent create/update --model`, with live discovery from each runtime's CLI",
           "Kimi CLI as a new agent runtime (Moonshot AI's `kimi-cli` over ACP), with model selection, auto-approved tool permissions, and streaming tool-call rendering",
           "Expand toggle on inline comment and reply editors for composing long text",
         ],
@@ -3618,7 +3618,7 @@ export function createEnDict(
         title: "One-Click Setup, Self-Hosting & Stability",
         changes: [],
         features: [
-          "One-click install & setup — `curl | bash` installs CLI, `--with-server` bootstraps full self-hosting, `multica setup` configures your environment",
+          "One-click install & setup — `curl | bash` installs CLI, `--with-server` bootstraps full self-hosting, `agenthost setup` configures your environment",
           "Self-hosted storage — local file fallback when S3 is unavailable, plus custom S3 endpoint support (MinIO)",
           "Inline property editing (priority, status, lead) on project list page",
         ],
@@ -3764,7 +3764,7 @@ export function createEnDict(
           "Load all open issues without pagination limit; closed issues paginate on scroll",
           "JWT and CloudFront cookie expiration extended from 72 hours to 30 days",
           "Remember last selected workspace after re-login",
-          "Daemon ensures multica CLI is on PATH in agent task environment",
+          "Daemon ensures agenthost CLI is on PATH in agent task environment",
           "PR template and CLI install guide for agent-driven setup",
         ],
       },
@@ -3893,7 +3893,7 @@ export function createEnDict(
   download: {
     hero: {
       macArm64: {
-        title: "Multica for macOS",
+        title: "Agenthost for macOS",
         sub: "Apple Silicon · bundled daemon, zero setup",
         primary: "Download (.dmg)",
         altZip: "or download .zip",
@@ -3905,17 +3905,17 @@ export function createEnDict(
         altZip: "or download .zip",
       },
       winX64: {
-        title: "Multica for Windows",
+        title: "Agenthost for Windows",
         sub: "Bundled daemon, zero setup",
         primary: "Download (.exe)",
       },
       winArm64: {
-        title: "Multica for Windows",
+        title: "Agenthost for Windows",
         sub: "ARM · bundled daemon, zero setup",
         primary: "Download (.exe)",
       },
       linux: {
-        title: "Multica for Linux",
+        title: "Agenthost for Linux",
         sub: "Bundled daemon, zero setup",
         primary: "Download AppImage",
         altFormats: "or .deb / .rpm",

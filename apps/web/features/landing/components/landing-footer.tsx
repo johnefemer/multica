@@ -39,14 +39,6 @@ export function LandingFooter() {
             </p>
             <div className="mt-4 flex items-center gap-3">
               <Link
-                href={twitterUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white/40 transition-colors hover:text-white"
-              >
-                <XMark className="size-4" />
-              </Link>
-              <Link
                 href={githubUrl}
                 target="_blank"
                 rel="noreferrer"

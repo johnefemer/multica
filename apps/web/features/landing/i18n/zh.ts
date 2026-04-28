@@ -267,7 +267,7 @@ export function createZhDict(
         ],
       },
     },
-    copyright: "\u00a9 {year} Multica. \u4fdd\u7559\u6240\u6709\u6743\u5229\u3002",
+    copyright: "\u00a9 {year} Agenthost. \u4fdd\u7559\u6240\u6709\u6743\u5229\u3002",
   },
 
   about: {
@@ -499,7 +499,7 @@ export function createZhDict(
 
   changelog: {
     title: "\u66f4\u65b0\u65e5\u5fd7",
-    subtitle: "Multica \u7684\u6700\u65b0\u66f4\u65b0\u548c\u6539\u8fdb\u3002",
+    subtitle: "Agenthost \u7684\u6700\u65b0\u66f4\u65b0\u548c\u6539\u8fdb\u3002",
     toc: "\u5386\u53f2\u7248\u672c",
     categories: {
       features: "新功能",
@@ -3450,7 +3450,7 @@ export function createZhDict(
         title: "Agent 模型选择、Kimi Runtime 与自部署登录",
         changes: [],
         features: [
-          "Agent 新增 `model` 字段及按 Provider 聚合的模型下拉框——可在界面或通过 `multica agent create/update --model` 为每个 Agent 选择 LLM 模型，并从各 Runtime CLI 实时发现可用模型",
+          "Agent 新增 `model` 字段及按 Provider 聚合的模型下拉框——可在界面或通过 `agenthost agent create/update --model` 为每个 Agent 选择 LLM 模型，并从各 Runtime CLI 实时发现可用模型",
           "新增 Kimi CLI Agent Runtime（Moonshot AI 的 `kimi-cli`，基于 ACP），支持模型选择、自动授权工具权限以及流式工具调用渲染",
           "评论和回复编辑器新增放大按钮，便于撰写长文本",
         ],
@@ -3598,7 +3598,7 @@ export function createZhDict(
         title: "一键安装、自部署与稳定性",
         changes: [],
         features: [
-          "一键安装与配置——`curl | bash` 安装 CLI，`--with-server` 完整自部署，`multica setup` 配置连接环境",
+          "一键安装与配置——`curl | bash` 安装 CLI，`--with-server` 完整自部署，`agenthost setup` 配置连接环境",
           "自部署存储——无 S3 时本地文件存储回退，支持自定义 S3 端点（MinIO）",
           "项目列表页支持行内编辑属性（优先级、状态、负责人）",
         ],
@@ -3873,7 +3873,7 @@ export function createZhDict(
   download: {
     hero: {
       macArm64: {
-        title: "Multica for macOS",
+        title: "Agenthost for macOS",
         sub: "Apple Silicon · 内置 daemon，无需配置",
         primary: "下载 (.dmg)",
         altZip: "或下载 .zip",
@@ -3885,17 +3885,17 @@ export function createZhDict(
         altZip: "或下载 .zip",
       },
       winX64: {
-        title: "Multica for Windows",
+        title: "Agenthost for Windows",
         sub: "内置 daemon，无需配置",
         primary: "下载 (.exe)",
       },
       winArm64: {
-        title: "Multica for Windows",
+        title: "Agenthost for Windows",
         sub: "ARM · 内置 daemon，无需配置",
         primary: "下载 (.exe)",
       },
       linux: {
-        title: "Multica for Linux",
+        title: "Agenthost for Linux",
         sub: "内置 daemon，无需配置",
         primary: "下载 AppImage",
         altFormats: "或 .deb / .rpm",
