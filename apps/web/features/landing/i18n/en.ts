@@ -244,7 +244,6 @@ export function createEnDict(
           { label: "How it Works", href: "#how-it-works" },
           { label: "Use cases", href: "/usecases" },
           { label: "Changelog", href: "/changelog" },
-          { label: "Download", href: "/download" },
         ],
       },
       resources: {
