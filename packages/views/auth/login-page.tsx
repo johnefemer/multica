@@ -347,7 +347,7 @@ export function LoginPage({
             Authentication Code
           </h1>
           <p className="text-base text-muted-foreground">
-            Paste this into the Multica CLI:
+            Paste this into the Agenthost CLI:
           </p>
           <div className="w-full rounded-xl border bg-muted/40 px-6 py-5">
             <code className="block w-full break-all font-mono text-sm">
