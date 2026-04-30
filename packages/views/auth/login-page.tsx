@@ -332,7 +332,7 @@ export function LoginPage({
             Authentication Code
           </h1>
           <p className="text-base text-muted-foreground">
-            Paste this into the Multica CLI:
+            Paste this into the Agenthost CLI:
           </p>
           <div className="w-full rounded-xl border bg-muted/40 px-6 py-5">
             <code className="block w-full break-all font-mono text-sm">
@@ -382,7 +382,7 @@ export function LoginPage({
             {logo && <div className="mx-auto mb-4">{logo}</div>}
             <CardTitle className="text-2xl">Authorize CLI</CardTitle>
             <CardDescription>
-              Allow the CLI to access Multica as{" "}
+              Allow the CLI to access Agenthost as{" "}
               <span className="font-medium text-foreground">
                 {existingUser.email}
               </span>

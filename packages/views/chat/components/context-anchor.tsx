@@ -170,12 +170,12 @@ export function ContextAnchorButton() {
   const isBright = focusMode && hasAnchor;
 
   const tooltipText = isDisabled
-    ? "Nothing to share with Multica on this page"
+    ? "Nothing to share with Agenthost on this page"
     : focusMode && candidate
       ? candidate.type === "issue"
-        ? `Multica knows you're viewing ${candidate.label} · Click to turn off`
-        : `Multica knows you're viewing project "${candidate.label}" · Click to turn off`
-      : "Let Multica know what you're viewing";
+        ? `Agenthost knows you're viewing ${candidate.label} · Click to turn off`
+        : `Agenthost knows you're viewing project "${candidate.label}" · Click to turn off`
+      : "Let Agenthost know what you're viewing";
 
   return (
     <Tooltip>
@@ -188,7 +188,7 @@ export function ContextAnchorButton() {
             onClick={() => setFocusMode(!focusMode)}
             disabled={isDisabled}
             aria-label={
-              focusMode ? "Stop sharing current page" : "Share current page with Multica"
+              focusMode ? "Stop sharing current page" : "Share current page with Agenthost"
             }
             aria-pressed={focusMode}
           />
@@ -221,8 +221,8 @@ export function ContextAnchorCard() {
 
   const tooltipText =
     candidate.type === "issue"
-      ? `Multica knows you're viewing ${candidate.label}${candidate.subtitle ? ` — ${candidate.subtitle}` : ""}`
-      : `Multica knows you're viewing project "${candidate.label}"`;
+      ? `Agenthost knows you're viewing ${candidate.label}${candidate.subtitle ? ` — ${candidate.subtitle}` : ""}`
+      : `Agenthost knows you're viewing project "${candidate.label}"`;
 
   // Same pattern as IssueMentionCard: wrap the pure chip in an AppLink and
   // layer cursor + hover affordance onto the chip. Makes the anchor feel

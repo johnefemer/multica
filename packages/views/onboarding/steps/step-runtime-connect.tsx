@@ -315,7 +315,7 @@ function ScanningView() {
         Looking for your tools…
       </h1>
       <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.55] text-muted-foreground">
-        Multica drives local AI coding tools like{" "}
+        Agenthost drives local AI coding tools like{" "}
         <span className="font-medium text-foreground">Claude Code</span>,{" "}
         <span className="font-medium text-foreground">Codex</span>,{" "}
         <span className="font-medium text-foreground">Cursor</span>, and
@@ -416,7 +416,7 @@ function EmptyView({
         No supported tools detected.
       </h1>
       <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.55] text-muted-foreground">
-        Multica drives local AI coding tools like{" "}
+        Agenthost drives local AI coding tools like{" "}
         <span className="font-medium text-foreground">Claude Code</span>,{" "}
         <span className="font-medium text-foreground">Codex</span>,{" "}
         <span className="font-medium text-foreground">Cursor</span>, and

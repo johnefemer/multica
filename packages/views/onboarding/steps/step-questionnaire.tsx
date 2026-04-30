@@ -205,8 +205,8 @@ export function StepQuestionnaire({
 
               <QuestionBlock
                 num={3}
-                question="What do you want to do with Multica?"
-                ariaLabel="What do you want to do with Multica?"
+                question="What do you want to do with Agenthost?"
+                ariaLabel="What do you want to do with Agenthost?"
               >
                 <OptionCard
                   selected={answers.use_case === "coding"}

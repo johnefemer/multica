@@ -38,11 +38,11 @@ export function buildWelcomeIssueText(
   const name = userName.trim() || "there";
 
   const header = [
-    `Welcome to Multica! 👋`,
+    `Welcome to Agenthost! 👋`,
     ``,
     `This is your workspace's first issue. Below, your agent will reply in a moment — that's how work happens here: you write what you want, your agent (or a teammate) picks it up and replies in the comments.`,
     ``,
-    `[Learn how Multica works →](https://multica.ai/docs/how-multica-works)`,
+    `[Learn how Agenthost works →](https://multica.ai/docs/how-multica-works)`,
     ``,
     `---`,
     ``,
@@ -52,7 +52,7 @@ export function buildWelcomeIssueText(
     `In your first reply, please:`,
     ``,
     `1. **Introduce yourself briefly** — your name, your role, what you're good at.`,
-    `2. **Explain how we work together in Multica**:`,
+    `2. **Explain how we work together in Agenthost**:`,
     `   - Assigning an issue to you **and** setting its status to **Todo** is what triggers you to start (Backlog pauses you)`,
     `   - @mentioning you inside a comment is for quick questions`,
     `   - **Workspace Context** (in Settings → General) is shared background every agent here sees`,
@@ -68,7 +68,7 @@ export function buildWelcomeIssueText(
     `In your first reply, please:`,
     ``,
     `1. **Introduce yourself briefly** — your name, your role, what you're good at.`,
-    `2. **Explain how we work together in Multica**:`,
+    `2. **Explain how we work together in Agenthost**:`,
     `   - Assigning an issue to you **and** setting its status to **Todo** triggers you to start (Backlog pauses you)`,
     `   - @mentioning you inside a comment is for quick questions`,
     `   - **Workspace Context** (in Settings → General) is shared background every agent here sees`,
@@ -80,23 +80,23 @@ export function buildWelcomeIssueText(
   switch (q.use_case) {
     case "coding":
       return {
-        title: "👋 Welcome to Multica — let's work together",
-        description: `${header}Hi agent, this is ${name}'s first time using Multica. They plan to use you mostly for **coding work**.\n\n${sharedInstructions}`,
+        title: "👋 Welcome to Agenthost — let's work together",
+        description: `${header}Hi agent, this is ${name}'s first time using Agenthost. They plan to use you mostly for **coding work**.\n\n${sharedInstructions}`,
       };
     case "planning":
       return {
-        title: "👋 Welcome to Multica — let's work together",
-        description: `${header}Hi agent, this is ${name}'s first time using Multica. They want your help with **planning and breaking down work**.\n\n${sharedInstructions}`,
+        title: "👋 Welcome to Agenthost — let's work together",
+        description: `${header}Hi agent, this is ${name}'s first time using Agenthost. They want your help with **planning and breaking down work**.\n\n${sharedInstructions}`,
       };
     case "writing_research":
       return {
-        title: "👋 Welcome to Multica — let's work together",
-        description: `${header}Hi agent, this is ${name}'s first time using Multica. They'll use you for **research and writing** — drafting, summarizing, analysis.\n\n${sharedInstructions}`,
+        title: "👋 Welcome to Agenthost — let's work together",
+        description: `${header}Hi agent, this is ${name}'s first time using Agenthost. They'll use you for **research and writing** — drafting, summarizing, analysis.\n\n${sharedInstructions}`,
       };
     case "explore":
       return {
-        title: "👋 Welcome to Multica — let's work together",
-        description: `${header}Hi agent, this is ${name}'s first time using Multica. They're **exploring** what Multica can do — no specific goal yet.\n\n${exploreInstructions}`,
+        title: "👋 Welcome to Agenthost — let's work together",
+        description: `${header}Hi agent, this is ${name}'s first time using Agenthost. They're **exploring** what Agenthost can do — no specific goal yet.\n\n${exploreInstructions}`,
       };
     case "other": {
       const customUseCase = (q.use_case_other ?? "").trim();
@@ -104,14 +104,14 @@ export function buildWelcomeIssueText(
         ? `They told us they want to use you for: "${customUseCase}".`
         : `They haven't narrowed down their use case yet.`;
       return {
-        title: "👋 Welcome to Multica — let's work together",
-        description: `${header}Hi agent, this is ${name}'s first time using Multica. ${contextLine}\n\n${sharedInstructions}`,
+        title: "👋 Welcome to Agenthost — let's work together",
+        description: `${header}Hi agent, this is ${name}'s first time using Agenthost. ${contextLine}\n\n${sharedInstructions}`,
       };
     }
     default:
       return {
-        title: "👋 Welcome to Multica — let's work together",
-        description: `${header}Hi agent, this is ${name}'s first time using Multica.\n\n${sharedInstructions}`,
+        title: "👋 Welcome to Agenthost — let's work together",
+        description: `${header}Hi agent, this is ${name}'s first time using Agenthost.\n\n${sharedInstructions}`,
       };
   }
 }
@@ -127,7 +127,7 @@ export function buildAgentGuidedSubIssues(
       assign_to_self: true,
       title: "Learn how to trigger your agent on any issue",
       description: [
-        `**Every issue has a right-side panel** called **Properties**. From there you control who works on what. Agents in Multica are triggered when an issue has:`,
+        `**Every issue has a right-side panel** called **Properties**. From there you control who works on what. Agents in Agenthost are triggered when an issue has:`,
         ``,
         `  Assignee = your agent  AND  Status = Todo (not Backlog)`,
         ``,
@@ -209,7 +209,7 @@ export function buildAgentGuidedSubIssues(
       assign_to_self: true,
       title: "Invite your teammates",
       description: [
-        `Multica works best when a small team shares agents.`,
+        `Agenthost works best when a small team shares agents.`,
         ``,
         `**Where to find it**:`,
         `1. Sidebar → **Settings** (⚙️, bottom)`,
@@ -371,25 +371,20 @@ export function buildSelfServeSubIssues(
   q: QuestionnaireAnswers,
 ): ImportStarterIssuePayload[] {
   // --- Tier 1: Unlock agent ability (Todo / high) ---------------------------
-  // Without a runtime + an agent, nothing else in Multica works. These two
+  // Without a runtime + an agent, nothing else in Agenthost works. These two
   // are the gates — everything below them waits on them.
   const tier1: ImportStarterIssuePayload[] = [
     {
       status: "todo",
       priority: "high",
       assign_to_self: true,
-      title: "Install a runtime (Desktop app or CLI)",
+      title: "Install a runtime (CLI)",
       description: [
         `**Why this first**: no runtime = no agents can execute. Everything below Tier 1 waits on this.`,
         ``,
         `A **runtime** is a small background process that runs on your machine. It connects your workspace to AI coding tools (Claude Code, Codex, …) and executes the tasks your agents pick up.`,
         ``,
-        `**Option A — Desktop app (macOS, recommended if you're on a Mac)**:`,
-        `1. Go to [github.com/multica-ai/multica/releases/latest](https://github.com/multica-ai/multica/releases/latest) and download the \`.dmg\` for macOS`,
-        `2. Install and open the app`,
-        `3. Sign in with the same account — the runtime is built in, you're done`,
-        ``,
-        `**Option B — CLI (macOS, Linux, or Windows via WSL)**:`,
+        `**Install the CLI (macOS, Linux, or Windows via WSL)**:`,
         `1. In a terminal, install the CLI:`,
         `   \`\`\``,
         `   curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash`,
@@ -442,7 +437,7 @@ export function buildSelfServeSubIssues(
       description: [
         `**Prerequisite**: you have a runtime + agent from the two tasks above.`,
         ``,
-        `**How Multica triggers agents**:`,
+        `**How Agenthost triggers agents**:`,
         `- Assign an issue to an agent`,
         `- Set status to **Todo** (not Backlog — backlog pauses agents)`,
         `- The agent picks it up automatically`,
@@ -539,7 +534,7 @@ export function buildSelfServeSubIssues(
       assign_to_self: true,
       title: "Invite your teammates",
       description: [
-        `Multica works best when a small team shares agents.`,
+        `Agenthost works best when a small team shares agents.`,
         ``,
         `**Where to find it**:`,
         `1. Sidebar → **Settings** (⚙️, bottom)`,
@@ -631,7 +626,7 @@ export function buildImportPayload({
     project: {
       title: "Getting Started",
       description:
-        "A few things to try in Multica. Work through them at your own pace.",
+        "A few things to try in Agenthost. Work through them at your own pace.",
       icon: "👋",
     },
     welcome_issue_template: {

@@ -140,7 +140,7 @@ export function StarterContentPrompt() {
               Getting Started
             </span>{" "}
             project with short tasks that walk through how agents, issues,
-            and context work in Multica.
+            and context work in Agenthost.
           </DialogDescription>
         </DialogHeader>
 
