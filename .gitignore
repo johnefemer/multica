@@ -58,3 +58,9 @@ server/server
 data/
 .kilo
 .idea
+
+# Design source files. Penpot exports, raster mocks, vendor design files —
+# kept locally only. The fork (johnefemer/multica) can't push to GitHub LFS,
+# so we don't track binary design assets in git at all. If we need to share
+# design files, drop them in the team Drive / Notion and link from docs.
+docs/design/
