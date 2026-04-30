@@ -5283,4 +5283,8 @@ export class ApiClient {
   getGitHubOAuthURL(workspaceSlug: string): string {
     return `/auth/github/start?workspace=${workspaceSlug}`;
   }
+
+  getSlackOAuthURL(workspaceSlug: string): string {
+    return `/auth/slack/start?workspace=${workspaceSlug}`;
+  }
 }

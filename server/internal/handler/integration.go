@@ -510,8 +510,7 @@ func (h *Handler) RegisterGitHubWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	appURL := os.Getenv("MULTICA_APP_URL")
-	webhookURL := fmt.Sprintf("%s/webhooks/github?workspace_id=%s", appURL, uuidToString(wsID))
+	webhookURL := fmt.Sprintf("%s/webhooks/github?workspace_id=%s", appURL(), uuidToString(wsID))
 
 	hookID, err := githubprovider.RegisterWebhook(ctx, conn.AccessToken, req.Repo, webhookURL, webhookSecret)
 	if err != nil {
@@ -526,17 +525,27 @@ func (h *Handler) RegisterGitHubWebhook(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"hook_id": hookID, "repo": req.Repo})
 }
 
+// appURL returns the configured public base URL for this Agenthost instance.
+// AGENTHOST_APP_URL is preferred; MULTICA_APP_URL is the legacy name kept for
+// backward compatibility on existing deployments.
+func appURL() string {
+	if u := os.Getenv("AGENTHOST_APP_URL"); u != "" {
+		return u
+	}
+	return os.Getenv("MULTICA_APP_URL")
+}
+
 // oauthCallbackURL constructs the absolute callback URL for a provider.
 func oauthCallbackURL(r *http.Request, provider string) string {
-	appURL := os.Getenv("MULTICA_APP_URL")
-	if appURL == "" {
+	u := appURL()
+	if u == "" {
 		scheme := "http"
 		if r.TLS != nil {
 			scheme = "https"
 		}
-		appURL = scheme + "://" + r.Host
+		u = scheme + "://" + r.Host
 	}
-	return fmt.Sprintf("%s/auth/%s/callback", appURL, provider)
+	return fmt.Sprintf("%s/auth/%s/callback", u, provider)
 }
 
 func redirectWithError(w http.ResponseWriter, r *http.Request, wsSlug, provider, msg string) {
