@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Download, Loader2 } from "lucide-react";
-import { Button, buttonVariants } from "@multica/ui/components/ui/button";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { Button } from "@multica/ui/components/ui/button";
 import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
-import { captureDownloadIntent } from "@multica/core/analytics";
 import { cn } from "@multica/ui/lib/utils";
 import { DragStrip } from "@multica/views/platform";
 import { STATUS_CONFIG } from "@multica/core/issues/config";
@@ -29,21 +28,13 @@ import { ProviderLogo } from "../../runtimes/components/provider-logo";
  * onboarding complete server-side and sends the user straight to
  * their existing workspace. OnboardingFlow only passes it when the
  * user has ≥ 1 workspace — without that, skipping lands in limbo.
- *
- * `isWeb` flips two things when true: the subheading acknowledges
- * that web users have an extra runtime step (so "3 minutes" stops
- * being a lie), and a "Download Desktop" secondary CTA surfaces
- * before the user has invested in questionnaire / workspace. Desktop
- * bundles a daemon, so the same prompt would be noise there.
  */
 export function StepWelcome({
   onNext,
   onSkip,
-  isWeb = false,
 }: {
   onNext: () => void | Promise<void>;
   onSkip?: () => void | Promise<void>;
-  isWeb?: boolean;
 }) {
   // Tracks which button is mid-flight so we can show a per-button
   // spinner and disable both while one is in progress.
@@ -79,7 +70,7 @@ export function StepWelcome({
             <div className="flex items-center gap-2.5">
               <MulticaIcon className="size-5 text-foreground" noSpin />
               <span className="font-serif text-xl font-medium tracking-tight">
-                Welcome to Multica
+                Welcome to Agenthost
               </span>
             </div>
 
@@ -95,63 +86,22 @@ export function StepWelcome({
                 pick it up, update status, and comment when done.
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {isWeb ? (
-                  <>
-                    Desktop bundles the runtime — nothing to install.
-                    Continue on web to connect your own CLI.
-                  </>
-                ) : (
-                  "By the end, a real agent will be replying to your first issue."
-                )}
+                By the end, a real agent will be replying to your first issue.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {isWeb ? (
-                <>
-                  {/* `<a>` rather than `<Button onClick={window.open}>`
-                      so middle-click / cmd-click / "Copy link" all
-                      behave and screen readers announce it as a link
-                      (it navigates; `Continue on web` is the button
-                      that mutates flow state). New tab preserves this
-                      onboarding tab in case the desktop install
-                      stalls and the user falls back here. */}
-                  <a
-                    href="/download"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => captureDownloadIntent("welcome")}
-                    className={buttonVariants({ size: "lg" })}
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Desktop
-                  </a>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={handleNext}
-                    disabled={pending !== null}
-                  >
-                    {pending === "next" && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    Continue on web
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  size="lg"
-                  onClick={handleNext}
-                  disabled={pending !== null}
-                >
-                  {pending === "next" && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                  Start exploring
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                size="lg"
+                onClick={handleNext}
+                disabled={pending !== null}
+              >
+                {pending === "next" && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                Start exploring
+                <ArrowRight className="h-4 w-4" />
+              </Button>
               {onSkip && (
                 <Button
                   size="lg"

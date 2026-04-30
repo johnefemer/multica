@@ -279,9 +279,8 @@ function CliInstallDialog({
         <DialogHeader>
           <DialogTitle>Install the CLI</DialogTitle>
           <DialogDescription>
-            Same daemon as Desktop, installed via terminal. Use it when
-            Desktop doesn&apos;t fit — servers, remote dev boxes, or
-            headless setups.
+            A small daemon installed via terminal — runs in the background
+            and connects your machine to Agenthost.
           </DialogDescription>
         </DialogHeader>
 
@@ -453,11 +452,8 @@ function CliWaitingStatus({ dialogOpen }: { dialogOpen: boolean }) {
         )}
         {stage === "stalled" && (
           <>
-            Nothing coming through yet. If you&apos;re not comfortable
-            with the terminal,{" "}
-            <span className="font-medium text-foreground">Desktop</span>{" "}
-            is the smoother path — it bundles the daemon. Close this
-            dialog and pick Desktop, or hit Skip to continue.
+            Nothing coming through yet. Check the terminal for errors,
+            or hit Skip to continue and configure a runtime later.
           </>
         )}
       </p>
