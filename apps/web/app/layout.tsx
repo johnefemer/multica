@@ -75,8 +75,31 @@ export const metadata: Metadata = {
   description:
     "Kensink Labs — AI-native task management platform. Assign tasks to agents, track progress, compound skills.",
   icons: {
-    icon: [{ url: "/kensink-logo.png", type: "image/png" }],
-    shortcut: ["/kensink-logo.png"],
+    icon: [
+      { url: "/favicon/favicon.ico", sizes: "any" },
+      { url: "/favicon/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+      { url: "/favicon/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon/favicon-96x96.png", type: "image/png", sizes: "96x96" },
+      { url: "/favicon/android-icon-192x192.png", type: "image/png", sizes: "192x192" },
+    ],
+    shortcut: "/favicon/favicon.ico",
+    apple: [
+      { url: "/favicon/apple-icon-57x57.png", sizes: "57x57" },
+      { url: "/favicon/apple-icon-60x60.png", sizes: "60x60" },
+      { url: "/favicon/apple-icon-72x72.png", sizes: "72x72" },
+      { url: "/favicon/apple-icon-76x76.png", sizes: "76x76" },
+      { url: "/favicon/apple-icon-114x114.png", sizes: "114x114" },
+      { url: "/favicon/apple-icon-120x120.png", sizes: "120x120" },
+      { url: "/favicon/apple-icon-144x144.png", sizes: "144x144" },
+      { url: "/favicon/apple-icon-152x152.png", sizes: "152x152" },
+      { url: "/favicon/apple-icon-180x180.png", sizes: "180x180" },
+    ],
+  },
+  manifest: "/favicon/manifest.json",
+  other: {
+    "msapplication-config": "/favicon/browserconfig.xml",
+    "msapplication-TileColor": "#ffffff",
+    "msapplication-TileImage": "/favicon/ms-icon-144x144.png",
   },
   openGraph: {
     type: "website",
