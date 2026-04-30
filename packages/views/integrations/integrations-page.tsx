@@ -97,17 +97,19 @@ const CATALOG: ProviderDef[] = [
   {
     key: "slack",
     label: "Slack",
-    tagline: "Task notifications in your Slack workspace",
+    tagline: "Chat with agents and manage issues from Slack",
     description:
-      "Get notified in Slack when issues are created, assigned, or resolved. Post agent activity updates to channels. Coming soon.",
+      "Install the Agenthost Slack app to a Slack workspace, bind channels to Agenthost workspaces, and let your team chat with agents directly from Slack threads. See docs/slack-app-setup.md for setup.",
     icon: SlackLogo,
     iconBg: "bg-white dark:bg-zinc-800",
     category: "Communication",
-    comingSoon: true,
+    docsUrl: "https://api.slack.com/apps",
     features: [
-      "Issue create / assign / close notifications",
-      "Agent task status updates",
-      "Slash command to create issues",
+      "Install the Agenthost bot to your Slack workspace",
+      "Bind Slack channels to Agenthost workspaces (1:1)",
+      "Chat with agents from Slack threads — replies stream both ways",
+      "Slash commands for issue create / assign / status / dispatch",
+      "Channel notifications on issue create / assign / status / task complete",
     ],
   },
   {
@@ -464,6 +466,7 @@ function IntegrationCard({
   wsSlug,
   canManage,
   githubClientId,
+  slackClientId,
 }: {
   def: ProviderDef;
   conn?: IntegrationConnection;
@@ -471,6 +474,7 @@ function IntegrationCard({
   wsSlug: string;
   canManage: boolean;
   githubClientId?: string;
+  slackClientId?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
@@ -481,6 +485,8 @@ function IntegrationCard({
   const handleConnect = () => {
     if (def.key === "github") {
       window.location.href = api.getGitHubOAuthURL(wsSlug);
+    } else if (def.key === "slack") {
+      window.location.href = api.getSlackOAuthURL(wsSlug);
     }
   };
 
@@ -552,8 +558,17 @@ function IntegrationCard({
                   size="sm"
                   className="h-7 text-xs"
                   onClick={handleConnect}
-                  disabled={def.key === "github" && !githubClientId}
-                  title={def.key === "github" && !githubClientId ? "GITHUB_CLIENT_ID not configured" : undefined}
+                  disabled={
+                    (def.key === "github" && !githubClientId) ||
+                    (def.key === "slack" && !slackClientId)
+                  }
+                  title={
+                    def.key === "github" && !githubClientId
+                      ? "GITHUB_CLIENT_ID not configured"
+                      : def.key === "slack" && !slackClientId
+                      ? "SLACK_CLIENT_ID not configured"
+                      : undefined
+                  }
                 >
                   <Plug className="size-3 mr-1" />
                   Connect
@@ -737,6 +752,7 @@ export function IntegrationsPage() {
                   wsSlug={workspace?.slug ?? ""}
                   canManage={canManage}
                   githubClientId={config?.github_client_id}
+                  slackClientId={config?.slack_client_id}
                 />
               ))}
             </div>

@@ -13,6 +13,7 @@ type AppConfig struct {
 	AllowSignup    bool   `json:"allow_signup"`
 	GoogleClientID string `json:"google_client_id,omitempty"`
 	GitHubClientID string `json:"github_client_id,omitempty"`
+	SlackClientID  string `json:"slack_client_id,omitempty"`
 
 	// PostHog public config for the frontend. The key is the same Project
 	// API Key the backend uses; returning it here (instead of baking it
@@ -32,6 +33,7 @@ func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 		AllowSignup:    os.Getenv("ALLOW_SIGNUP") != "false",
 		GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
 		GitHubClientID: os.Getenv("GITHUB_CLIENT_ID"),
+		SlackClientID:  os.Getenv("SLACK_CLIENT_ID"),
 	}
 	if h.Storage != nil {
 		config.CdnDomain = h.Storage.CdnDomain()

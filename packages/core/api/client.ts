@@ -735,6 +735,7 @@ export class ApiClient {
     allow_signup: boolean;
     google_client_id?: string;
     github_client_id?: string;
+    slack_client_id?: string;
     posthog_key?: string;
     posthog_host?: string;
   }> {
@@ -1122,5 +1123,9 @@ export class ApiClient {
 
   getGitHubOAuthURL(workspaceSlug: string): string {
     return `/auth/github/start?workspace=${workspaceSlug}`;
+  }
+
+  getSlackOAuthURL(workspaceSlug: string): string {
+    return `/auth/slack/start?workspace=${workspaceSlug}`;
   }
 }

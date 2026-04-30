@@ -19,6 +19,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/integration"
 	githubprovider "github.com/multica-ai/multica/server/internal/integration/github"
+	slackprovider "github.com/multica-ai/multica/server/internal/messaging/slack"
 	"github.com/multica-ai/multica/server/internal/middleware"
 	"github.com/multica-ai/multica/server/internal/realtime"
 	"github.com/multica-ai/multica/server/internal/service"
@@ -98,6 +99,18 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 		os.Getenv("GITHUB_CLIENT_SECRET"),
 		os.Getenv("GITHUB_WEBHOOK_SECRET"),
 	))
+	// Slack: only registered when client credentials are configured. Unset
+	// credentials would still produce a working OAuthStartURL but the install
+	// would fail at Slack's end with "invalid_client_id", which is a worse UX
+	// than the UI's "Connect" button being disabled (gated on slack_client_id
+	// being present in /api/config).
+	if os.Getenv("SLACK_CLIENT_ID") != "" {
+		reg.Register(slackprovider.New(
+			os.Getenv("SLACK_CLIENT_ID"),
+			os.Getenv("SLACK_CLIENT_SECRET"),
+			os.Getenv("SLACK_SIGNING_SECRET"),
+		))
+	}
 	handler.IntegrationRegistry = reg
 
 	r := chi.NewRouter()
