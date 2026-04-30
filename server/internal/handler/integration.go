@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -67,6 +68,15 @@ func (h *Handler) IntegrationOAuthStart(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Capture user ID now: the auth cookie is SameSite=Strict and won't be
+	// sent on the cross-site redirect from the provider, so the callback
+	// can't re-authenticate from cookies. We stash the ID in the state
+	// cookie (HttpOnly, SameSite=Lax) so it survives the round-trip.
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
 	provider := IntegrationRegistry.Get(providerName)
 	if provider == nil {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("unknown provider: %s", providerName))
@@ -78,10 +88,12 @@ func (h *Handler) IntegrationOAuthStart(w http.ResponseWriter, r *http.Request) 
 	rand.Read(b)
 	state := base64.URLEncoding.EncodeToString(b) + ":" + wsSlug
 
-	// Store state in a short-lived signed cookie.
+	// Store state + bound userID in a short-lived cookie. The "|userID"
+	// suffix is private to the server; only the prefix is sent to the
+	// provider as the state query param.
 	http.SetCookie(w, &http.Cookie{
 		Name:     oauthStateKey,
-		Value:    state,
+		Value:    state + "|" + userID,
 		Path:     "/",
 		MaxAge:   int(oauthStateTTL.Seconds()),
 		HttpOnly: true,
@@ -95,28 +107,37 @@ func (h *Handler) IntegrationOAuthStart(w http.ResponseWriter, r *http.Request) 
 
 // IntegrationOAuthCallback handles the provider redirect after authorization.
 // GET /auth/{provider}/callback?code=...&state=...
+//
+// This route intentionally has NO auth middleware: the auth cookie is
+// SameSite=Strict and the browser drops it on the cross-site redirect
+// from the OAuth provider. Identity is recovered from the state cookie
+// (SameSite=Lax) set during /auth/{provider}/start.
 func (h *Handler) IntegrationOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	providerName := chi.URLParam(r, "provider")
 
-	// Verify CSRF state.
+	// Verify CSRF state and recover user identity from the cookie.
 	stateCookie, err := r.Cookie(oauthStateKey)
-	if err != nil || stateCookie.Value != r.URL.Query().Get("state") {
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid or expired OAuth state")
 		return
 	}
+	cookieParts := strings.SplitN(stateCookie.Value, "|", 2)
+	if len(cookieParts) != 2 || cookieParts[0] != r.URL.Query().Get("state") || cookieParts[1] == "" {
+		writeError(w, http.StatusBadRequest, "invalid or expired OAuth state")
+		return
+	}
+	userID := cookieParts[1]
 	// Clear state cookie.
 	http.SetCookie(w, &http.Cookie{Name: oauthStateKey, Value: "", MaxAge: -1, Path: "/"})
 
 	// Extract workspace slug from state.
 	state := r.URL.Query().Get("state")
 	wsSlug := ""
-	if idx := len(state) - 1; idx >= 0 {
-		for i, c := range state {
-			if c == ':' {
-				wsSlug = state[i+1:]
-				break
-			}
+	for i, c := range state {
+		if c == ':' {
+			wsSlug = state[i+1:]
+			break
 		}
 	}
 
@@ -127,11 +148,6 @@ func (h *Handler) IntegrationOAuthCallback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Authenticate user.
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
 	userUUID := parseUUID(userID)
 
 	// Check admin/owner role.
