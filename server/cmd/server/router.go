@@ -185,7 +185,11 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 
 	// OAuth integration start (requires auth — user must be logged in)
 	r.With(middleware.Auth(queries)).Get("/auth/{provider}/start", h.IntegrationOAuthStart)
-	r.With(middleware.Auth(queries)).Get("/auth/{provider}/callback", h.IntegrationOAuthCallback)
+	// OAuth callback: no auth middleware. The auth cookie is SameSite=Strict
+	// and is dropped by the browser on the cross-site redirect from the
+	// provider. Identity is recovered from the state cookie (SameSite=Lax)
+	// stashed during /start.
+	r.Get("/auth/{provider}/callback", h.IntegrationOAuthCallback)
 
 	// Webhook ingestion (no auth, provider HMAC verified)
 	r.Post("/webhooks/{provider}", h.IntegrationWebhook)
