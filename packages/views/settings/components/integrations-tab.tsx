@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plug, GitBranch, Trash2, RefreshCw, Download } from "lucide-react";
+import { SlackLogo } from "../../integrations/logos/slack-logo";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
 import { Badge } from "@multica/ui/components/ui/badge";
@@ -53,9 +54,9 @@ const PROVIDERS: Record<string, ProviderMeta> = {
   },
   slack: {
     label: "Slack",
-    icon: Plug,
-    description: "Receive task notifications in your Slack workspace.",
-    comingSoon: true,
+    icon: SlackLogo,
+    description:
+      "Install the Agenthost bot to your Slack workspace. Phase 1 connects the OAuth grant; chat mirroring and slash commands ship in later phases.",
   },
   notion: {
     label: "Notion",
@@ -75,6 +76,7 @@ interface IntegrationCardProps {
   wsSlug: string;
   canManage: boolean;
   githubClientId: string | undefined;
+  slackClientId: string | undefined;
 }
 
 function IntegrationCard({
@@ -85,12 +87,17 @@ function IntegrationCard({
   wsSlug,
   canManage,
   githubClientId,
+  slackClientId,
 }: IntegrationCardProps) {
   const disconnect = useDisconnectIntegration(wsId);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
 
   const handleConnect = () => {
-    window.location.href = api.getGitHubOAuthURL(wsSlug);
+    if (providerKey === "github") {
+      window.location.href = api.getGitHubOAuthURL(wsSlug);
+    } else if (providerKey === "slack") {
+      window.location.href = api.getSlackOAuthURL(wsSlug);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -153,7 +160,11 @@ function IntegrationCard({
                             <DialogTitle>Disconnect {meta.label}?</DialogTitle>
                             <DialogDescription>
                               This removes the OAuth connection. Existing imported issues are kept.
-                              Webhooks registered via Agenthost must be removed manually from GitHub.
+                              {providerKey === "github"
+                                ? " Webhooks registered via Agenthost must be removed manually from GitHub."
+                                : providerKey === "slack"
+                                ? ` The bot remains in your Slack workspace until you uninstall it from Slack's app management page.`
+                                : ""}
                             </DialogDescription>
                           </DialogHeader>
                           <DialogFooter>
@@ -177,13 +188,22 @@ function IntegrationCard({
                   )}
                 </>
               ) : (
-                canManage && !meta.comingSoon && providerKey === "github" && (
+                canManage && !meta.comingSoon && (providerKey === "github" || providerKey === "slack") && (
                   <Button
                     size="sm"
                     className="h-7"
                     onClick={handleConnect}
-                    disabled={!githubClientId}
-                    title={!githubClientId ? "GITHUB_CLIENT_ID not configured on server" : undefined}
+                    disabled={
+                      (providerKey === "github" && !githubClientId) ||
+                      (providerKey === "slack" && !slackClientId)
+                    }
+                    title={
+                      providerKey === "github" && !githubClientId
+                        ? "GITHUB_CLIENT_ID not configured on server"
+                        : providerKey === "slack" && !slackClientId
+                        ? "SLACK_CLIENT_ID not configured on server"
+                        : undefined
+                    }
                   >
                     Connect →
                   </Button>
@@ -354,6 +374,7 @@ export function IntegrationsTab() {
             wsSlug={workspace?.slug ?? ""}
             canManage={canManage}
             githubClientId={config?.github_client_id}
+            slackClientId={config?.slack_client_id}
           />
         ))}
       </div>
