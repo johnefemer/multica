@@ -18,16 +18,16 @@ export function OpsPricing() {
         sub={pricing.sub}
         toneMap={{ 1: "accent" }}
       />
-      <div className="grid grid-cols-1 border border-[var(--line2)] max-[880px]:grid-cols-1 md:grid-cols-3">
+      <div className="grid grid-cols-3 border border-[var(--line2)] max-[880px]:grid-cols-1">
         {pricing.tiers.map((tier, i) => {
           const isFree = tier.amount === "FREE";
           return (
             <div
               key={i}
               className={cn(
-                "relative flex flex-col gap-[18px] border-b border-r border-[var(--line2)] p-7 max-[880px]:!border-r-0 last:border-r-0",
+                "relative flex flex-col gap-[18px] border-r border-[var(--line2)] p-7 last:border-r-0",
                 tier.isFeatured ? "bg-[var(--bg3)]" : "bg-[var(--bg2)]",
-                "md:!border-b-0 md:[&:not(:last-child)]:border-r md:last:!border-r-0",
+                "max-[880px]:!border-r-0 max-[880px]:border-b max-[880px]:last:!border-b-0",
               )}
             >
               {tier.featuredBadge ? (

@@ -272,8 +272,8 @@ export function OpsWorkflow() {
         sub={workflow.sub}
         toneMap={{ 2: "accent" }}
       />
-      <div className="grid grid-cols-1 border border-[var(--line2)] bg-[var(--bg2)] max-[920px]:grid-cols-1 lg:grid-cols-[1fr_1.1fr]">
-        <div className="border-b border-[var(--line2)] py-[6px] lg:border-b-0 lg:border-r">
+      <div className="grid grid-cols-[1fr_1.1fr] border border-[var(--line2)] bg-[var(--bg2)] max-[920px]:grid-cols-1">
+        <div className="border-r border-[var(--line2)] py-[6px] max-[920px]:border-r-0 max-[920px]:border-b">
           {workflow.steps.map((step, i) => {
             const isActive = activeStep === i;
             return (
@@ -283,8 +283,8 @@ export function OpsWorkflow() {
                 onClick={() => setActiveStep(i)}
                 aria-current={isActive ? "step" : undefined}
                 className={cn(
-                  "relative grid w-full cursor-pointer grid-cols-[64px_1fr] items-start gap-3 border-b border-[var(--line)] px-[18px] py-4 text-left transition-colors duration-[var(--duration-fast)] last:border-b-0 hover:bg-[var(--bg3)]",
-                  "sm:grid-cols-[80px_1fr] sm:gap-[18px] sm:px-[26px] sm:py-5",
+                  "relative grid w-full cursor-pointer grid-cols-[80px_1fr] items-start gap-[18px] border-b border-[var(--line)] px-[26px] py-5 text-left transition-colors duration-[var(--duration-fast)] last:border-b-0 hover:bg-[var(--bg3)]",
+                  "max-[760px]:grid-cols-[64px_1fr] max-[760px]:gap-3 max-[760px]:px-[18px] max-[760px]:py-4",
                   isActive && "bg-[var(--bg3)]",
                 )}
               >
@@ -314,7 +314,7 @@ export function OpsWorkflow() {
             );
           })}
         </div>
-        <div className="flex min-h-[380px] flex-col gap-[14px] bg-[var(--bg)] p-5 sm:min-h-[480px] sm:p-8">
+        <div className="flex min-h-[480px] flex-col gap-[14px] bg-[var(--bg)] p-8 max-[760px]:min-h-[380px] max-[760px]:p-5">
           <div className="text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--dim)]">
             <span className="text-[var(--dim2)]">{"// "}</span>
             {FRAME_LABELS[activeStep]}

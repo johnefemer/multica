@@ -15,9 +15,9 @@ export function OpsHero() {
   const ctaHref = user ? "/" : "/login";
 
   return (
-    <header className="relative overflow-hidden border-b border-[var(--line2)] py-[var(--hero-pad-y-md-top)] pb-[var(--hero-pad-y-md-bot)] sm:pt-[var(--hero-pad-y-top)] sm:pb-[var(--hero-pad-y-bot)]">
+    <header className="relative overflow-hidden border-b border-[var(--line2)] pt-[var(--hero-pad-y-top)] pb-[var(--hero-pad-y-bot)] max-[760px]:pt-[var(--hero-pad-y-md-top)] max-[760px]:pb-[var(--hero-pad-y-md-bot)]">
       <OpsContainer>
-        <div className="grid grid-cols-1 gap-10 max-[1020px]:grid-cols-1 lg:grid-cols-[1.5fr_1fr]">
+        <div className="grid grid-cols-[1.5fr_1fr] gap-10 max-[1020px]:grid-cols-1">
           <div>
             <div className="mb-8 flex flex-wrap items-center gap-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-label)] text-[var(--accent)] before:content-['//'] before:text-[var(--dim)]">
               <span>{hero.eyebrow.build}</span>
@@ -31,7 +31,7 @@ export function OpsHero() {
               </span>
             </div>
 
-            <h1 className="m-0 mb-6 break-words text-[length:var(--font-size-hero-md)] font-[number:var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[380px]:text-[length:var(--font-size-hero-sm)] max-[1020px]:text-[length:var(--font-size-hero-lg)] sm:mb-8 sm:text-[length:var(--font-size-hero-md)] lg:text-[length:var(--font-size-hero)]">
+            <h1 className="m-0 mb-6 sm:mb-8 [overflow-wrap:anywhere] text-[length:var(--font-size-hero)] font-[number:var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1020px]:text-[length:var(--font-size-hero-lg)] max-[760px]:text-[length:var(--font-size-hero-md)] max-[380px]:text-[length:var(--font-size-hero-sm)]">
               {hero.headlineLine1}
               <br />
               {hero.headlineLine2Pre}
@@ -68,7 +68,7 @@ export function OpsHero() {
 
             <OpsWorksWith />
 
-            <div className="grid grid-cols-2 border border-[var(--line2)] sm:grid-cols-4">
+            <div className="grid grid-cols-4 border border-[var(--line2)] max-[760px]:grid-cols-2">
               {(
                 [
                   hero.meta.codingClis,
@@ -79,7 +79,7 @@ export function OpsHero() {
               ).map((cell, i) => (
                 <div
                   key={i}
-                  className="border-b border-r border-[var(--line2)] px-5 py-[18px] last:border-r-0 sm:[&:nth-child(2n)]:border-r-0 sm:[&:nth-last-child(-n+2)]:border-b-0 sm:!border-b-0 lg:!border-r lg:last:!border-r-0 lg:[&:nth-child(2n)]:!border-r"
+                  className="border-r border-[var(--line2)] px-5 py-[18px] last:border-r-0 max-[760px]:border-b max-[760px]:[&:nth-child(2n)]:border-r-0 max-[760px]:[&:nth-last-child(-n+2)]:border-b-0"
                 >
                   <div className="mb-2 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
                     {cell.k}

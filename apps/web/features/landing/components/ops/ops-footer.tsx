@@ -13,7 +13,7 @@ export function OpsFooter() {
   return (
     <footer className="pb-8 pt-14">
       <OpsContainer>
-        <div className="mb-12 grid grid-cols-1 gap-7 max-[480px]:grid-cols-1 max-[880px]:grid-cols-2 max-[880px]:gap-7 lg:grid-cols-[1.4fr_repeat(4,1fr)] lg:gap-8">
+        <div className="mb-12 grid grid-cols-[1.4fr_repeat(4,1fr)] gap-8 max-[880px]:grid-cols-2 max-[880px]:gap-7 max-[480px]:grid-cols-1">
           {/* Brand cell */}
           <div className="max-[880px]:col-span-2 max-[480px]:col-auto">
             <div className="flex items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)]">

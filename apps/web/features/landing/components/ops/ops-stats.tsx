@@ -16,11 +16,11 @@ export function OpsStats() {
         sub={stats.sub}
         toneMap={{ 1: "accent" }}
       />
-      <div className="grid grid-cols-1 border border-[var(--line2)] bg-[var(--bg2)] sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-4 border border-[var(--line2)] bg-[var(--bg2)] max-[760px]:grid-cols-2">
         {stats.cells.map((cell, i) => (
           <div
             key={i}
-            className="relative border-b border-r border-[var(--line2)] px-7 py-8 last:border-r-0 sm:[&:nth-child(2n)]:border-r-0 sm:[&:nth-last-child(-n+2)]:border-b-0 lg:!border-r lg:last:!border-r-0 lg:!border-b-0 lg:[&:nth-child(2n)]:!border-r"
+            className="relative border-r border-[var(--line2)] px-7 py-8 last:border-r-0 max-[760px]:border-b max-[760px]:[&:nth-child(2n)]:border-r-0 max-[760px]:[&:nth-last-child(-n+2)]:border-b-0"
           >
             <div className="mb-[14px] text-[length:var(--font-size-nano)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
               <span className="text-[var(--dim2)]">{"// "}</span>

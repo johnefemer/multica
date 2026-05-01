@@ -11,7 +11,7 @@ export function OpsContainer({
   return (
     <div
       className={cn(
-        "mx-auto w-full max-w-[var(--container-max)] px-[var(--container-pad-md)] sm:px-[var(--container-pad-lg)] lg:px-[var(--container-pad)]",
+        "mx-auto w-full max-w-[var(--container-max)] px-[var(--container-pad)] max-[1020px]:px-[var(--container-pad-lg)] max-[760px]:px-[var(--container-pad-md)]",
         className,
       )}
     >
@@ -36,7 +36,7 @@ export function OpsSection({
       id={id}
       className={cn(
         "relative border-b border-[var(--line2)]",
-        "py-[var(--section-pad-md)] sm:py-[var(--section-pad-lg)] lg:py-[var(--section-pad)]",
+        "py-[var(--section-pad)] max-[1020px]:py-[var(--section-pad-lg)] max-[760px]:py-[var(--section-pad-md)]",
         className,
       )}
     >
@@ -63,7 +63,7 @@ export function OpsSectionHead({
   toneMap?: Record<number, "txt" | "accent" | "dim2">;
 }) {
   return (
-    <div className="mb-9 grid grid-cols-1 gap-[18px] sm:mb-14 sm:grid-cols-[200px_1fr] sm:gap-12">
+    <div className="mb-14 grid grid-cols-[200px_1fr] gap-12 max-[760px]:mb-9 max-[760px]:grid-cols-1 max-[760px]:gap-[18px]">
       <div className="pt-[10px] text-[length:var(--font-size-micro)] tracking-[var(--tr-label)] text-[var(--dim)]">
         <span className="mb-2 block text-[length:var(--font-size-label)] text-[var(--accent)]">
           {num}
@@ -72,7 +72,7 @@ export function OpsSectionHead({
       </div>
       <div>
         <h2
-          className="m-0 break-words text-[length:var(--font-size-h2-md)] font-[number:var(--weight-bold)] uppercase leading-[1.05] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1020px]:text-[length:var(--font-size-h2-lg)] sm:text-[length:var(--font-size-h2)]"
+          className="m-0 [overflow-wrap:anywhere] text-[length:var(--font-size-h2)] font-[number:var(--weight-bold)] uppercase leading-[1.05] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1020px]:text-[length:var(--font-size-h2-lg)] max-[760px]:text-[length:var(--font-size-h2-md)]"
         >
           {headlineParts.map((part, i) => {
             const tone = toneMap?.[i] ?? "txt";
