@@ -25,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 export function OpsLanding() {
   return (
     <div
-      className={`${jetbrainsMono.variable} ops-landing relative min-h-screen bg-[var(--bg)] text-[var(--txt)] [font-family:var(--font-mono)] text-[var(--font-size-base-mobile)] sm:text-[var(--font-size-base)] leading-[var(--lh-normal)] [-webkit-font-smoothing:antialiased] overflow-x-hidden`}
+      className={`${jetbrainsMono.variable} ops-landing relative min-h-screen bg-[var(--bg)] text-[var(--txt)] [font-family:var(--font-mono)] text-[length:var(--font-size-base-mobile)] sm:text-[length:var(--font-size-base)] leading-[var(--lh-normal)] [-webkit-font-smoothing:antialiased] overflow-x-hidden`}
     >
       <div
         aria-hidden="true"

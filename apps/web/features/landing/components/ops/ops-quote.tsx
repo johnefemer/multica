@@ -10,7 +10,7 @@ export function OpsQuote() {
   return (
     <OpsSection>
       <div className="grid grid-cols-1 items-end gap-12 border border-[var(--line2)] bg-[var(--bg2)] p-7 sm:p-12 md:grid-cols-[1fr_240px] md:gap-12">
-        <q className="block text-[19px] font-[var(--weight-medium)] uppercase leading-[1.45] tracking-[-0.005em] text-[var(--txt)] sm:text-[var(--font-size-quote)] sm:leading-[1.4]">
+        <q className="block text-[19px] font-[number:var(--weight-medium)] uppercase leading-[1.45] tracking-[-0.005em] text-[var(--txt)] sm:text-[length:var(--font-size-quote)] sm:leading-[1.4]">
           <span
             aria-hidden="true"
             className="mr-1 align-[-8px] text-[32px] leading-[0] text-[var(--accent)]"
@@ -21,11 +21,11 @@ export function OpsQuote() {
           <span className="text-[var(--accent)]">{quote.bodyHighlight}</span>
           {quote.bodyPost}
         </q>
-        <div className="text-[var(--font-size-micro)] leading-[var(--lh-loose)] tracking-[var(--tr-tag)] text-[var(--dim)]">
-          <b className="mb-1 block font-[var(--weight-bold)] text-[var(--txt)]">
+        <div className="text-[length:var(--font-size-micro)] leading-[var(--lh-loose)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+          <b className="mb-1 block font-[number:var(--weight-bold)] text-[var(--txt)]">
             {quote.by.name}
           </b>
-          <span className="font-[var(--weight-medium)] text-[var(--accent)]">
+          <span className="font-[number:var(--weight-medium)] text-[var(--accent)]">
             {quote.by.role}
           </span>
           <br />

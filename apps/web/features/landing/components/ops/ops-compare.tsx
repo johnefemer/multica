@@ -55,14 +55,14 @@ export function OpsCompare() {
         >
           <thead>
             <tr className="bg-[var(--bg3)]">
-              <th className="px-5 py-4 text-left text-[10px] font-[var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]" />
-              <th className="border-l border-[var(--line)] px-5 py-4 text-left text-[10px] font-[var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
+              <th className="px-5 py-4 text-left text-[10px] font-[number:var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]" />
+              <th className="border-l border-[var(--line)] px-5 py-4 text-left text-[10px] font-[number:var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
                 {compare.head.trackers}
               </th>
-              <th className="border-l border-[var(--line)] px-5 py-4 text-left text-[10px] font-[var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
+              <th className="border-l border-[var(--line)] px-5 py-4 text-left text-[10px] font-[number:var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
                 {compare.head.ides}
               </th>
-              <th className="border-l border-[var(--line)] px-5 py-4 text-left text-[10px] font-[var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--accent)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
+              <th className="border-l border-[var(--line)] px-5 py-4 text-left text-[10px] font-[number:var(--weight-regular)] tracking-[var(--tr-eyebrow)] text-[var(--accent)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
                 {compare.head.us}
               </th>
             </tr>
@@ -72,19 +72,19 @@ export function OpsCompare() {
               <tr key={i} className="border-t border-[var(--line)]">
                 <td
                   className={cn(
-                    "px-5 py-4 text-left align-top text-[var(--font-size-detail)] font-[var(--weight-medium)] text-[var(--txt)]",
+                    "px-5 py-4 text-left align-top text-[length:var(--font-size-detail)] font-[number:var(--weight-medium)] text-[var(--txt)]",
                     "max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]",
                   )}
                 >
                   {row.feature}
                 </td>
-                <td className="border-l border-[var(--line)] px-5 py-4 text-left align-top text-[var(--font-size-detail)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
+                <td className="border-l border-[var(--line)] px-5 py-4 text-left align-top text-[length:var(--font-size-detail)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
                   <Cell kind={row.trackers.kind} label={row.trackers.label} />
                 </td>
-                <td className="border-l border-[var(--line)] px-5 py-4 text-left align-top text-[var(--font-size-detail)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
+                <td className="border-l border-[var(--line)] px-5 py-4 text-left align-top text-[length:var(--font-size-detail)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
                   <Cell kind={row.ides.kind} label={row.ides.label} />
                 </td>
-                <td className="border-l border-[var(--line)] px-5 py-4 text-left align-top text-[var(--font-size-detail)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
+                <td className="border-l border-[var(--line)] px-5 py-4 text-left align-top text-[length:var(--font-size-detail)] max-sm:px-[10px] max-sm:py-3 max-sm:text-[11.5px]">
                   <Cell kind={row.us.kind} label={row.us.label} />
                 </td>
               </tr>
