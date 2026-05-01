@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { LandingHeader } from "./landing-header";
-import { LandingFooter } from "./landing-footer";
+import { OpsPageShell } from "./ops/ops-page-shell";
+import { OpsContainer, opsButtonClassName } from "./ops/ops-primitives";
 import { GitHubMark, githubUrl } from "./shared";
 import { useLocale } from "../i18n";
 
@@ -10,36 +10,48 @@ export function AboutPageClient() {
   const { t } = useLocale();
 
   return (
-    <>
-      <LandingHeader variant="light" />
-      <main className="bg-white text-[#0a0d12]">
-        <div className="mx-auto max-w-[720px] px-4 py-16 sm:px-6 sm:py-20 lg:py-24">
-          <h1 className="font-[family-name:var(--font-serif)] text-[2.6rem] leading-[1.05] tracking-[-0.03em] sm:text-[3.4rem]">
-            {t.about.title}
-          </h1>
-          <p className="mt-6 text-[17px] leading-[1.6] text-[#0a0d12]/85 sm:text-[19px]">
-            {t.about.intro}
-          </p>
-          <div className="mt-8 space-y-6 text-[15px] leading-[1.8] text-[#0a0d12]/70 sm:text-[16px]">
-            {t.about.paragraphs.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-          </div>
+    <OpsPageShell>
+      <article className="border-b border-[var(--line2)] py-[var(--section-pad)] max-[1020px]:py-[var(--section-pad-lg)] max-[760px]:py-[var(--section-pad-md)]">
+        <OpsContainer>
+          <div className="mx-auto max-w-[760px]">
+            <div className="mb-8 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+              {"// ABOUT"}
+            </div>
+            <h1 className="m-0 mb-8 text-[length:var(--font-size-h2)] font-[number:var(--weight-bold)] uppercase leading-[1.05] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1020px]:text-[length:var(--font-size-h2-lg)] max-[760px]:text-[length:var(--font-size-h2-md)] [overflow-wrap:anywhere]">
+              {t.about.title}
+            </h1>
+            <p className="m-0 mb-10 text-[length:var(--font-size-lede)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+              {t.about.intro}
+            </p>
 
-          <div className="mt-12">
-            <Link
-              href={githubUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2.5 rounded-[12px] bg-[#0a0d12] px-5 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#0a0d12]/88"
-            >
-              <GitHubMark className="size-4" />
-              {t.about.cta}
-            </Link>
+            <div className="space-y-6">
+              {t.about.paragraphs.map((p, i) => (
+                <p
+                  key={i}
+                  className="m-0 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]"
+                >
+                  {p}
+                </p>
+              ))}
+            </div>
+
+            <div className="mt-12 flex flex-wrap items-center gap-3 border-t border-[var(--line)] pt-10">
+              <Link
+                href={githubUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={opsButtonClassName("solid")}
+              >
+                <GitHubMark className="size-3.5" />
+                {t.about.cta}
+              </Link>
+              <Link href="/" className={opsButtonClassName("ghost")}>
+                {"← BACK_HOME"}
+              </Link>
+            </div>
           </div>
-        </div>
-      </main>
-      <LandingFooter />
-    </>
+        </OpsContainer>
+      </article>
+    </OpsPageShell>
   );
 }
