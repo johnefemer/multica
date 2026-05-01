@@ -9,8 +9,8 @@ export function OpsQuote() {
 
   return (
     <OpsSection>
-      <div className="grid grid-cols-1 items-end gap-12 border border-[var(--line2)] bg-[var(--bg2)] p-7 sm:p-12 md:grid-cols-[1fr_240px] md:gap-12">
-        <q className="block text-[19px] font-[number:var(--weight-medium)] uppercase leading-[1.45] tracking-[-0.005em] text-[var(--txt)] sm:text-[length:var(--font-size-quote)] sm:leading-[1.4]">
+      <div className="grid grid-cols-[1fr_240px] items-end gap-12 border border-[var(--line2)] bg-[var(--bg2)] p-12 max-[760px]:grid-cols-1 max-[760px]:gap-7 max-[760px]:p-7">
+        <q className="block text-[length:var(--font-size-quote)] font-[number:var(--weight-medium)] uppercase leading-[1.4] tracking-[-0.005em] text-[var(--txt)] max-[760px]:text-[length:var(--font-size-quote-sm)] max-[760px]:leading-[1.45]">
           <span
             aria-hidden="true"
             className="mr-1 align-[-8px] text-[32px] leading-[0] text-[var(--accent)]"

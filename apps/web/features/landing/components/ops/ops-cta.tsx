@@ -15,13 +15,13 @@ export function OpsCallToAction() {
   return (
     <section
       id="cta"
-      className="relative border-b border-[var(--line2)] py-[var(--cta-pad-y-md)] sm:py-[var(--cta-pad-y-lg)] lg:py-[var(--cta-pad-y)]"
+      className="relative border-b border-[var(--line2)] py-[var(--cta-pad-y)] max-[1020px]:py-[var(--cta-pad-y-lg)] max-[760px]:py-[var(--cta-pad-y-md)]"
       style={{ background: "var(--bg-cta-glow), var(--bg)" }}
     >
       <OpsContainer>
-        <div className="grid grid-cols-1 items-end gap-9 max-[880px]:grid-cols-1 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
+        <div className="grid grid-cols-[1.4fr_1fr] items-end gap-16 max-[880px]:grid-cols-1 max-[880px]:gap-9">
           <div>
-            <h2 className="m-0 mb-7 max-w-[18ch] break-words text-[length:var(--font-size-cta-md)] font-[number:var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[380px]:text-[length:var(--font-size-cta-sm)] max-[1020px]:text-[length:var(--font-size-cta-lg)] sm:text-[length:var(--font-size-cta-md)] lg:text-[length:var(--font-size-cta)]">
+            <h2 className="m-0 mb-7 max-w-[18ch] [overflow-wrap:anywhere] text-[length:var(--font-size-cta)] font-[number:var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1020px]:text-[length:var(--font-size-cta-lg)] max-[760px]:text-[length:var(--font-size-cta-md)] max-[380px]:text-[length:var(--font-size-cta-sm)]">
               {line1}
               <br />
               <span className="text-[var(--accent)]">{line2}</span>

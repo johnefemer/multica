@@ -40,14 +40,14 @@ export function OpsHeader() {
         <div className="flex h-[var(--nav-height)] items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
+            className="flex min-w-0 items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
           >
             <span
               aria-hidden="true"
-              className="block h-[10px] w-[10px] bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
+              className="block h-[10px] w-[10px] flex-none bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
             />
-            <span>AGENTHOST</span>
-            <span className="ml-1 text-[length:var(--font-size-micro)] font-[number:var(--weight-regular)] text-[var(--dim)]">
+            <span className="truncate">AGENTHOST</span>
+            <span className="ml-1 truncate text-[length:var(--font-size-micro)] font-[number:var(--weight-regular)] text-[var(--dim)] max-[480px]:hidden">
               {"// KENSINK_LABS"}
             </span>
           </Link>

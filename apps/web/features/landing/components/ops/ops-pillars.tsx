@@ -55,12 +55,12 @@ export function OpsPillars() {
         toneMap={{ 1: "accent" }}
       />
       <div
-        className="grid grid-cols-1 border border-[var(--line2)] max-[640px]:grid-cols-1 max-[980px]:grid-cols-2 md:grid-cols-3"
+        className="grid grid-cols-3 border border-[var(--line2)] max-[980px]:grid-cols-2 max-[640px]:grid-cols-1"
       >
         {pillars.cards.map((card, i) => (
           <article
             key={i}
-            className="group relative flex min-h-[280px] flex-col justify-between border-b border-r border-[var(--line2)] bg-[var(--bg2)] px-[26px] py-7 transition-colors duration-[var(--duration-base)] hover:bg-[var(--bg3)] [&:nth-child(2n)]:border-r-[var(--line2)] [&:nth-last-child(-n+2)]:border-b-0 max-[980px]:[&:nth-child(2n)]:border-r-0 max-[980px]:[&:nth-last-child(-n+2)]:border-b-0 max-[640px]:!border-r-0 max-[640px]:[&:not(:last-child)]:border-b max-[640px]:last:border-b-0 md:[&:nth-child(2n)]:border-r md:[&:nth-child(3n)]:border-r-0 md:[&:nth-last-child(-n+3)]:border-b-0"
+            className="group relative flex min-h-[280px] flex-col justify-between border-b border-r border-[var(--line2)] bg-[var(--bg2)] px-[26px] py-7 transition-colors duration-[var(--duration-base)] hover:bg-[var(--bg3)] [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0 max-[980px]:[&:nth-child(3n)]:!border-r max-[980px]:[&:nth-child(2n)]:border-r-0 max-[980px]:[&:nth-last-child(-n+3)]:!border-b max-[980px]:[&:nth-last-child(-n+2)]:border-b-0 max-[640px]:!border-r-0 max-[640px]:[&:not(:last-child)]:!border-b max-[640px]:last:!border-b-0"
           >
             <div>
               <div className="mb-8 flex items-start justify-between">

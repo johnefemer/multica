@@ -17,7 +17,7 @@ export function OpsProposition() {
         sub={p.sub}
         toneMap={{ 2: "accent", 4: "dim2" }}
       />
-      <div className="grid grid-cols-1 gap-6 max-[880px]:grid-cols-1 md:grid-cols-2">
+      <div className="grid grid-cols-2 gap-6 max-[880px]:grid-cols-1">
         <PropositionCard
           ptitle={p.without.ptitle}
           h={p.without.h}
@@ -48,8 +48,7 @@ function PropositionCard({
   return (
     <div
       className={cn(
-        "border bg-[var(--bg2)] px-7 pb-3 pt-7 sm:px-7 sm:pb-3 sm:pt-7",
-        "max-sm:px-5 max-sm:pb-2 max-sm:pt-[22px]",
+        "border bg-[var(--bg2)] px-7 pb-3 pt-7 max-[760px]:px-5 max-[760px]:pb-2 max-[760px]:pt-[22px]",
         highlighted
           ? "border-[var(--accent)] [background:var(--card-after-bg)]"
           : "border-[var(--line2)]",
