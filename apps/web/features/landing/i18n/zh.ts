@@ -4058,5 +4058,9 @@ export function createZhDict(
   // TODO i18n: localize the ops landing block. Until then we delegate to EN
   // so the new home page renders in both locales without missing keys.
   ops: createEnDict(allowSignup, docsHref).ops,
+
+  // TODO i18n: legal pages are draft scaffolds and untranslated. Delegate
+  // to EN for now; localize when the documents are finalized.
+  legal: createEnDict(allowSignup, docsHref).legal,
   };
 }

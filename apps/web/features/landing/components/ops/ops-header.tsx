@@ -83,8 +83,8 @@ export function OpsHeader() {
     { href: "#workflow", label: nav.workflow },
     { href: "#compare", label: nav.compare },
     { href: "#pricing", label: nav.pricing },
-    { href: "#docs", label: nav.docs },
-    { href: "#changelog", label: nav.changelog },
+    { href: "/docs", label: nav.docs },
+    { href: "/changelog", label: nav.changelog },
   ];
 
   const ctaHref = user ? "/" : "/login";
