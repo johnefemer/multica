@@ -66,7 +66,7 @@ function PropositionCard({
         </span>
         {ptitle}
       </div>
-      <h3 className="mb-[22px] text-[var(--font-size-h3)] font-[var(--weight-bold)] uppercase leading-[1.15] tracking-[-0.012em] text-[var(--txt)]">
+      <h3 className="mb-[22px] text-[length:var(--font-size-h3)] font-[number:var(--weight-bold)] uppercase leading-[1.15] tracking-[-0.012em] text-[var(--txt)]">
         {h}
       </h3>
       <div>
@@ -84,10 +84,10 @@ function PropositionCard({
               {String(i + 1).padStart(2, "0")}
             </span>
             <div>
-              <b className="mb-[3px] block text-[13.5px] font-[var(--weight-medium)] text-[var(--txt)]">
+              <b className="mb-[3px] block text-[13.5px] font-[number:var(--weight-medium)] text-[var(--txt)]">
                 {item.b}
               </b>
-              <span className="text-[var(--font-size-dense)] leading-[var(--lh-normal)] text-[var(--txt2)]">
+              <span className="text-[length:var(--font-size-dense)] leading-[var(--lh-normal)] text-[var(--txt2)]">
                 {item.s}
               </span>
             </div>

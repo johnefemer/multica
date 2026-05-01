@@ -64,18 +64,18 @@ export function OpsPillars() {
           >
             <div>
               <div className="mb-8 flex items-start justify-between">
-                <span className="text-[var(--font-size-micro)] tracking-[var(--tr-label)] text-[var(--dim)]">
-                  <b className="font-[var(--weight-medium)] text-[var(--accent)]">{card.num}</b>{" "}
+                <span className="text-[length:var(--font-size-micro)] tracking-[var(--tr-label)] text-[var(--dim)]">
+                  <b className="font-[number:var(--weight-medium)] text-[var(--accent)]">{card.num}</b>{" "}
                   / {PILLAR_KEYS[i]}
                 </span>
                 <span className="flex h-8 w-8 items-center justify-center border border-[var(--line3)] text-[var(--txt2)] transition-[color,border-color] duration-[var(--duration-base)] group-hover:border-[var(--accent)] group-hover:text-[var(--accent)]">
                   {GLYPHS[i]}
                 </span>
               </div>
-              <h4 className="mb-3 text-[var(--font-size-h4)] font-[var(--weight-bold)] uppercase leading-[1.2] tracking-[-0.005em] text-[var(--txt)]">
+              <h4 className="mb-3 text-[length:var(--font-size-h4)] font-[number:var(--weight-bold)] uppercase leading-[1.2] tracking-[-0.005em] text-[var(--txt)]">
                 {card.title}
               </h4>
-              <p className="m-0 text-[var(--font-size-dense)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+              <p className="m-0 text-[length:var(--font-size-dense)] leading-[var(--lh-loose)] text-[var(--txt2)]">
                 {card.body}
               </p>
             </div>

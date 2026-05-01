@@ -45,7 +45,7 @@ export function OpsSprintQueue() {
 
   return (
     <div className="flex flex-col bg-[rgba(15,19,24,0.85)] border border-[var(--line2)]">
-      <div className="flex items-center justify-between border-b border-[var(--line)] px-[14px] py-[10px] text-[var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+      <div className="flex items-center justify-between border-b border-[var(--line)] px-[14px] py-[10px] text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
         <span>{hero.sprintHeader}</span>
         <span>{hero.sprintCount}</span>
       </div>
@@ -66,7 +66,7 @@ export function OpsSprintQueue() {
             </span>
             <span
               className={cn(
-                "flex h-[22px] w-[22px] flex-none items-center justify-center text-[9px] font-[var(--weight-bold)] tracking-[0.04em] max-[480px]:hidden",
+                "flex h-[22px] w-[22px] flex-none items-center justify-center text-[9px] font-[number:var(--weight-bold)] tracking-[0.04em] max-[480px]:hidden",
                 AVATAR_TONE[row.avatarTone],
               )}
               aria-hidden={i === 4}
@@ -75,7 +75,7 @@ export function OpsSprintQueue() {
             </span>
             <span
               className={cn(
-                "text-right text-[var(--font-size-nano)] tracking-[var(--tr-caps)]",
+                "text-right text-[length:var(--font-size-nano)] tracking-[var(--tr-caps)]",
                 STATUS_TONE[row.status],
               )}
             >

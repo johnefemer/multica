@@ -40,19 +40,19 @@ export function OpsHeader() {
         <div className="flex h-[var(--nav-height)] items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-[10px] text-[var(--font-size-tag)] font-[var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
+            className="flex items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
           >
             <span
               aria-hidden="true"
               className="block h-[10px] w-[10px] bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
             />
             <span>AGENTHOST</span>
-            <span className="ml-1 text-[var(--font-size-micro)] font-[var(--weight-regular)] text-[var(--dim)]">
+            <span className="ml-1 text-[length:var(--font-size-micro)] font-[number:var(--weight-regular)] text-[var(--dim)]">
               {"// KENSINK_LABS"}
             </span>
           </Link>
 
-          <div className="flex gap-6 text-[var(--font-size-label)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
+          <div className="flex gap-6 text-[length:var(--font-size-label)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
             {navLinks.map((link, i) => (
               <Link
                 key={link.href}
@@ -68,8 +68,8 @@ export function OpsHeader() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-[var(--font-size-nano)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
-              <b className="font-[var(--weight-regular)] text-[var(--accent)]">
+            <span className="text-[length:var(--font-size-nano)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
+              <b className="font-[number:var(--weight-regular)] text-[var(--accent)]">
                 {nav.statusOnline}
               </b>{" "}
               · {nav.statusRuntimes}
@@ -104,13 +104,13 @@ export function OpsHeader() {
             <Link
               key={link.href}
               href={link.href}
-              className="flex items-center justify-between border-b border-[var(--line)] px-1 py-[18px] text-[var(--font-size-dense)] tracking-[var(--tr-label)] text-[var(--txt)] after:text-[var(--accent)] after:content-['→']"
+              className="flex items-center justify-between border-b border-[var(--line)] px-1 py-[18px] text-[length:var(--font-size-dense)] tracking-[var(--tr-label)] text-[var(--txt)] after:text-[var(--accent)] after:content-['→']"
             >
               {link.label}
             </Link>
           ))}
-          <span className="mt-[18px] block text-[var(--font-size-label)] text-[var(--dim)] tracking-[var(--tr-caps)]">
-            <b className="font-[var(--weight-regular)] text-[var(--accent)]">
+          <span className="mt-[18px] block text-[length:var(--font-size-label)] text-[var(--dim)] tracking-[var(--tr-caps)]">
+            <b className="font-[number:var(--weight-regular)] text-[var(--accent)]">
               {nav.statusOnline}
             </b>{" "}
             · {nav.statusRuntimes}

@@ -27,7 +27,7 @@ function Pill({
         ? "bg-[var(--dim)]"
         : "bg-[var(--accent)]";
   return (
-    <span className="inline-flex items-center gap-2 border border-[var(--line2)] bg-[var(--bg)] px-[10px] py-1 text-[var(--font-size-micro)] text-[var(--txt2)]">
+    <span className="inline-flex items-center gap-2 border border-[var(--line2)] bg-[var(--bg)] px-[10px] py-1 text-[length:var(--font-size-micro)] text-[var(--txt2)]">
       <span className={cn("inline-block h-[6px] w-[6px]", dot)} />
       {children}
     </span>
@@ -37,10 +37,10 @@ function Pill({
 function FrameNewIssue() {
   return (
     <>
-      <div className="text-[var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+      <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
         {"// NEW_ISSUE · ENG-242"}
       </div>
-      <div className="mt-1 text-[18px] font-[var(--weight-bold)] uppercase leading-[1.3] tracking-[-0.005em] text-[var(--txt)]">
+      <div className="mt-1 text-[18px] font-[number:var(--weight-bold)] uppercase leading-[1.3] tracking-[-0.005em] text-[var(--txt)]">
         Add backoff &amp; jitter to daemon heartbeat retries
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
@@ -48,7 +48,7 @@ function FrameNewIssue() {
         <Pill>p1</Pill>
         <Pill tone="gray">good-first-issue</Pill>
       </div>
-      <div className="mt-[14px] border-t border-[var(--line)] pt-[14px] text-[var(--font-size-detail)] leading-[var(--lh-log)]">
+      <div className="mt-[14px] border-t border-[var(--line)] pt-[14px] text-[length:var(--font-size-detail)] leading-[var(--lh-log)]">
         <div>
           <span className="text-[var(--dim)]">assignee   →</span>{" "}
           <span className="text-[var(--accent)]">@claude-eng</span>
@@ -66,7 +66,7 @@ function FrameNewIssue() {
           <span className="text-[var(--txt2)]">go-style, daemon-ops</span>
         </div>
       </div>
-      <div className="mt-auto border-t border-dashed border-[var(--line)] pt-[14px] text-[var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--accent)]">
+      <div className="mt-auto border-t border-dashed border-[var(--line)] pt-[14px] text-[length:var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--accent)]">
         ✓ ASSIGNED · TASK ENQUEUED · WAITING ON RUNTIME
       </div>
     </>
@@ -76,10 +76,10 @@ function FrameNewIssue() {
 function FrameDaemon() {
   return (
     <>
-      <div className="text-[var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+      <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
         {"// DAEMON · maple-air.local · poll loop"}
       </div>
-      <div className="mt-2 text-[var(--font-size-tag)] leading-[1.85]">
+      <div className="mt-2 text-[length:var(--font-size-tag)] leading-[1.85]">
         <div className="text-[var(--dim2)]">[09:14:00] heartbeat → ok</div>
         <div className="text-[var(--dim)]">
           [09:14:02] poll → 1 pending task for runtime{" "}
@@ -115,15 +115,15 @@ function FrameDaemon() {
 function FrameThread() {
   return (
     <>
-      <div className="text-[var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+      <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
         {"// ISSUE_THREAD · streaming"}
       </div>
       <div className="mt-2 flex items-start gap-[10px]">
-        <div className="flex h-6 w-6 flex-none items-center justify-center bg-[var(--accent)] text-[9.5px] font-[var(--weight-bold)] text-[var(--bg)]">
+        <div className="flex h-6 w-6 flex-none items-center justify-center bg-[var(--accent)] text-[9.5px] font-[number:var(--weight-bold)] text-[var(--bg)]">
           CL
         </div>
-        <div className="text-[var(--font-size-tag)] leading-[var(--lh-normal)]">
-          <div className="text-[var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--accent)]">
+        <div className="text-[length:var(--font-size-tag)] leading-[var(--lh-normal)]">
+          <div className="text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--accent)]">
             CLAUDE-ENG · 12s ago
           </div>
           <div className="mt-1 text-[var(--txt2)]">
@@ -137,11 +137,11 @@ function FrameThread() {
         </div>
       </div>
       <div className="mt-[14px] flex items-start gap-[10px]">
-        <div className="flex h-6 w-6 flex-none items-center justify-center bg-[var(--accent)] text-[9.5px] font-[var(--weight-bold)] text-[var(--bg)]">
+        <div className="flex h-6 w-6 flex-none items-center justify-center bg-[var(--accent)] text-[9.5px] font-[number:var(--weight-bold)] text-[var(--bg)]">
           CL
         </div>
-        <div className="text-[var(--font-size-tag)] leading-[var(--lh-normal)]">
-          <div className="text-[var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--accent)]">
+        <div className="text-[length:var(--font-size-tag)] leading-[var(--lh-normal)]">
+          <div className="text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--accent)]">
             CLAUDE-ENG · 4s ago
           </div>
           <div className="mt-1 text-[var(--txt2)]">
@@ -163,15 +163,15 @@ function FrameThread() {
 function FrameReview() {
   return (
     <>
-      <div className="text-[var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+      <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
         {"// REVIEW · human-in-loop"}
       </div>
       <div className="mt-2 flex items-start gap-[10px]">
-        <div className="flex h-6 w-6 flex-none items-center justify-center border border-[var(--line3)] text-[9.5px] font-[var(--weight-bold)] text-[var(--txt2)]">
+        <div className="flex h-6 w-6 flex-none items-center justify-center border border-[var(--line3)] text-[9.5px] font-[number:var(--weight-bold)] text-[var(--txt2)]">
           M
         </div>
-        <div className="text-[var(--font-size-tag)] leading-[var(--lh-normal)]">
-          <div className="text-[var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--warn)]">
+        <div className="text-[length:var(--font-size-tag)] leading-[var(--lh-normal)]">
+          <div className="text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--warn)]">
             MEI · just now
           </div>
           <div className="mt-1 text-[var(--txt2)]">
@@ -182,14 +182,14 @@ function FrameReview() {
           </div>
         </div>
       </div>
-      <div className="mt-[18px] border border-[var(--line)] bg-[var(--bg)] px-[14px] py-3 text-[var(--font-size-label)] leading-[1.6] tracking-[var(--tr-micro)] text-[var(--accent)]">
+      <div className="mt-[18px] border border-[var(--line)] bg-[var(--bg)] px-[14px] py-3 text-[length:var(--font-size-label)] leading-[1.6] tracking-[var(--tr-micro)] text-[var(--accent)]">
         → @claude-eng MENTION DETECTED
         <br />
         → TASK RE-DISPATCHED · session_id reused
         <br />
         → workdir restored from sess_a8f2... · context preserved
       </div>
-      <div className="mt-auto pt-[14px] text-[var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
+      <div className="mt-auto pt-[14px] text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
         {"// human steered · agent continues"}
       </div>
     </>
@@ -199,7 +199,7 @@ function FrameReview() {
 function FrameAudit() {
   return (
     <>
-      <div className="text-[var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+      <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--dim)]">
         {"// AUDIT_TRAIL · every actor"}
       </div>
       <div className="mt-2 text-[11.5px] leading-[var(--lh-audit)] text-[var(--txt2)]">
@@ -239,11 +239,11 @@ function FrameAudit() {
           <span className="text-[var(--accent)]">claude-eng</span>{" "}
           <i className="text-[var(--dim)]">updated PR · cap=30s · resumed sess</i>
         </div>
-        <div className="font-[var(--weight-medium)] text-[var(--accent)]">
+        <div className="font-[number:var(--weight-medium)] text-[var(--accent)]">
           <span>09:16:14</span> claude-eng <i>merged · closed ENG-242</i>
         </div>
       </div>
-      <div className="mt-auto border-t border-dashed border-[var(--line)] pt-[14px] text-[var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--accent)]">
+      <div className="mt-auto border-t border-dashed border-[var(--line)] pt-[14px] text-[length:var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--accent)]">
         ✓ TICKET CLOSED · 16M14S · 67.4K TOKENS · $0.08
       </div>
     </>
@@ -296,17 +296,17 @@ export function OpsWorkflow() {
                 ) : null}
                 <span
                   className={cn(
-                    "text-[var(--font-size-micro)] tracking-[var(--tr-tag)]",
+                    "text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)]",
                     isActive ? "text-[var(--accent)]" : "text-[var(--dim)]",
                   )}
                 >
                   {step.stepnum}
                 </span>
                 <div>
-                  <h5 className="m-0 mb-[6px] text-[var(--font-size-h5)] font-[var(--weight-bold)] uppercase leading-[1.25] tracking-[-0.005em] text-[var(--txt)]">
+                  <h5 className="m-0 mb-[6px] text-[length:var(--font-size-h5)] font-[number:var(--weight-bold)] uppercase leading-[1.25] tracking-[-0.005em] text-[var(--txt)]">
                     {step.h}
                   </h5>
-                  <p className="m-0 text-[var(--font-size-dense)] leading-[var(--lh-normal)] text-[var(--txt2)]">
+                  <p className="m-0 text-[length:var(--font-size-dense)] leading-[var(--lh-normal)] text-[var(--txt2)]">
                     {step.p}
                   </p>
                 </div>
@@ -315,14 +315,14 @@ export function OpsWorkflow() {
           })}
         </div>
         <div className="flex min-h-[380px] flex-col gap-[14px] bg-[var(--bg)] p-5 sm:min-h-[480px] sm:p-8">
-          <div className="text-[var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+          <div className="text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--dim)]">
             <span className="text-[var(--dim2)]">{"// "}</span>
             {FRAME_LABELS[activeStep]}
           </div>
           <div className="relative flex flex-1 flex-col gap-3 border border-[var(--line2)] bg-[var(--bg2)] p-5">
             {FRAMES[activeStep]}
           </div>
-          <pre className="m-0 overflow-x-auto whitespace-pre border border-[var(--line2)] bg-[var(--bg2)] px-[18px] py-[14px] text-[var(--font-size-micro)] leading-[1.4] text-[var(--dim)] max-[640px]:hidden">
+          <pre className="m-0 overflow-x-auto whitespace-pre border border-[var(--line2)] bg-[var(--bg2)] px-[18px] py-[14px] text-[length:var(--font-size-micro)] leading-[1.4] text-[var(--dim)] max-[640px]:hidden">
             {workflow.asciiDiagram}
           </pre>
         </div>

@@ -37,24 +37,24 @@ export function OpsPricing() {
               ) : null}
               <div
                 className={cn(
-                  "text-[var(--font-size-label)] tracking-[var(--tr-label)]",
+                  "text-[length:var(--font-size-label)] tracking-[var(--tr-label)]",
                   tier.isFeatured ? "text-[var(--accent)]" : "text-[var(--dim)]",
                 )}
               >
                 {tier.name}
               </div>
-              <div className="text-[var(--font-size-price)] font-[var(--weight-bold)] leading-none tracking-[-0.025em] text-[var(--txt)]">
+              <div className="text-[length:var(--font-size-price)] font-[number:var(--weight-bold)] leading-none tracking-[-0.025em] text-[var(--txt)]">
                 <span className={isFree ? "text-[var(--accent)]" : undefined}>
                   {tier.amount}
                 </span>
-                <small className="ml-[6px] text-[13px] font-[var(--weight-regular)] tracking-normal text-[var(--dim)]">
+                <small className="ml-[6px] text-[13px] font-[number:var(--weight-regular)] tracking-normal text-[var(--dim)]">
                   {tier.amountSuffix}
                 </small>
               </div>
-              <div className="text-[var(--font-size-tag)] leading-[var(--lh-normal)] text-[var(--txt2)]">
+              <div className="text-[length:var(--font-size-tag)] leading-[var(--lh-normal)] text-[var(--txt2)]">
                 {tier.desc}
               </div>
-              <ul className="m-0 flex flex-1 list-none flex-col gap-2 p-0 text-[var(--font-size-tag)] text-[var(--txt2)]">
+              <ul className="m-0 flex flex-1 list-none flex-col gap-2 p-0 text-[length:var(--font-size-tag)] text-[var(--txt2)]">
                 {tier.features.map((feat, j) => (
                   <li key={j} className="flex items-start gap-2">
                     <span

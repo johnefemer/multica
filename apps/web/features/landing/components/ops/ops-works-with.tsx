@@ -61,7 +61,7 @@ export function OpsWorksWith() {
   return (
     <div
       aria-label="Supported coding agents"
-      className="mb-9 flex flex-wrap items-center gap-0 border-b border-t border-dashed border-[var(--line2)] py-[14px] text-[var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:flex-col max-sm:items-start max-sm:gap-[10px]"
+      className="mb-9 flex flex-wrap items-center gap-0 border-b border-t border-dashed border-[var(--line2)] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)] max-sm:flex-col max-sm:items-start max-sm:gap-[10px]"
     >
       <span className="mr-[18px] whitespace-nowrap border-r border-[var(--line)] pr-[18px] text-[var(--dim)] max-sm:mr-0 max-sm:border-r-0 max-sm:pr-0">
         <span className="text-[var(--dim2)]">{"// "}</span>
@@ -72,7 +72,7 @@ export function OpsWorksWith() {
           <span
             key={m.name}
             title={m.title}
-            className="inline-flex items-center gap-[7px] font-[var(--weight-medium)] tracking-[0.08em] text-[var(--txt2)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
+            className="inline-flex items-center gap-[7px] font-[number:var(--weight-medium)] tracking-[0.08em] text-[var(--txt2)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
           >
             {GLYPHS[i]}
             {m.name}
@@ -86,7 +86,7 @@ export function OpsWorksWith() {
           {worksWith.more}
         </span>
       </div>
-      <span className="ml-auto whitespace-nowrap border-l border-[var(--line)] pl-[18px] text-[var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--accent2)] max-sm:ml-0 max-sm:border-l-0 max-sm:pl-0">
+      <span className="ml-auto whitespace-nowrap border-l border-[var(--line)] pl-[18px] text-[length:var(--font-size-micro)] tracking-[var(--tr-tag)] text-[var(--accent2)] max-sm:ml-0 max-sm:border-l-0 max-sm:pl-0">
         <span className="text-[var(--accent2)] opacity-60">→ </span>
         {worksWith.enterprise}
       </span>

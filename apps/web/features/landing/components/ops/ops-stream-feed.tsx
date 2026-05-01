@@ -200,7 +200,7 @@ export function OpsStreamFeed() {
 
   return (
     <div className="flex flex-col border border-[var(--line2)] bg-[rgba(15,19,24,0.85)]">
-      <div className="flex items-center justify-between border-b border-[var(--line)] px-[14px] py-[10px] text-[var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+      <div className="flex items-center justify-between border-b border-[var(--line)] px-[14px] py-[10px] text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
         <span>{streamHeader}</span>
         <span aria-hidden="true" className="flex gap-[5px]">
           <span className="block h-2 w-2 rounded-full border border-[var(--line2)]" />
@@ -216,12 +216,12 @@ export function OpsStreamFeed() {
         {lines.map((line, i) => (
           <div
             key={`${line.ts}-${line.tag}-${i}`}
-            className="grid grid-cols-[54px_70px_1fr] gap-[10px] py-1 text-[var(--font-size-tag)] max-[480px]:grid-cols-[62px_1fr] max-[480px]:gap-2"
+            className="grid grid-cols-[54px_70px_1fr] gap-[10px] py-1 text-[length:var(--font-size-tag)] max-[480px]:grid-cols-[62px_1fr] max-[480px]:gap-2"
           >
             <span className="text-[var(--dim2)] max-[480px]:hidden">{line.ts}</span>
             <span
               className={cn(
-                "text-[var(--font-size-nano)] tracking-[var(--tr-caps)]",
+                "text-[length:var(--font-size-nano)] tracking-[var(--tr-caps)]",
                 TAG_TONE[line.tagTone],
               )}
             >

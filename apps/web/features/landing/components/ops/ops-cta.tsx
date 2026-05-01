@@ -21,7 +21,7 @@ export function OpsCallToAction() {
       <OpsContainer>
         <div className="grid grid-cols-1 items-end gap-9 max-[880px]:grid-cols-1 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
           <div>
-            <h2 className="m-0 mb-7 max-w-[18ch] break-words text-[var(--font-size-cta-md)] font-[var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[380px]:text-[var(--font-size-cta-sm)] max-[1020px]:text-[var(--font-size-cta-lg)] sm:text-[var(--font-size-cta-md)] lg:text-[var(--font-size-cta)]">
+            <h2 className="m-0 mb-7 max-w-[18ch] break-words text-[length:var(--font-size-cta-md)] font-[number:var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[380px]:text-[length:var(--font-size-cta-sm)] max-[1020px]:text-[length:var(--font-size-cta-lg)] sm:text-[length:var(--font-size-cta-md)] lg:text-[length:var(--font-size-cta)]">
               {line1}
               <br />
               <span className="text-[var(--accent)]">{line2}</span>
@@ -29,7 +29,7 @@ export function OpsCallToAction() {
               {line3}
               <span className="text-[var(--dim2)]">{line4}</span>
             </h2>
-            <p className="m-0 mb-9 max-w-[56ch] text-[var(--font-size-lede)] leading-[var(--lh-normal)] text-[var(--txt2)]">
+            <p className="m-0 mb-9 max-w-[56ch] text-[length:var(--font-size-lede)] leading-[var(--lh-normal)] text-[var(--txt2)]">
               {cta.body}
             </p>
             <div className="flex flex-wrap items-center gap-3">
@@ -55,14 +55,14 @@ export function OpsCallToAction() {
             ].map((row) => (
               <div
                 key={row.k}
-                className="flex justify-between border-b border-[var(--line)] px-[18px] py-[14px] text-[var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] last:border-b-0"
+                className="flex justify-between border-b border-[var(--line)] px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] last:border-b-0"
               >
                 <span>{row.k}</span>
                 <b
                   className={
                     row.ok
-                      ? "font-[var(--weight-medium)] text-[var(--accent)]"
-                      : "font-[var(--weight-medium)] text-[var(--txt)]"
+                      ? "font-[number:var(--weight-medium)] text-[var(--accent)]"
+                      : "font-[number:var(--weight-medium)] text-[var(--txt)]"
                   }
                 >
                   {row.v}
