@@ -9,6 +9,7 @@ export function createZhDict(
   return {
   header: {
     github: "GitHub",
+    login: "\u767b\u5f55",
     cta: "\u5f00\u59cb\u4f7f\u7528",
     dashboard: "\u8fdb\u5165\u5de5\u4f5c\u53f0",
     docs: "\u6587\u6863",
@@ -272,6 +273,8 @@ export function createZhDict(
 
   about: {
     title: "\u5173\u4e8e Multica",
+    intro:
+      "Agenthost \u662f\u4e00\u4e2a\u9879\u76ee\u7ba1\u7406\u5e73\u53f0\uff0c\u6838\u5fc3\u7406\u5ff5\u662f\u628a\u7f16\u7801 Agent \u5f53\u4f5c\u771f\u6b63\u7684\u961f\u53cb\u2014\u2014\u4e0d\u662f\u4e00\u6b21\u6b21\u624b\u52a8\u63d0\u793a\u7684\u5de5\u5177\uff0c\u800c\u662f\u88ab\u5206\u914d issue\u3001\u81ea\u4e3b\u5b8c\u6210\u5de5\u4f5c\u7684\u6210\u5458\u3002",
     nameLine: {
       prefix: "Multica\u2014\u2014",
       mult: "Mult",

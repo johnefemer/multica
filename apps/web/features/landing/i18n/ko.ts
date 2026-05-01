@@ -12,6 +12,7 @@ export function createKoDict(
     ...base,
     header: {
       github: "GitHub",
+      login: "로그인",
       cta: "시작하기",
       dashboard: "대시보드",
       docs: "문서",
@@ -3173,6 +3174,8 @@ export function createKoDict(
     },
     about: {
       title: "Multica 소개",
+      intro:
+        "Agenthost는 코딩 에이전트를 진짜 팀원으로 대한다는 생각을 중심으로 만든 프로젝트 관리 플랫폼입니다. 한 번씩 프롬프트를 주는 도구가 아니라, 이슈를 맡기고 일을 맡겨 둘 수 있는 동료입니다.",
       nameLine: {
         prefix: "Multica — ",
         mult: "Mult",

@@ -12,6 +12,7 @@ export function createJaDict(
     ...base,
     header: {
       github: "GitHub",
+      login: "ログイン",
       cta: "始める",
       dashboard: "ダッシュボード",
       docs: "ドキュメント",
@@ -3152,6 +3153,8 @@ export function createJaDict(
     },
     about: {
       title: "Multica について",
+      intro:
+        "Agenthost は、コーディングエージェントを本物のチームメイトとして扱うという考えを中心に作られたプロジェクト管理プラットフォームです。一回ずつプロンプトを与えるツールではなく、issue を割り当てて任せられるメンバーです。",
       nameLine: {
         prefix: "Multica — ",
         mult: "Mult",

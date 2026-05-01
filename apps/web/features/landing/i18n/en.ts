@@ -8,6 +8,7 @@ export function createEnDict(
   return {
   header: {
     github: "GitHub",
+    login: "Log in",
     cta: "Get started",
     dashboard: "Dashboard",
     docs: "Docs",
@@ -271,6 +272,8 @@ export function createEnDict(
 
   about: {
     title: "About Multica",
+    intro:
+      "Agenthost is a project management platform built around the idea that coding agents are real teammates \u2014 not tools you prompt one at a time, but workers you assign issues to and let run.",
     nameLine: {
       prefix: "Multica \u2014 ",
       mult: "Mult",

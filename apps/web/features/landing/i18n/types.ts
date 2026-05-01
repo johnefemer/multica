@@ -53,6 +53,7 @@ export type ContactSalesOption = { value: string; label: string };
 export type LandingDict = {
   header: {
     github: string;
+    login: string;
     cta: string;
     dashboard: string;
     docs: string;
@@ -113,6 +114,7 @@ export type LandingDict = {
   };
   about: {
     title: string;
+    intro: string;
     nameLine: {
       prefix: string;
       mult: string;
