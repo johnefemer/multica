@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@multica/ui/lib/utils";
-import { useLocale } from "../i18n";
+import { useLocale } from "../../i18n";
 
 export function FAQSection() {
   const { t } = useLocale();

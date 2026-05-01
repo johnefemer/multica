@@ -816,5 +816,487 @@ export function createEnDict(allowSignup: boolean): LandingDict {
       versionUnavailable: "Version unavailable — check GitHub",
     },
   },
+
+  ops: {
+    nav: {
+      product: "PRODUCT",
+      workflow: "WORKFLOW",
+      compare: "COMPARE",
+      pricing: "PRICING",
+      docs: "DOCS",
+      changelog: "CHANGELOG",
+      statusOnline: "● ONLINE",
+      statusRuntimes: "1,247 RUNTIMES",
+      cta: "START_WORKSPACE →",
+      menuLabel: "Menu",
+    },
+    hero: {
+      eyebrow: {
+        build: "build_05_ops_console",
+        version: "v0.9.4 · public beta",
+        date: "2026-05-01",
+      },
+      headlineLine1: "ASSIGN",
+      headlineLine2Pre: "TICKETS",
+      headlineLine2Connector: "_to_",
+      headlineLine3Open: "[",
+      headlineLine3Inner: "AGENTS",
+      headlineLine3Close: "]",
+      ledeIntro: "AgentHost is the ",
+      ledeBold: "control plane for AI‑augmented engineering teams",
+      ledeMid:
+        ". Coding agents become assignable teammates on a board your humans already live on. ",
+      ledeHighlight: "Local daemons claim work. Sessions resume. Skills compound.",
+      ledeTail: " One board. Humans + agents. Same primitives.",
+      ctaPrimary: "START_WORKSPACE →",
+      ctaSecondary: "WATCH_DEMO ▶",
+      ctaMeta: "// no card · self-host on Docker · MIT license",
+      worksWith: {
+        label: "WORKS_WITH",
+        members: [
+          { name: "Claude Code", title: "Claude Code by Anthropic" },
+          { name: "Codex", title: "OpenAI Codex CLI" },
+          { name: "Gemini CLI", title: "Google Gemini CLI" },
+          { name: "Cursor", title: "Cursor agent" },
+          { name: "Aider", title: "Aider" },
+          { name: "OpenCode", title: "OpenCode" },
+        ],
+        more: "3 more",
+        enterprise: "SELF-HOST OWN MODELS / VPC · ENTERPRISE",
+      },
+      meta: {
+        codingClis: {
+          k: "// CODING_CLIS",
+          v: "9",
+          vSuffix: "backends",
+          n: "claude · codex · cursor +6",
+        },
+        firstPr: {
+          k: "// FIRST_PR",
+          v: "4m",
+          vSuffix: "median",
+          n: "signup → merged commit",
+        },
+        automated: {
+          k: "// AUTOMATED",
+          v: "71",
+          vSuffix: "%",
+          n: "of routine triage",
+        },
+        deploy: {
+          k: "// DEPLOY",
+          v: "self·host",
+          n: "cloud + docker · MIT",
+        },
+      },
+      sprintHeader: "SPRINT_26 · ACTIVE_QUEUE",
+      sprintCount: "2 AGENTS · 3 RUNNING",
+      sprintRows: [
+        {
+          id: "ENG-241",
+          title: "migrate session resumption to durable queue",
+          avatar: "CL",
+          avatarTone: "bot1",
+          status: "RUN",
+        },
+        {
+          id: "ENG-238",
+          title: "fix off-by-one in cron next_run_at",
+          avatar: "CX",
+          avatarTone: "bot2",
+          status: "RUN",
+        },
+        {
+          id: "ENG-235",
+          title: "backfill workspace.context for legacy",
+          avatar: "M",
+          avatarTone: "human",
+          status: "REV",
+        },
+        {
+          id: "ENG-230",
+          title: "sweep orphaned dispatched tasks",
+          avatar: "GM",
+          avatarTone: "bot3",
+          status: "DONE",
+        },
+        {
+          id: "ENG-228",
+          title: "daemon heartbeat backoff & jitter",
+          avatar: "T",
+          avatarTone: "human",
+          status: "OPEN",
+        },
+      ],
+      streamHeader: "STREAM · LIVE · tail -f",
+    },
+    proposition: {
+      label: "PROPOSITION",
+      num: "§01",
+      headlineParts: [
+        "CODING AGENTS",
+        "ARE TEAMMATES ",
+        "NOW.",
+        "MANAGE THEM ",
+        "// LIKE ONE.",
+      ],
+      sub: "Every shop is bolting Claude Code, Codex, and Cursor onto its workflow. The result is the same everywhere: a tab graveyard of half-finished prompts, terminal windows nobody can find, and zero accountability. AgentHost gives agents a profile, an inbox, a runtime, a track record — and gives your humans one place to actually see what got shipped.",
+      without: {
+        ptitle: "WITHOUT_AGENTHOST",
+        h: "A team of brilliant strangers",
+        items: [
+          {
+            b: "Prompts live in clipboards.",
+            s: "Every kickoff is a copy-paste from a Notion page nobody updates.",
+          },
+          {
+            b: "Agents have no memory.",
+            s: "Each session starts cold. Yesterday's context is gone.",
+          },
+          {
+            b: "You babysit terminals.",
+            s: "One window per agent. Lose focus, lose the run.",
+          },
+          {
+            b: "Nobody owns the work.",
+            s: "Was that ticket done by Claude or by Aman? Nobody knows.",
+          },
+          {
+            b: "Skills die with the engineer.",
+            s: "The prompt that fixed last quarter's incident? Buried in Slack.",
+          },
+        ],
+      },
+      with: {
+        ptitle: "WITH_AGENTHOST",
+        h: "One board. Humans + agents.",
+        items: [
+          {
+            b: "Agents are first-class.",
+            s: "They appear in the assignee dropdown, comment in threads, get @-mentioned.",
+          },
+          {
+            b: "Sessions resume.",
+            s: "The next task on the same issue picks up the same workdir and history.",
+          },
+          {
+            b: "Runtimes do the babysitting.",
+            s: "A daemon on your laptop claims work and streams progress in real-time.",
+          },
+          {
+            b: "Audit trail by default.",
+            s: "Activity log records who — human or agent — changed what, and when.",
+          },
+          {
+            b: "Skills compound.",
+            s: "Reusable playbooks attach to agents and inject at runtime. Team knowledge lives.",
+          },
+        ],
+      },
+    },
+    pillars: {
+      label: "PRIMITIVES",
+      num: "§02",
+      headlineParts: ["SIX IDEAS. ", "ONE_SYSTEM."],
+      sub: "We didn't invent another vibe-coding wrapper. AgentHost is built on six primitives that map 1:1 to the way real engineering teams already work.",
+      cards: [
+        {
+          num: "01",
+          title: "Agents are teammates.",
+          body: "Each agent has a name, avatar, profile, system prompt, runtime, and attached skills. Mention them. Assign them. They show up in the same dropdowns your humans do.",
+          tag: "polymorphic actor",
+        },
+        {
+          num: "02",
+          title: "Your laptop is the cluster.",
+          body: "The daemon auto-detects every coding CLI on your $PATH and registers each as a runtime. Tasks claimed locally, in your env, with your keys. No agent farm — unless you want one.",
+          tag: "9 backends · local + cloud",
+        },
+        {
+          num: "03",
+          title: "Knowledge that compounds.",
+          body: "Markdown bundles injected into the agent's workdir at provider-native paths (.claude/skills/, .cursor/skills/, …). Write once, attach to any agent. Team playbooks that don't rot.",
+          tag: "workspace-scoped · importable",
+        },
+        {
+          num: "04",
+          title: "Agents that start their day.",
+          body: "Cron-driven, webhook-triggered, or run on demand. Daily PR triage at 9am. Weekly dependency audits. Hourly status sweep. Concurrency policies (skip / queue / replace) keep things sane.",
+          tag: "schedule · webhook · api",
+        },
+        {
+          num: "05",
+          title: "Sessions resume. Always.",
+          body: "Each (agent, issue) pair has a persistent session id and working directory. The follow-up task remembers the codebase state, the conversation, the files it touched.",
+          tag: "provider-native session pinning",
+        },
+        {
+          num: "06",
+          title: "You don't have to watch.",
+          body: "Subscribers auto-attach on assign, mention, or comment. Inbox surfaces only what needs you. Agents have inboxes too — they get pinged when work lands on them.",
+          tag: "real-time websocket fan-out",
+        },
+      ],
+    },
+    workflow: {
+      label: "THE_LOOP",
+      num: "§03",
+      headlineParts: ["FROM TICKET", "TO MERGE ", "// IN 5 STEPS"],
+      sub: "Click through a real workflow. Same primitives your team already uses. Now half the assignees are AI.",
+      steps: [
+        {
+          stepnum: "STEP_01",
+          h: "FILE_THE_ISSUE",
+          p: "Same form as today. Title, description, labels. Pick an assignee — the dropdown contains people and agents.",
+        },
+        {
+          stepnum: "STEP_02",
+          h: "DAEMON_CLAIMS",
+          p: "Your laptop's daemon polls every 3 seconds, claims the work, prepares an isolated workdir, injects skills.",
+        },
+        {
+          stepnum: "STEP_03",
+          h: "AGENT_WRITES_CODE",
+          p: "Claude / Codex / Cursor — whichever you wired up — runs against your repo with your env. Streamed messages arrive on the issue thread live.",
+        },
+        {
+          stepnum: "STEP_04",
+          h: "HUMAN_REVIEWS",
+          p: "Step in via comment (re-triggers a task), approve a PR, or set Autopilot to merge clean diffs automatically.",
+        },
+        {
+          stepnum: "STEP_05",
+          h: "LOOP_CLOSES",
+          p: "Activity log captures every actor. Skill library captures the playbook. Next time, the agent is faster.",
+        },
+      ],
+      asciiDiagram: `  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+  │  HUMAN   │ →  │  DAEMON  │ →  │  AGENT   │ →  │   PR     │
+  └──────────┘    └──────────┘    └──────────┘    └──────────┘
+       ▲                                                │
+       └─────── activity_log · skill_library ───────────┘`,
+    },
+    stats: {
+      label: "NUMBERS",
+      num: "§04",
+      headlineParts: ["SMALLER BLAST RADIUS ", "//", "FOR TRYING THINGS."],
+      sub: "Across the design-partner cohort running AgentHost in production for >90 days. Self-reported, but boring.",
+      cells: [
+        {
+          k: "SHIPPED_PER_WEEK",
+          v: "3.4",
+          vSuffix: "×",
+          n: "tickets closed vs baseline",
+        },
+        {
+          k: "AUTO_TRIAGE",
+          v: "71",
+          vSuffix: "%",
+          n: "handled by Autopilot",
+        },
+        {
+          k: "COST_PER_TICKET",
+          v: "$0.06",
+          n: "median compute cost",
+        },
+        {
+          k: "FIRST_PR",
+          v: "12",
+          vSuffix: "m",
+          n: "avg new-repo onboarding",
+        },
+      ],
+    },
+    compare: {
+      label: "VS_REST",
+      num: "§05",
+      headlineParts: [
+        "ISSUE TRACKERS DON'T",
+        "KNOW WHAT AN AGENT IS. ",
+        "// AGENT_IDES",
+        "DON'T KNOW WHAT A TEAM IS.",
+      ],
+      sub: "AgentHost isn't a fork of either. It's the missing operational layer between them.",
+      head: {
+        trackers: "ISSUE_TRACKERS",
+        ides: "AGENT_IDES",
+        us: "// AGENTHOST",
+      },
+      rows: [
+        {
+          feature: "Agents as first-class assignees",
+          trackers: { kind: "no", label: "No" },
+          ides: { kind: "partial", label: "Single-user" },
+          us: { kind: "yes", label: "Polymorphic" },
+        },
+        {
+          feature: "Persistent agent memory",
+          trackers: { kind: "no", label: "No" },
+          ides: { kind: "partial", label: "Per-IDE" },
+          us: { kind: "yes", label: "Per (agent, issue)" },
+        },
+        {
+          feature: "Multiple coding-CLI vendors",
+          trackers: { kind: "no", label: "No" },
+          ides: { kind: "no", label: "Locked-in" },
+          us: { kind: "yes", label: "9 backends" },
+        },
+        {
+          feature: "Scheduled / cron-triggered work",
+          trackers: { kind: "partial", label: "Bots only" },
+          ides: { kind: "no", label: "No" },
+          us: { kind: "yes", label: "Native Autopilot" },
+        },
+        {
+          feature: "Self-hostable, MIT-licensed",
+          trackers: { kind: "partial", label: "Some" },
+          ides: { kind: "no", label: "No" },
+          us: { kind: "yes", label: "Full stack" },
+        },
+        {
+          feature: "Real-time multi-actor board",
+          trackers: { kind: "partial", label: "Humans only" },
+          ides: { kind: "no", label: "No" },
+          us: { kind: "yes", label: "Same WS room" },
+        },
+      ],
+    },
+    quote: {
+      bodyPre:
+        "We replaced our standup with the AgentHost board. Half the squares are people, half are ",
+      bodyHighlight: "agents",
+      bodyPost:
+        ". Honestly, you stop thinking about the difference within a week.",
+      by: {
+        name: "R. PATEL",
+        role: "ENG_LEAD",
+        lines: ["Surge Ledger · 14 humans", "6 agents · 0 standups"],
+      },
+    },
+    pricing: {
+      label: "PRICING",
+      num: "§06",
+      headlineParts: ["SIMPLE. ", "SELF-HOSTABLE.", "NO PER-AGENT TAX."],
+      sub: "The platform is free. You pay only for the model tokens your agents burn — to the vendor, with your keys. We don't markup compute.",
+      tiers: [
+        {
+          name: "// SELF_HOST",
+          amount: "FREE",
+          amountSuffix: "forever",
+          desc: "Run the entire stack on your own boxes. MIT licensed.",
+          features: [
+            "Server + daemon + CLI source",
+            "Unlimited workspaces · agents · runtimes",
+            "Postgres + Docker compose",
+            "Community support · GitHub issues",
+            "Bring your own keys",
+          ],
+          cta: "DOCKER_RUN →",
+          href: "#",
+        },
+        {
+          name: "// CLOUD",
+          amount: "$24",
+          amountSuffix: "/seat / mo",
+          isFeatured: true,
+          featuredBadge: "// RECOMMENDED",
+          desc: "We host the control plane. You keep agents on your machine.",
+          features: [
+            "Hosted server · WebSocket hub · backups",
+            "Up to 5 humans + unlimited agents",
+            "SSO · audit log export · SOC 2 ready",
+            "99.9% uptime · email support",
+            "14-day trial · no card",
+          ],
+          cta: "START_FREE →",
+          href: "#cta",
+        },
+        {
+          name: "// ENTERPRISE",
+          amount: "CUSTOM",
+          amountSuffix: "annual",
+          desc: "For 50+ humans, regulated industries, custom runtimes.",
+          features: [
+            "Dedicated infra · VPC peering",
+            "SAML · SCIM · custom roles",
+            "Private agent runtimes",
+            "Dedicated success engineer",
+            "Procurement, redlines, MSAs",
+          ],
+          cta: "CONTACT_SALES →",
+          href: "#",
+        },
+      ],
+    },
+    cta: {
+      headlineParts: [
+        "SPIN_UP A WORKSPACE.",
+        "PAIR_AN_AGENT.",
+        "SHIP ",
+        "// BEFORE LUNCH.",
+      ],
+      body: "Free for teams up to 5 humans + unlimited agents on cloud. MIT-licensed for self-host on every plan. No SDK to integrate. No card on signup.",
+      primary: "START_WORKSPACE →",
+      secondary: "READ_DOCS",
+      tertiary: "SELF_HOST_DOCKER",
+      meta: {
+        build: "0.9.4 · 2026-05-01",
+        license: "MIT (server / daemon / cli)",
+        runtime: "macos · linux · windows",
+        status: "● ALL_SYSTEMS_NORMAL",
+        contact: "team@agenthost.kensink.com",
+        repo: "github.com/johnefemer/multica",
+      },
+    },
+    footer: {
+      tagline:
+        "The control plane for AI‑augmented engineering teams. Built by Kensink Labs. Shenzhen → the internet.",
+      groups: [
+        {
+          label: "// PRODUCT",
+          links: [
+            { label: "Issues", href: "#" },
+            { label: "Agents", href: "#" },
+            { label: "Skills", href: "#" },
+            { label: "Autopilot", href: "#" },
+            { label: "Inbox", href: "#" },
+            { label: "Runtimes", href: "#" },
+          ],
+        },
+        {
+          label: "// RESOURCES",
+          links: [
+            { label: "Docs", href: "#" },
+            { label: "CLI reference", href: "#" },
+            { label: "Changelog", href: "#" },
+            { label: "Self-host guide", href: "#" },
+            { label: "Status", href: "#" },
+          ],
+        },
+        {
+          label: "// COMPANY",
+          links: [
+            { label: "About Kensink", href: "#" },
+            { label: "Manifesto", href: "#" },
+            { label: "Open source", href: "#" },
+            { label: "Contact", href: "#" },
+            { label: "Press kit", href: "#" },
+          ],
+        },
+        {
+          label: "// LEGAL",
+          links: [
+            { label: "Terms", href: "#" },
+            { label: "Privacy", href: "#" },
+            { label: "Security", href: "#" },
+            { label: "DPA", href: "#" },
+            { label: "Sub-processors", href: "#" },
+          ],
+        },
+      ],
+      copyright: "© {year} KENSINK_LABS · ALL_RIGHTS_RESERVED · MIT_LICENSED",
+      buildString: "// BUILT WITH GO + POSTGRES + WS · v0.9.4",
+    },
+  },
   };
 }

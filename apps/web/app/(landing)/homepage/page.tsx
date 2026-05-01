@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AgenthostLanding } from "@/features/landing/components/agenthost-landing";
+import { AgenthostLanding } from "@/features/landing/components/_legacy/agenthost-landing";
 
 export const metadata: Metadata = {
   title: "Homepage",

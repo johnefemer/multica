@@ -1,0 +1,216 @@
+/* ───────────────────────────────────────────────
+ * AgentHost "Ops Console" — Design Tokens (CSS custom properties)
+ * Source of truth: tokens.ts (which mirrors index.html).
+ *
+ * Scope: every declaration below is wrapped in `.ops-landing` so the
+ * tokens never leak into the rest of the app. The new `/` landing
+ * page mounts this class on its root wrapper; nothing else does.
+ *
+ * Keyframes are global because they're prefixed `ops-*` — they cannot
+ * collide with anything outside the Ops surface.
+ * ─────────────────────────────────────────────── */
+
+.ops-landing {
+  /* ── COLOR ── */
+  --bg: #0a0d10;
+  --bg2: #0f1318;
+  --bg3: #12171d;
+
+  --line: #1a2128;
+  --line2: #26303a;
+  --line3: #384451;
+
+  --txt: #d4dde4;
+  --txt2: #9aa6af;
+  --dim: #6b7780;
+  --dim2: #3d4a55;
+
+  --accent: #7cf29c;
+  --accent-hover: #a4f5ba;
+  --accent2: #5fd6f5;
+  --warn: #f5b942;
+  --pop: #ff6363;
+
+  --accent-04: rgba(124, 242, 156, 0.04);
+  --accent-06: rgba(124, 242, 156, 0.06);
+  --accent-08: rgba(124, 242, 156, 0.08);
+
+  --bg-sticky: rgba(10, 13, 16, 0.85);
+  --bg-drawer: rgba(10, 13, 16, 0.97);
+
+  /* ── TYPOGRAPHY ── */
+  --font-mono: var(--font-mono-display), "JetBrains Mono", ui-monospace, "Menlo", monospace;
+
+  --font-size-hero: 84px;
+  --font-size-hero-lg: 64px;
+  --font-size-hero-md: 48px;
+  --font-size-hero-sm: 42px;
+
+  --font-size-cta: 72px;
+  --font-size-cta-lg: 56px;
+  --font-size-cta-md: 38px;
+  --font-size-cta-sm: 34px;
+
+  --font-size-h2: 48px;
+  --font-size-h2-lg: 40px;
+  --font-size-h2-md: 30px;
+
+  --font-size-stat: 48px;
+  --font-size-price: 42px;
+  --font-size-quote: 24px;
+  --font-size-quote-sm: 19px;
+
+  --font-size-h3: 24px;
+  --font-size-metric: 24px;
+  --font-size-h4: 18px;
+  --font-size-h5: 15px;
+
+  --font-size-lede: 14.5px;
+  --font-size-body: 14.5px;
+  --font-size-base: 14px;
+  --font-size-base-mobile: 13.5px;
+  --font-size-dense: 13px;
+  --font-size-detail: 12.5px;
+  --font-size-tag: 12px;
+  --font-size-label: 11px;
+  --font-size-micro: 10.5px;
+  --font-size-nano: 10px;
+  --font-size-nano-sm: 9.5px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+  --weight-extra: 700;
+
+  --lh-tight: 0.96;
+  --lh-snug: 1.2;
+  --lh-normal: 1.55;
+  --lh-loose: 1.6;
+  --lh-log: 1.7;
+  --lh-audit: 1.95;
+
+  --tr-headline: -0.025em;
+  --tr-subhead: -0.005em;
+  --tr-label: 0.18em;
+  --tr-eyebrow: 0.16em;
+  --tr-tag: 0.14em;
+  --tr-caps: 0.12em;
+  --tr-micro: 0.06em;
+
+  /* ── LAYOUT ── */
+  --container-max: 1320px;
+  --container-pad: 40px;
+  --container-pad-lg: 28px;
+  --container-pad-md: 16px;
+
+  --nav-height: 56px;
+
+  --section-pad: 96px;
+  --section-pad-lg: 72px;
+  --section-pad-md: 56px;
+
+  --hero-pad-y-top: 64px;
+  --hero-pad-y-bot: 48px;
+  --hero-pad-y-md-top: 36px;
+  --hero-pad-y-md-bot: 32px;
+
+  --cta-pad-y: 120px;
+  --cta-pad-y-lg: 88px;
+  --cta-pad-y-md: 64px;
+
+  --grid-cell: 24px;
+
+  /* ── BORDERS ── */
+  --border-hairline: 1px solid var(--line);
+  --border-default: 1px solid var(--line2);
+  --border-strong: 1px solid var(--line3);
+  --border-accent: 1px solid var(--accent);
+  --border-dashed: 1px dashed var(--line);
+
+  --radius-none: 0;
+  --radius-dot: 50%;
+
+  /* ── ELEVATION ── */
+  --glow-accent: 0 0 12px var(--accent);
+
+  /* ── MOTION ── */
+  --duration-fast: 140ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
+  --stream-tick: 1700ms;
+
+  --ease-in-out: ease-in-out;
+  --ease-standard: ease;
+
+  /* ── Z-INDEX ── */
+  --z-nav: 50;
+  --z-drawer: 60;
+
+  /* ── COMPONENT TOKENS ── */
+  --btn-pad: 11px 18px;
+  --btn-min-h: 44px;
+
+  --card-bg: var(--bg2);
+  --card-bg-featured: var(--bg3);
+  --card-border: var(--line2);
+  --card-after-bg: linear-gradient(180deg, var(--accent-04), transparent 80%);
+  --card-after-border: var(--accent);
+
+  --avatar-bot1-bg: var(--accent);
+  --avatar-bot2-bg: var(--accent2);
+  --avatar-bot3-bg: #b18cf5;
+
+  --pill-bg: var(--bg);
+  --pill-border: var(--line2);
+  --pill-fg: var(--txt2);
+
+  /* ── BACKGROUNDS ── */
+  --bg-grid:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  --bg-cta-glow: radial-gradient(circle at 70% 50%, var(--accent-06), transparent 50%);
+
+  /* The Ops surface is conceptually dark — establish a local color-scheme
+     so form controls inside the wrapper render with dark UA defaults
+     without affecting the rest of the app. */
+  color-scheme: dark;
+}
+
+/* Selection scoped to the Ops surface only. */
+.ops-landing ::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ── KEYFRAMES (global, namespaced) ── */
+@keyframes ops-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes ops-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── REDUCED MOTION (scoped) ── */
+@media (prefers-reduced-motion: reduce) {
+  .ops-landing {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+  .ops-landing,
+  .ops-landing *,
+  .ops-landing *::before,
+  .ops-landing *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

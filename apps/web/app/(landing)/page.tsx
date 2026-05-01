@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { AgenthostLanding } from "@/features/landing/components/agenthost-landing";
+import { OpsLanding } from "@/features/landing/components/ops/ops-landing";
 import { RedirectIfAuthenticated } from "@/features/landing/components/redirect-if-authenticated";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Agenthost — Project Management for Human + Agent Teams",
+    absolute: "Agenthost — Control plane for AI-augmented engineering teams",
   },
   description:
-    "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
+    "Assign tickets to agents. Local daemons claim work. Sessions resume. Skills compound. One board for humans + agents — same primitives.",
   openGraph: {
-    title: "Agenthost — Project Management for Human + Agent Teams",
+    title: "Agenthost — Control plane for AI-augmented engineering teams",
     description:
-      "Manage your human + agent workforce in one place.",
+      "Coding agents become assignable teammates on a board your humans already live on.",
     url: "/",
   },
   alternates: {
@@ -23,7 +23,7 @@ export default function LandingPage() {
   return (
     <>
       <RedirectIfAuthenticated />
-      <AgenthostLanding />
+      <OpsLanding />
     </>
   );
 }

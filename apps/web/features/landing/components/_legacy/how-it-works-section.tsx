@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useAuthStore } from "@multica/core/auth";
-import { useLocale } from "../i18n";
-import { GitHubMark, githubUrl, heroButtonClassName } from "./shared";
+import { useLocale } from "../../i18n";
+import { GitHubMark, githubUrl, heroButtonClassName } from "../shared";
 
 export function HowItWorksSection() {
   const { t, locale } = useLocale();

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useLocale } from "../i18n";
-import { GitHubMark, githubUrl } from "./shared";
+import { useLocale } from "../../i18n";
+import { GitHubMark, githubUrl } from "../shared";
 
 export function OpenSourceSection() {
   const { t } = useLocale();

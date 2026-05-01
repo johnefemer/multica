@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useAuthStore } from "@multica/core/auth";
-import { useLocale } from "../i18n";
+import { useLocale } from "../../i18n";
 import {
   ClaudeCodeLogo,
   CodexLogo,
@@ -11,7 +11,7 @@ import {
   OpenClawLogo,
   OpenCodeLogo,
   heroButtonClassName,
-} from "./shared";
+} from "../shared";
 
 export function LandingHero() {
   const { t } = useLocale();

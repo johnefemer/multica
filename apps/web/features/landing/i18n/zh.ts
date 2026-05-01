@@ -1,4 +1,5 @@
 import { githubUrl } from "../components/shared";
+import { createEnDict } from "./en";
 import type { LandingDict } from "./types";
 
 export function createZhDict(allowSignup: boolean): LandingDict {
@@ -814,5 +815,9 @@ export function createZhDict(allowSignup: boolean): LandingDict {
       versionUnavailable: "版本获取失败——请前往 GitHub 查看",
     },
   },
+
+  // TODO i18n: localize the ops landing block. Until then we delegate to EN
+  // so the new home page renders in both locales without missing keys.
+  ops: createEnDict(allowSignup).ops,
   };
 }

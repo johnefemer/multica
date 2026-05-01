@@ -152,4 +152,158 @@ export type LandingDict = {
       versionUnavailable: string;
     };
   };
+  ops: OpsDict;
+};
+
+export type OpsAvatarTone = "bot1" | "bot2" | "bot3" | "human";
+export type OpsBoardStatus = "RUN" | "REV" | "DONE" | "OPEN";
+export type OpsCompareKind = "yes" | "no" | "partial";
+
+export type OpsDict = {
+  nav: {
+    product: string;
+    workflow: string;
+    compare: string;
+    pricing: string;
+    docs: string;
+    changelog: string;
+    statusOnline: string;
+    statusRuntimes: string;
+    cta: string;
+    menuLabel: string;
+  };
+  hero: {
+    eyebrow: { build: string; version: string; date: string };
+    headlineLine1: string;
+    headlineLine2Pre: string;
+    headlineLine2Connector: string;
+    headlineLine3Open: string;
+    headlineLine3Inner: string;
+    headlineLine3Close: string;
+    ledeIntro: string;
+    ledeBold: string;
+    ledeMid: string;
+    ledeHighlight: string;
+    ledeTail: string;
+    ctaPrimary: string;
+    ctaSecondary: string;
+    ctaMeta: string;
+    worksWith: {
+      label: string;
+      members: { name: string; title: string }[];
+      more: string;
+      enterprise: string;
+    };
+    meta: {
+      codingClis: { k: string; v: string; vSuffix: string; n: string };
+      firstPr: { k: string; v: string; vSuffix: string; n: string };
+      automated: { k: string; v: string; vSuffix: string; n: string };
+      deploy: { k: string; v: string; n: string };
+    };
+    sprintHeader: string;
+    sprintCount: string;
+    sprintRows: {
+      id: string;
+      title: string;
+      avatar: string;
+      avatarTone: OpsAvatarTone;
+      status: OpsBoardStatus;
+    }[];
+    streamHeader: string;
+  };
+  proposition: {
+    label: string;
+    num: string;
+    headlineParts: string[];
+    sub: string;
+    without: {
+      ptitle: string;
+      h: string;
+      items: { b: string; s: string }[];
+    };
+    with: {
+      ptitle: string;
+      h: string;
+      items: { b: string; s: string }[];
+    };
+  };
+  pillars: {
+    label: string;
+    num: string;
+    headlineParts: string[];
+    sub: string;
+    cards: { num: string; title: string; body: string; tag: string }[];
+  };
+  workflow: {
+    label: string;
+    num: string;
+    headlineParts: string[];
+    sub: string;
+    steps: { stepnum: string; h: string; p: string }[];
+    asciiDiagram: string;
+  };
+  stats: {
+    label: string;
+    num: string;
+    headlineParts: string[];
+    sub: string;
+    cells: { k: string; v: string; vSuffix?: string; n: string }[];
+  };
+  compare: {
+    label: string;
+    num: string;
+    headlineParts: string[];
+    sub: string;
+    head: { trackers: string; ides: string; us: string };
+    rows: {
+      feature: string;
+      trackers: { kind: OpsCompareKind; label: string };
+      ides: { kind: OpsCompareKind; label: string };
+      us: { kind: OpsCompareKind; label: string };
+    }[];
+  };
+  quote: {
+    bodyPre: string;
+    bodyHighlight: string;
+    bodyPost: string;
+    by: { name: string; role: string; lines: string[] };
+  };
+  pricing: {
+    label: string;
+    num: string;
+    headlineParts: string[];
+    sub: string;
+    tiers: {
+      name: string;
+      amount: string;
+      amountSuffix: string;
+      isFeatured?: boolean;
+      featuredBadge?: string;
+      desc: string;
+      features: string[];
+      cta: string;
+      href: string;
+    }[];
+  };
+  cta: {
+    headlineParts: string[];
+    body: string;
+    primary: string;
+    secondary: string;
+    tertiary: string;
+    meta: {
+      build: string;
+      license: string;
+      runtime: string;
+      status: string;
+      contact: string;
+      repo: string;
+    };
+  };
+  footer: {
+    tagline: string;
+    groups: { label: string; links: { label: string; href: string }[] }[];
+    copyright: string;
+    buildString: string;
+  };
 };
