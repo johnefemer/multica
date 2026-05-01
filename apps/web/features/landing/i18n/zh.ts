@@ -1,4 +1,5 @@
 import { githubUrl, discordUrl } from "../components/shared";
+import { createEnDict } from "./en";
 import type { LandingDict } from "./types";
 
 export function createZhDict(
@@ -4053,5 +4054,9 @@ export function createZhDict(
       invalidEmail: "邮箱地址格式不正确。",
     },
   },
+
+  // TODO i18n: localize the ops landing block. Until then we delegate to EN
+  // so the new home page renders in both locales without missing keys.
+  ops: createEnDict(allowSignup, docsHref).ops,
   };
 }
