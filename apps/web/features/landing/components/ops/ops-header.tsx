@@ -35,6 +35,23 @@ function CloseIcon() {
   );
 }
 
+function BrandMark({ withLab = true }: { withLab?: boolean }) {
+  return (
+    <span className="flex min-w-0 items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]">
+      <span
+        aria-hidden="true"
+        className="block h-[10px] w-[10px] flex-none bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
+      />
+      <span className="truncate">AGENTHOST</span>
+      {withLab ? (
+        <span className="ml-1 truncate text-[length:var(--font-size-micro)] font-[number:var(--weight-regular)] text-[var(--dim)] max-[480px]:hidden">
+          {"// KENSINK_LABS"}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function OpsHeader() {
   const { t } = useLocale();
   const { nav, footer } = t.ops;
@@ -74,61 +91,69 @@ export function OpsHeader() {
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
-    <nav className="sticky top-0 z-[var(--z-nav)] border-b border-[var(--line2)] bg-[var(--bg-sticky)] backdrop-blur-md">
-      <OpsContainer>
-        <div className="flex h-[var(--nav-height)] items-center justify-between">
-          <Link
-            href="/"
-            className="flex min-w-0 items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
-          >
-            <span
-              aria-hidden="true"
-              className="block h-[10px] w-[10px] flex-none bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
-            />
-            <span className="truncate">AGENTHOST</span>
-            <span className="ml-1 truncate text-[length:var(--font-size-micro)] font-[number:var(--weight-regular)] text-[var(--dim)] max-[480px]:hidden">
-              {"// KENSINK_LABS"}
-            </span>
-          </Link>
+    <>
+      <nav className="sticky top-0 z-[var(--z-nav)] border-b border-[var(--line2)] bg-[var(--bg-sticky)] backdrop-blur-md">
+        <OpsContainer>
+          <div className="flex h-[var(--nav-height)] items-center justify-between gap-3">
+            <Link
+              href="/"
+              className="flex min-w-0 items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
+            >
+              <span
+                aria-hidden="true"
+                className="block h-[10px] w-[10px] flex-none bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
+              />
+              <span className="truncate">AGENTHOST</span>
+              <span className="ml-1 truncate text-[length:var(--font-size-micro)] font-[number:var(--weight-regular)] text-[var(--dim)] max-[480px]:hidden">
+                {"// KENSINK_LABS"}
+              </span>
+            </Link>
 
-          <div className="flex gap-6 text-[length:var(--font-size-label)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
-            {navLinks.map((link, i) => (
+            <div className="flex gap-6 text-[length:var(--font-size-label)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
+              {navLinks.map((link, i) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "relative py-[6px] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]",
+                    i === 0 && "text-[var(--txt)]",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-[length:var(--font-size-nano)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
+                <b className="font-[number:var(--weight-regular)] text-[var(--accent)]">
+                  {nav.statusOnline}
+                </b>{" "}
+                · {nav.statusRuntimes}
+              </span>
               <Link
-                key={link.href}
-                href={link.href}
+                href={ctaHref}
                 className={cn(
-                  "relative py-[6px] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]",
-                  i === 0 && "text-[var(--txt)]",
+                  opsButtonClassName("outline"),
+                  "max-[1020px]:hidden",
                 )}
               >
-                {link.label}
+                {nav.cta}
               </Link>
-            ))}
+              <button
+                type="button"
+                aria-label={drawerOpen ? "Close menu" : nav.menuLabel}
+                aria-expanded={drawerOpen}
+                aria-controls="ops-mobile-drawer"
+                onClick={() => setDrawerOpen((v) => !v)}
+                className="hidden h-9 w-9 items-center justify-center border border-[var(--line2)] bg-transparent p-0 text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--line3)] max-[1020px]:inline-flex"
+              >
+                {drawerOpen ? <CloseIcon /> : <BurgerIcon />}
+              </button>
+            </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-[length:var(--font-size-nano)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:hidden">
-              <b className="font-[number:var(--weight-regular)] text-[var(--accent)]">
-                {nav.statusOnline}
-              </b>{" "}
-              · {nav.statusRuntimes}
-            </span>
-            <Link href={ctaHref} className={opsButtonClassName("outline")}>
-              {nav.cta}
-            </Link>
-            <button
-              type="button"
-              aria-label={drawerOpen ? "Close menu" : nav.menuLabel}
-              aria-expanded={drawerOpen}
-              aria-controls="ops-mobile-drawer"
-              onClick={() => setDrawerOpen((v) => !v)}
-              className="hidden h-9 w-9 items-center justify-center border border-[var(--line2)] bg-transparent p-0 text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--line3)] max-[1020px]:inline-flex"
-            >
-              {drawerOpen ? <CloseIcon /> : <BurgerIcon />}
-            </button>
-          </div>
-        </div>
-      </OpsContainer>
+        </OpsContainer>
+      </nav>
 
       {drawerOpen ? (
         <div
@@ -136,34 +161,57 @@ export function OpsHeader() {
           role="dialog"
           aria-modal="true"
           aria-label={nav.menuLabel}
-          className="fixed inset-x-0 top-[var(--nav-height)] bottom-0 z-[var(--z-drawer)] flex flex-col border-t border-[var(--line2)] bg-[var(--bg)] [animation:ops-drawer-in_240ms_ease-out]"
+          className="fixed inset-0 z-[var(--z-drawer)] flex flex-col bg-[var(--bg)] [animation:ops-drawer-in_240ms_ease-out]"
         >
-          {/* Scrollable nav region */}
-          <div className="flex-1 overflow-y-auto px-5 pb-6 pt-2">
-            <div className="mb-4 px-1 pt-3 text-[length:var(--font-size-nano)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-              {"// NAV"}
-            </div>
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={closeDrawer}
-                className="flex items-center justify-between border-b border-[var(--line)] px-1 py-[18px] text-[length:var(--font-size-dense)] tracking-[var(--tr-label)] text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--accent)] after:text-[var(--accent)] after:content-['→']"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <span className="mt-6 block px-1 text-[length:var(--font-size-label)] tracking-[var(--tr-caps)] text-[var(--dim)]">
-              <b className="font-[number:var(--weight-regular)] text-[var(--accent)]">
-                {nav.statusOnline}
-              </b>{" "}
-              · {nav.statusRuntimes}
-            </span>
+          {/* Drawer header — mirrors the nav row, has its own close button */}
+          <div className="flex h-[var(--nav-height)] flex-none items-center justify-between gap-3 border-b border-[var(--line2)] px-[var(--container-pad-md)] max-[1020px]:px-[var(--container-pad-lg)] max-[760px]:px-[var(--container-pad-md)]">
+            <Link href="/" onClick={closeDrawer}>
+              <BrandMark />
+            </Link>
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={closeDrawer}
+              className="inline-flex h-9 w-9 items-center justify-center border border-[var(--line2)] bg-transparent p-0 text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--line3)]"
+            >
+              <CloseIcon />
+            </button>
           </div>
 
-          {/* Sticky footer */}
-          <div className="border-t border-[var(--line2)] bg-[var(--bg2)] px-5 pb-6 pt-5">
-            <div className="mb-3 flex items-center gap-[10px]">
+          {/* Scrollable nav region */}
+          <nav
+            aria-label="Primary"
+            className="flex-1 overflow-y-auto"
+          >
+            <div className="px-[var(--container-pad-md)] pb-6 pt-5">
+              <div className="mb-2 px-1 text-[length:var(--font-size-nano)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+                {"// NAV"}
+              </div>
+              <ul className="m-0 list-none p-0">
+                {navLinks.map((link) => (
+                  <li key={link.href} className="m-0 p-0">
+                    <Link
+                      href={link.href}
+                      onClick={closeDrawer}
+                      className="flex items-center justify-between border-b border-[var(--line)] px-1 py-[18px] text-[length:var(--font-size-dense)] tracking-[var(--tr-label)] text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--accent)] after:text-[var(--accent)] after:content-['→']"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 px-1 text-[length:var(--font-size-label)] tracking-[var(--tr-caps)] text-[var(--dim)]">
+                <b className="font-[number:var(--weight-regular)] text-[var(--accent)]">
+                  {nav.statusOnline}
+                </b>{" "}
+                · {nav.statusRuntimes}
+              </div>
+            </div>
+          </nav>
+
+          {/* Sticky brand footer */}
+          <div className="flex-none border-t border-[var(--line2)] bg-[var(--bg2)] px-[var(--container-pad-md)] pb-7 pt-5">
+            <div className="mb-3 flex flex-wrap items-center gap-x-[10px] gap-y-1">
               <span
                 aria-hidden="true"
                 className="block h-[10px] w-[10px] flex-none bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
@@ -194,6 +242,6 @@ export function OpsHeader() {
           </div>
         </div>
       ) : null}
-    </nav>
+    </>
   );
 }

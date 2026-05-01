@@ -25,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 export function OpsLanding() {
   return (
     <div
-      className={`${jetbrainsMono.variable} ops-landing relative min-h-screen bg-[var(--bg)] text-[var(--txt)] [font-family:var(--font-mono)] text-[length:var(--font-size-base)] max-[760px]:text-[length:var(--font-size-base-mobile)] leading-[var(--lh-normal)] [-webkit-font-smoothing:antialiased] overflow-x-hidden`}
+      className={`${jetbrainsMono.variable} ops-landing relative min-h-screen bg-[var(--bg)] text-[var(--txt)] [font-family:var(--font-mono)] text-[length:var(--font-size-base)] max-[760px]:text-[length:var(--font-size-base-mobile)] leading-[var(--lh-normal)] [-webkit-font-smoothing:antialiased]`}
     >
       <div
         aria-hidden="true"
@@ -37,16 +37,18 @@ export function OpsLanding() {
         }}
       />
       <OpsHeader />
-      <OpsHero />
-      <OpsProposition />
-      <OpsPillars />
-      <OpsWorkflow />
-      <OpsStats />
-      <OpsCompare />
-      <OpsQuote />
-      <OpsPricing />
-      <OpsCallToAction />
-      <OpsFooter />
+      <div className="overflow-x-clip">
+        <OpsHero />
+        <OpsProposition />
+        <OpsPillars />
+        <OpsWorkflow />
+        <OpsStats />
+        <OpsCompare />
+        <OpsQuote />
+        <OpsPricing />
+        <OpsCallToAction />
+        <OpsFooter />
+      </div>
     </div>
   );
 }
