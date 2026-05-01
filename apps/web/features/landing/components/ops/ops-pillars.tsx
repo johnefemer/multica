@@ -46,7 +46,7 @@ export function OpsPillars() {
   const { pillars } = t.ops;
 
   return (
-    <OpsSection>
+    <OpsSection id="primitives">
       <OpsSectionHead
         num={pillars.num}
         label={pillars.label}

@@ -1192,7 +1192,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
             "Bring your own keys",
           ],
           cta: "DOCKER_RUN →",
-          href: "#",
+          href: "/docs/self-host-quickstart",
         },
         {
           name: "// CLOUD",
@@ -1224,7 +1224,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
             "Procurement, redlines, MSAs",
           ],
           cta: "CONTACT_SALES →",
-          href: "#",
+          href: "mailto:sales@agenthost.kensink.com",
         },
       ],
     },
@@ -1255,47 +1255,336 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         {
           label: "// PRODUCT",
           links: [
-            { label: "Issues", href: "#" },
-            { label: "Agents", href: "#" },
-            { label: "Skills", href: "#" },
-            { label: "Autopilot", href: "#" },
-            { label: "Inbox", href: "#" },
-            { label: "Runtimes", href: "#" },
+            { label: "Issues", href: "#primitives" },
+            { label: "Agents", href: "#primitives" },
+            { label: "Skills", href: "#primitives" },
+            { label: "Autopilot", href: "#primitives" },
+            { label: "Inbox", href: "#primitives" },
+            { label: "Runtimes", href: "#primitives" },
           ],
         },
         {
           label: "// RESOURCES",
           links: [
-            { label: "Docs", href: "#" },
-            { label: "CLI reference", href: "#" },
-            { label: "Changelog", href: "#" },
-            { label: "Self-host guide", href: "#" },
-            { label: "Status", href: "#" },
+            { label: "Docs", href: "/docs" },
+            { label: "CLI reference", href: "/docs/cli" },
+            { label: "Changelog", href: "/changelog" },
+            { label: "Self-host guide", href: "/docs/self-host-quickstart" },
           ],
         },
         {
           label: "// COMPANY",
           links: [
-            { label: "About Kensink", href: "#" },
-            { label: "Manifesto", href: "#" },
-            { label: "Open source", href: "#" },
-            { label: "Contact", href: "#" },
-            { label: "Press kit", href: "#" },
+            { label: "About Kensink", href: "/about" },
+            { label: "Open source", href: "https://github.com/johnefemer/multica" },
+            { label: "Contact", href: "mailto:team@agenthost.kensink.com" },
           ],
         },
         {
           label: "// LEGAL",
           links: [
-            { label: "Terms", href: "#" },
-            { label: "Privacy", href: "#" },
-            { label: "Security", href: "#" },
-            { label: "DPA", href: "#" },
-            { label: "Sub-processors", href: "#" },
+            { label: "Terms", href: "/legal/terms" },
+            { label: "Privacy", href: "/legal/privacy" },
+            { label: "Security", href: "/legal/security" },
+            { label: "DPA", href: "/legal/dpa" },
+            { label: "Sub-processors", href: "/legal/sub-processors" },
           ],
         },
       ],
       copyright: "© {year} KENSINK_LABS · ALL_RIGHTS_RESERVED · MIT_LICENSED",
       buildString: "// BUILT WITH GO + POSTGRES + WS · v0.9.4",
+    },
+  },
+
+  legal: {
+    lastUpdatedLabel: "Last updated",
+    contactLine:
+      "Questions about this document? Reach us at team@agenthost.kensink.com.",
+    terms: {
+      title: "Terms of Service",
+      intro:
+        "These Terms of Service govern your access to and use of Agenthost, the open-source project management platform for human + agent engineering teams operated by Kensink Labs. By using Agenthost you agree to these terms.",
+      lastUpdated: "2026-05-01",
+      sections: [
+        {
+          heading: "1. Accepting these terms",
+          paragraphs: [
+            "By creating an account, accessing the cloud service, or self-hosting Agenthost under the bundled MIT license, you agree to be bound by these terms. If you are using Agenthost on behalf of an organization, you represent that you have authority to bind that organization.",
+          ],
+        },
+        {
+          heading: "2. Your account and workspace",
+          paragraphs: [
+            "You are responsible for activity that happens under your account, including actions taken by AI agents you configure. You agree to keep your credentials secure and to notify us promptly if you suspect unauthorized access.",
+            "Workspaces are isolated tenants. You may invite members and create agents subject to the seat limits of your plan.",
+          ],
+        },
+        {
+          heading: "3. Acceptable use",
+          paragraphs: [
+            "Do not use Agenthost to transmit malicious code, infringe on intellectual property, harass others, or violate applicable law. We may suspend accounts that materially breach this section.",
+          ],
+        },
+        {
+          heading: "4. Service availability",
+          paragraphs: [
+            "Cloud plans target 99.9% monthly uptime, measured against scheduled maintenance windows. Self-hosted deployments are operated by you and have no SLA from Kensink Labs.",
+          ],
+        },
+        {
+          heading: "5. Fees and changes",
+          paragraphs: [
+            "Cloud subscriptions are billed in advance per seat per month. Fees and plan structure may change with at least 30 days’ notice.",
+          ],
+        },
+        {
+          heading: "6. Termination",
+          paragraphs: [
+            "Either party may terminate the cloud subscription at the end of the current billing period. We may suspend service immediately for material breach.",
+          ],
+        },
+        {
+          heading: "7. Disclaimer and limitation of liability",
+          paragraphs: [
+            "Agenthost is provided “as is.” To the fullest extent permitted by law, Kensink Labs disclaims all warranties not expressly stated in these terms and limits its aggregate liability to amounts paid to us in the 12 months preceding a claim.",
+          ],
+        },
+        {
+          heading: "8. Governing law",
+          paragraphs: [
+            "These terms are governed by the laws of the jurisdiction where Kensink Labs is incorporated, without regard to conflict-of-law rules.",
+          ],
+        },
+        {
+          heading: "9. Contact",
+          paragraphs: [
+            "For legal notices, write to team@agenthost.kensink.com.",
+          ],
+        },
+        {
+          heading: "Draft notice",
+          paragraphs: [
+            "This document is a working draft. Final terms are pending legal review and will be published before public commercial launch.",
+          ],
+        },
+      ],
+    },
+    privacy: {
+      title: "Privacy Policy",
+      intro:
+        "This Privacy Policy explains what information Agenthost collects, why we collect it, and how we handle it. Self-hosted deployments process data inside your infrastructure; this policy applies to the cloud service operated by Kensink Labs.",
+      lastUpdated: "2026-05-01",
+      sections: [
+        {
+          heading: "1. What we collect",
+          paragraphs: [
+            "Account data: email, display name, hashed password or SSO identifier.",
+            "Workspace content: issues, comments, attachments, agent configurations, and activity logs you create inside Agenthost.",
+            "Usage telemetry: anonymized event metadata to help us debug and improve the product. You can opt out in workspace settings.",
+            "Diagnostic logs: limited request and error logs retained up to 30 days for operational purposes.",
+          ],
+        },
+        {
+          heading: "2. What we do not collect",
+          paragraphs: [
+            "We do not sell personal data. We do not collect the contents of repositories your agents read or write — agent execution happens on runtimes you control (your laptop or your own cloud).",
+          ],
+        },
+        {
+          heading: "3. How we use information",
+          paragraphs: [
+            "To provide the service, secure accounts, send transactional notifications, prevent abuse, and improve features. Marketing emails are opt-in.",
+          ],
+        },
+        {
+          heading: "4. Subprocessors",
+          paragraphs: [
+            "We rely on a small set of subprocessors for hosting, email, and observability. The current list is published at /legal/sub-processors.",
+          ],
+        },
+        {
+          heading: "5. Your rights",
+          paragraphs: [
+            "You can request access, export, correction, or deletion of your personal data by writing to team@agenthost.kensink.com. Where applicable law grants you additional rights (such as GDPR or CCPA), we will honor them.",
+          ],
+        },
+        {
+          heading: "6. Retention",
+          paragraphs: [
+            "We retain workspace content as long as the workspace is active and for 30 days after deletion to allow recovery, after which it is removed from primary systems and purged from backups within 90 days.",
+          ],
+        },
+        {
+          heading: "7. Contact",
+          paragraphs: [
+            "For privacy questions, write to team@agenthost.kensink.com.",
+          ],
+        },
+        {
+          heading: "Draft notice",
+          paragraphs: [
+            "This document is a working draft. Final policy is pending legal review and will be published before public commercial launch.",
+          ],
+        },
+      ],
+    },
+    security: {
+      title: "Security",
+      intro:
+        "An overview of the controls Agenthost applies to keep your workspace and your code safe. Detailed reports and certifications are available under NDA on request.",
+      lastUpdated: "2026-05-01",
+      sections: [
+        {
+          heading: "Architecture",
+          paragraphs: [
+            "Agenthost separates the control plane (issues, comments, agent metadata) from the data plane where agents actually execute. Cloud workspaces store control-plane data on managed Postgres in the EU region. Agent execution runs on runtimes you operate — your laptop daemon, your CI, or your own cloud — so source code never traverses our servers.",
+          ],
+        },
+        {
+          heading: "Authentication and access",
+          paragraphs: [
+            "Sessions use HttpOnly cookies with WebSocket origin allowlisting. Cloud workspaces support SSO (SAML/OIDC) on Enterprise plans. Personal access tokens are scoped per workspace and can be revoked at any time.",
+          ],
+        },
+        {
+          heading: "Encryption",
+          paragraphs: [
+            "TLS 1.2+ in transit. AES-256 at rest for managed Postgres and object storage. Database backups are encrypted with separate keys.",
+          ],
+        },
+        {
+          heading: "Workspace isolation",
+          paragraphs: [
+            "Every database query and every WebSocket subscription is filtered by workspace_id. End-to-end isolation tests run on every backend change.",
+          ],
+        },
+        {
+          heading: "Vulnerability disclosure",
+          paragraphs: [
+            "Report security issues to security@agenthost.kensink.com. We acknowledge within 2 business days and target a fix or mitigation timeline based on severity.",
+          ],
+        },
+        {
+          heading: "Compliance",
+          paragraphs: [
+            "SOC 2 Type II readiness assessment is in progress. Status will be updated here when the report is available.",
+          ],
+        },
+        {
+          heading: "Draft notice",
+          paragraphs: [
+            "This page reflects current architecture and intent. Compliance attestations and the formal vulnerability disclosure policy are being finalized.",
+          ],
+        },
+      ],
+    },
+    dpa: {
+      title: "Data Processing Addendum",
+      intro:
+        "This Data Processing Addendum forms part of the Terms of Service between Kensink Labs (the “Processor”) and the customer (the “Controller”) and applies whenever Kensink Labs processes personal data on behalf of the Controller.",
+      lastUpdated: "2026-05-01",
+      sections: [
+        {
+          heading: "1. Definitions",
+          paragraphs: [
+            "Capitalized terms not defined here have the meanings given in the Terms of Service or in applicable data protection law (including GDPR, UK GDPR, and the CCPA).",
+          ],
+        },
+        {
+          heading: "2. Scope",
+          paragraphs: [
+            "Kensink Labs processes personal data only to provide the cloud service, secure the platform, and comply with the Controller’s documented instructions, which include the Terms of Service and the Privacy Policy.",
+          ],
+        },
+        {
+          heading: "3. Subprocessors",
+          paragraphs: [
+            "Kensink Labs may engage subprocessors. The current list is published at /legal/sub-processors. We notify customers of changes at least 30 days in advance and the customer may object on reasonable data-protection grounds.",
+          ],
+        },
+        {
+          heading: "4. International transfers",
+          paragraphs: [
+            "Where personal data is transferred outside the EEA, the UK, or Switzerland, the parties rely on the EU Standard Contractual Clauses (modules as applicable) and the UK International Data Transfer Addendum.",
+          ],
+        },
+        {
+          heading: "5. Security measures",
+          paragraphs: [
+            "Kensink Labs implements the technical and organizational measures described in /legal/security and Annex II of this DPA (available on request).",
+          ],
+        },
+        {
+          heading: "6. Audit",
+          paragraphs: [
+            "Once per year, the Controller may request a summary of Kensink Labs’ most recent independent audit. Onsite audits may be arranged with reasonable notice and at the Controller’s expense.",
+          ],
+        },
+        {
+          heading: "7. Data subject requests",
+          paragraphs: [
+            "Kensink Labs assists the Controller in responding to data subject requests by providing relevant tooling and, where required, technical assistance.",
+          ],
+        },
+        {
+          heading: "8. Termination and deletion",
+          paragraphs: [
+            "On termination, Kensink Labs deletes or returns personal data within 30 days, subject to legal retention obligations.",
+          ],
+        },
+        {
+          heading: "Draft notice",
+          paragraphs: [
+            "This DPA is a working draft. The signed counterpart, including Annex I (parties and processing details) and Annex II (security measures), is available on request and will be finalized before public commercial launch.",
+          ],
+        },
+      ],
+    },
+    subProcessors: {
+      title: "Sub-processors",
+      intro:
+        "Kensink Labs uses the following subprocessors to provide the Agenthost cloud service. We update this list when we add, remove, or replace a subprocessor.",
+      lastUpdated: "2026-05-01",
+      sections: [
+        {
+          heading: "Hosting and infrastructure",
+          paragraphs: [
+            "AWS (eu-central-1) — primary application hosting, managed Postgres, object storage.",
+            "Cloudflare — DNS, CDN, WAF, edge TLS termination.",
+          ],
+        },
+        {
+          heading: "Email and communications",
+          paragraphs: [
+            "Resend — transactional email (account verification, invitations, notifications).",
+          ],
+        },
+        {
+          heading: "Observability",
+          paragraphs: [
+            "Datadog — application performance monitoring and infrastructure metrics.",
+            "Sentry — frontend and backend error reporting.",
+          ],
+        },
+        {
+          heading: "Billing",
+          paragraphs: [
+            "Stripe — subscription billing and payment processing for Cloud plans.",
+          ],
+        },
+        {
+          heading: "Notifications of change",
+          paragraphs: [
+            "Customers can subscribe to subprocessor change notifications by writing to team@agenthost.kensink.com. Material additions are announced at least 30 days before they take effect.",
+          ],
+        },
+        {
+          heading: "Draft notice",
+          paragraphs: [
+            "This list reflects intended subprocessors during the public beta. The final list will be confirmed before commercial launch.",
+          ],
+        },
+      ],
     },
   },
   };

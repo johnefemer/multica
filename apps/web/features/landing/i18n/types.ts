@@ -153,6 +153,24 @@ export type LandingDict = {
     };
   };
   ops: OpsDict;
+  legal: LegalDict;
+};
+
+export type LegalDoc = {
+  title: string;
+  intro: string;
+  lastUpdated: string;
+  sections: { heading: string; paragraphs: string[] }[];
+};
+
+export type LegalDict = {
+  lastUpdatedLabel: string;
+  contactLine: string;
+  terms: LegalDoc;
+  privacy: LegalDoc;
+  security: LegalDoc;
+  dpa: LegalDoc;
+  subProcessors: LegalDoc;
 };
 
 export type OpsAvatarTone = "bot1" | "bot2" | "bot3" | "human";

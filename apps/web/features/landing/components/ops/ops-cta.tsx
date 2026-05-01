@@ -36,39 +36,68 @@ export function OpsCallToAction() {
               <Link href={ctaHref} className={opsButtonClassName("solid")}>
                 {cta.primary}
               </Link>
-              <Link href="#docs" className={opsButtonClassName("outline")}>
+              <Link href="/docs" className={opsButtonClassName("outline")}>
                 {cta.secondary}
               </Link>
-              <Link href="#" className={opsButtonClassName("ghost")}>
+              <Link
+                href="/docs/self-host-quickstart"
+                className={opsButtonClassName("ghost")}
+              >
                 {cta.tertiary}
               </Link>
             </div>
           </div>
           <div className="flex flex-col border border-[var(--line2)] bg-[var(--bg2)]">
-            {[
-              { k: "// BUILD", v: cta.meta.build },
-              { k: "// LICENSE", v: cta.meta.license },
-              { k: "// RUNTIME", v: cta.meta.runtime },
-              { k: "// STATUS", v: cta.meta.status, ok: true },
-              { k: "// CONTACT", v: cta.meta.contact },
-              { k: "// REPO", v: cta.meta.repo },
-            ].map((row) => (
-              <div
-                key={row.k}
-                className="flex justify-between border-b border-[var(--line)] px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] last:border-b-0"
-              >
-                <span>{row.k}</span>
-                <b
-                  className={
-                    row.ok
-                      ? "font-[number:var(--weight-medium)] text-[var(--accent)]"
-                      : "font-[number:var(--weight-medium)] text-[var(--txt)]"
-                  }
+            {(
+              [
+                { k: "// BUILD", v: cta.meta.build },
+                { k: "// LICENSE", v: cta.meta.license },
+                { k: "// RUNTIME", v: cta.meta.runtime },
+                { k: "// STATUS", v: cta.meta.status, ok: true },
+                {
+                  k: "// CONTACT",
+                  v: cta.meta.contact,
+                  href: `mailto:${cta.meta.contact}`,
+                },
+                {
+                  k: "// REPO",
+                  v: cta.meta.repo,
+                  href: `https://${cta.meta.repo}`,
+                  external: true,
+                },
+              ] as {
+                k: string;
+                v: string;
+                ok?: boolean;
+                href?: string;
+                external?: boolean;
+              }[]
+            ).map((row) => {
+              const valueClassName = row.ok
+                ? "font-[number:var(--weight-medium)] text-[var(--accent)]"
+                : "font-[number:var(--weight-medium)] text-[var(--txt)]";
+              return (
+                <div
+                  key={row.k}
+                  className="flex justify-between gap-3 border-b border-[var(--line)] px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] last:border-b-0"
                 >
-                  {row.v}
-                </b>
-              </div>
-            ))}
+                  <span className="flex-none">{row.k}</span>
+                  {row.href ? (
+                    <Link
+                      href={row.href}
+                      {...(row.external
+                        ? { target: "_blank", rel: "noreferrer" }
+                        : {})}
+                      className={`${valueClassName} truncate transition-colors duration-[var(--duration-fast)] hover:text-[var(--accent)]`}
+                    >
+                      {row.v}
+                    </Link>
+                  ) : (
+                    <b className={`${valueClassName} truncate`}>{row.v}</b>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </OpsContainer>
