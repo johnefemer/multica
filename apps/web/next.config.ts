@@ -63,6 +63,10 @@ const nextConfig: NextConfig = {
           source: "/uploads/:path*",
           destination: `${remoteApiUrl}/uploads/:path*`,
         },
+        {
+          source: "/webhooks/:path*",
+          destination: `${remoteApiUrl}/webhooks/:path*`,
+        },
       ],
       fallback: [],
     };

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -334,7 +335,8 @@ func (h *Handler) ListGitHubRepos(w http.ResponseWriter, r *http.Request) {
 
 // ImportGitHubIssuesRequest is the request body for the import endpoint.
 type ImportGitHubIssuesRequest struct {
-	Repo string `json:"repo"` // "owner/repo"
+	Repo      string  `json:"repo"`                 // "owner/repo"
+	ProjectID *string `json:"project_id,omitempty"` // optional — issues created with this project_id
 }
 
 // ImportGitHubIssues imports open GitHub issues from a repo into the workspace.
@@ -410,7 +412,11 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 			status = "done"
 		}
 
-		issue, createErr := h.createIntegrationIssueTx(ctx, wsID, creatorUUID, status, req.Repo, extID, ghi)
+		var projectID pgtype.UUID
+		if req.ProjectID != nil && *req.ProjectID != "" {
+			projectID = parseUUID(*req.ProjectID)
+		}
+		issue, createErr := h.createIntegrationIssueTx(ctx, wsID, creatorUUID, status, req.Repo, extID, projectID, ghi)
 		if createErr != nil {
 			slog.Error("import: failed to create issue", "repo", req.Repo, "number", ghi.Number, "error", createErr)
 			failed++
@@ -452,6 +458,7 @@ func (h *Handler) createIntegrationIssueTx(
 	wsID pgtype.UUID,
 	creatorUUID pgtype.UUID,
 	status, repo, extID string,
+	projectID pgtype.UUID,
 	ghi githubprovider.GitHubIssue,
 ) (db.Issue, error) {
 	tx, err := h.TxStarter.Begin(ctx)
@@ -475,6 +482,7 @@ func (h *Handler) createIntegrationIssueTx(
 		CreatorType:            "member",
 		CreatorID:              creatorUUID,
 		Number:                 number,
+		ProjectID:              projectID,
 		IntegrationProvider:    "github",
 		IntegrationExternalID:  extID,
 		IntegrationExternalURL: ghi.HTMLURL,
@@ -526,6 +534,13 @@ func (h *Handler) RegisterGitHubWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Block re-registration: if meta already has a hook_id for this repo, refuse.
+	// User must remove the existing webhook first via DELETE webhooks endpoint.
+	if existing := webhookHookIDFromMeta(conn.Meta, req.Repo); existing != 0 {
+		writeError(w, http.StatusConflict, "this repository already has a webhook registered. Remove it first to re-register.")
+		return
+	}
+
 	webhookURL := fmt.Sprintf("%s/webhooks/github?workspace_id=%s", appURL(), uuidToString(wsID))
 
 	hookID, err := githubprovider.RegisterWebhook(ctx, conn.AccessToken, req.Repo, webhookURL, webhookSecret)
@@ -539,6 +554,129 @@ func (h *Handler) RegisterGitHubWebhook(w http.ResponseWriter, r *http.Request) 
 	h.Queries.UpdateIntegrationMeta(ctx, wsID, "github", meta) //nolint:errcheck
 
 	writeJSON(w, http.StatusOK, map[string]any{"hook_id": hookID, "repo": req.Repo})
+}
+
+// webhookHookIDFromMeta extracts the hook_id for a given repo from
+// integration_connection.meta. Returns 0 if not present or malformed.
+func webhookHookIDFromMeta(metaJSON []byte, repo string) int64 {
+	if len(metaJSON) == 0 {
+		return 0
+	}
+	var meta map[string]json.RawMessage
+	if err := json.Unmarshal(metaJSON, &meta); err != nil {
+		return 0
+	}
+	raw, ok := meta[repo]
+	if !ok {
+		return 0
+	}
+	var entry struct {
+		HookID int64 `json:"hook_id"`
+	}
+	if err := json.Unmarshal(raw, &entry); err != nil {
+		return 0
+	}
+	return entry.HookID
+}
+
+// GitHubWebhookListItem is one entry in the registered-webhooks list.
+type GitHubWebhookListItem struct {
+	Repo           string `json:"repo"`
+	HookID         int64  `json:"hook_id"`
+	ExistsOnGitHub *bool  `json:"exists_on_github,omitempty"`
+}
+
+// ListGitHubWebhooks returns the webhooks registered for this workspace, read
+// from integration_connection.meta. ?verify=1 cross-checks each entry against
+// GitHub's API (one HTTP call per webhook — costly, opt-in).
+// GET /api/workspaces/{id}/integrations/github/webhooks
+func (h *Handler) ListGitHubWebhooks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	wsID := parseUUID(chi.URLParam(r, "id"))
+	if !wsID.Valid {
+		writeError(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+
+	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeJSON(w, http.StatusOK, map[string]any{"webhooks": []GitHubWebhookListItem{}})
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	items := []GitHubWebhookListItem{}
+	if len(conn.Meta) > 0 {
+		var meta map[string]struct {
+			HookID int64 `json:"hook_id"`
+		}
+		if err := json.Unmarshal(conn.Meta, &meta); err == nil {
+			for repo, entry := range meta {
+				if entry.HookID == 0 {
+					continue
+				}
+				items = append(items, GitHubWebhookListItem{Repo: repo, HookID: entry.HookID})
+			}
+		}
+	}
+
+	if r.URL.Query().Get("verify") == "1" {
+		for i := range items {
+			info, vErr := githubprovider.GetWebhook(ctx, conn.AccessToken, items[i].Repo, items[i].HookID)
+			exists := vErr == nil && info != nil
+			items[i].ExistsOnGitHub = &exists
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"webhooks": items})
+}
+
+// RemoveGitHubWebhook deletes the hook on GitHub and removes it from meta.
+// DELETE /api/workspaces/{id}/integrations/github/webhooks/{repo}
+// {repo} is URL-encoded "owner/repo".
+func (h *Handler) RemoveGitHubWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	wsID := parseUUID(chi.URLParam(r, "id"))
+	if !wsID.Valid {
+		writeError(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	repoParam := chi.URLParam(r, "repo")
+	repo, decodeErr := url.PathUnescape(repoParam)
+	if decodeErr != nil || repo == "" {
+		writeError(w, http.StatusBadRequest, "invalid repo")
+		return
+	}
+
+	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "GitHub not connected")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	hookID := webhookHookIDFromMeta(conn.Meta, repo)
+	if hookID == 0 {
+		writeError(w, http.StatusNotFound, "no webhook registered for this repository")
+		return
+	}
+
+	if err := githubprovider.RemoveWebhook(ctx, conn.AccessToken, repo, hookID); err != nil {
+		writeError(w, http.StatusBadGateway, "failed to remove webhook on GitHub: "+err.Error())
+		return
+	}
+
+	if _, err := h.Queries.DeleteIntegrationMetaKey(ctx, wsID, "github", repo); err != nil {
+		slog.Error("remove webhook: failed to clean meta", "repo", repo, "error", err)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // appURL returns the configured public base URL for this Agenthost instance.

@@ -161,6 +161,18 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 			return lookupErr
 		}
 
+		// Look up the project mapped to this repo. If none, silently drop the
+		// event — the user must map a project before webhook events sync.
+		project, err := h.Queries.GetProjectByIntegrationRepo(ctx, wsID, "github", repo)
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Info("github webhook: dropping issue event for unmapped repo",
+				"workspace", uuidToString(wsID), "repo", repo, "issue", ev.Issue.Number)
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("get project for repo: %w", err)
+		}
+
 		ws, err := h.Queries.GetWorkspace(ctx, wsID)
 		if err != nil {
 			return fmt.Errorf("get workspace: %w", err)
@@ -193,6 +205,7 @@ func (h *Handler) handleGitHubIssueEvent(ctx context.Context, wsID pgtype.UUID, 
 			CreatorType:            "system",
 			CreatorID:              conn.ConnectedBy,
 			Number:                 number,
+			ProjectID:              project.ID,
 			IntegrationProvider:    "github",
 			IntegrationExternalID:  extID,
 			IntegrationExternalURL: ev.Issue.HTMLURL,

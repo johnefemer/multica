@@ -232,11 +232,11 @@ func (q *Queries) GetIssueByIntegration(ctx context.Context, workspaceID pgtype.
 const createIntegrationIssue = `-- name: CreateIntegrationIssue :one
 INSERT INTO issue (
     workspace_id, title, description, status, priority,
-    creator_type, creator_id, origin_type, number,
+    creator_type, creator_id, origin_type, number, project_id,
     integration_provider, integration_external_id, integration_external_url,
     integration_repo, integration_synced_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, 'integration', $8, $9, $10, $11, $12, now()
+    $1, $2, $3, $4, $5, $6, $7, 'integration', $8, $9, $10, $11, $12, $13, now()
 )
 RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, integration_provider, integration_external_id, integration_external_url, integration_repo, integration_synced_at
 `
@@ -250,6 +250,7 @@ type CreateIntegrationIssueParams struct {
 	CreatorType            string      `json:"creator_type"`
 	CreatorID              pgtype.UUID `json:"creator_id"`
 	Number                 int32       `json:"number"`
+	ProjectID              pgtype.UUID `json:"project_id"`
 	IntegrationProvider    string      `json:"integration_provider"`
 	IntegrationExternalID  string      `json:"integration_external_id"`
 	IntegrationExternalURL string      `json:"integration_external_url"`
@@ -259,7 +260,7 @@ type CreateIntegrationIssueParams struct {
 func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrationIssueParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, createIntegrationIssue,
 		arg.WorkspaceID, arg.Title, arg.Description, arg.Status, arg.Priority,
-		arg.CreatorType, arg.CreatorID, arg.Number,
+		arg.CreatorType, arg.CreatorID, arg.Number, arg.ProjectID,
 		arg.IntegrationProvider, arg.IntegrationExternalID,
 		arg.IntegrationExternalURL, arg.IntegrationRepo,
 	)
@@ -272,6 +273,27 @@ func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrat
 		&i.FirstExecutedAt,
 		&i.IntegrationProvider, &i.IntegrationExternalID, &i.IntegrationExternalURL,
 		&i.IntegrationRepo, &i.IntegrationSyncedAt,
+	)
+	return i, err
+}
+
+const deleteIntegrationMetaKey = `-- name: DeleteIntegrationMetaKey :one
+UPDATE integration_connection
+SET meta       = meta - $3::text,
+    updated_at = now()
+WHERE workspace_id = $1 AND provider = $2
+  AND disconnected_at IS NULL
+RETURNING id, workspace_id, connected_by, provider, provider_account_id, provider_account_name, provider_account_avatar, access_token, refresh_token, token_expires_at, scope, meta, status, error_message, created_at, updated_at, disconnected_at
+`
+
+func (q *Queries) DeleteIntegrationMetaKey(ctx context.Context, workspaceID pgtype.UUID, provider, key string) (IntegrationConnection, error) {
+	row := q.db.QueryRow(ctx, deleteIntegrationMetaKey, workspaceID, provider, key)
+	var i IntegrationConnection
+	err := row.Scan(
+		&i.ID, &i.WorkspaceID, &i.ConnectedBy, &i.Provider,
+		&i.ProviderAccountID, &i.ProviderAccountName, &i.ProviderAccountAvatar,
+		&i.AccessToken, &i.RefreshToken, &i.TokenExpiresAt, &i.Scope, &i.Meta,
+		&i.Status, &i.ErrorMessage, &i.CreatedAt, &i.UpdatedAt, &i.DisconnectedAt,
 	)
 	return i, err
 }

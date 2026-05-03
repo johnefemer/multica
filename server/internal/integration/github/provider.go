@@ -299,3 +299,70 @@ func RegisterWebhook(ctx context.Context, token, repo, webhookURL, secret string
 	json.NewDecoder(resp.Body).Decode(&hook)
 	return hook.ID, nil
 }
+
+// RemoveWebhook deletes a previously-registered webhook from a GitHub repo.
+// A 404 (already gone) is treated as success — the caller still wants to
+// remove the corresponding meta entry locally.
+func RemoveWebhook(ctx context.Context, token, repo string, hookID int64) error {
+	reqURL := fmt.Sprintf("%s/repos/%s/hooks/%d", apiBase, repo, hookID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, nil)
+	if err != nil {
+		return fmt.Errorf("github: build delete-hook request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("github: remove webhook failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusNotFound:
+		return nil
+	default:
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("github: remove webhook returned %d: %s", resp.StatusCode, string(b))
+	}
+}
+
+// GetWebhook fetches a single webhook (used to verify it still exists on GitHub).
+// Returns (nil, nil) if not found (404).
+type WebhookInfo struct {
+	ID     int64    `json:"id"`
+	Active bool     `json:"active"`
+	Events []string `json:"events"`
+	URL    string   `json:"url"`
+}
+
+func GetWebhook(ctx context.Context, token, repo string, hookID int64) (*WebhookInfo, error) {
+	reqURL := fmt.Sprintf("%s/repos/%s/hooks/%d", apiBase, repo, hookID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("github: build get-hook request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("github: get webhook failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github: get webhook returned %d: %s", resp.StatusCode, string(b))
+	}
+	var info WebhookInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("github: decode webhook: %w", err)
+	}
+	return &info, nil
+}

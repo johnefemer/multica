@@ -330,6 +330,7 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 			// Projects
 			r.Route("/api/projects", func(r chi.Router) {
 				r.Get("/search", h.SearchProjects)
+				r.Get("/by-integration", h.GetProjectByIntegrationRepo)
 				r.Get("/", h.ListProjects)
 				r.Post("/", h.CreateProject)
 				r.Route("/{id}", func(r chi.Router) {
@@ -441,6 +442,8 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 				r.Get("/github/repos", h.ListGitHubRepos)
 				r.Post("/github/import-issues", h.ImportGitHubIssues)
 				r.Post("/github/register-webhook", h.RegisterGitHubWebhook)
+				r.Get("/github/webhooks", h.ListGitHubWebhooks)
+				r.Delete("/github/webhooks/{repo}", h.RemoveGitHubWebhook)
 			})
 
 			// Tasks (user-facing, with ownership check)

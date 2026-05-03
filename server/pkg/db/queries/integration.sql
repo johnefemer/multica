@@ -62,6 +62,16 @@ WHERE workspace_id = @workspace_id AND provider = @provider
   AND disconnected_at IS NULL
 RETURNING *;
 
+-- name: DeleteIntegrationMetaKey :one
+-- Removes a single top-level key from the meta JSONB object.
+-- Used to forget a webhook hook_id after we delete the hook on GitHub.
+UPDATE integration_connection
+SET meta       = meta - @key::text,
+    updated_at = now()
+WHERE workspace_id = @workspace_id AND provider = @provider
+  AND disconnected_at IS NULL
+RETURNING *;
+
 -- name: InsertWebhookEvent :one
 INSERT INTO integration_webhook_event (
     workspace_id, provider, delivery_id, event_type, payload
@@ -90,15 +100,15 @@ WHERE workspace_id       = @workspace_id
 -- name: CreateIntegrationIssue :one
 -- Creates an issue that originated from an external provider (e.g. GitHub).
 -- Caller must pass @number from IncrementIssueCounter to satisfy the
--- UNIQUE (workspace_id, number) constraint.
+-- UNIQUE (workspace_id, number) constraint. @project_id is optional.
 INSERT INTO issue (
     workspace_id, title, description, status, priority,
-    creator_type, creator_id, origin_type, number,
+    creator_type, creator_id, origin_type, number, project_id,
     integration_provider, integration_external_id, integration_external_url,
     integration_repo, integration_synced_at
 ) VALUES (
     @workspace_id, @title, @description, @status, @priority,
-    @creator_type, @creator_id, 'integration', @number,
+    @creator_type, @creator_id, 'integration', @number, @project_id,
     @integration_provider, @integration_external_id, @integration_external_url,
     @integration_repo, now()
 )

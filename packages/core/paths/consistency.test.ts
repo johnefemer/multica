@@ -27,6 +27,7 @@ describe("paths.workspace() shape", () => {
         "runtimes",
         "skills",
         "settings",
+        "integrations",
       ]),
     );
   });

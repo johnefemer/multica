@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,40 +12,45 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 type ProjectResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      string  `json:"status"`
-	Priority    string  `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
-	IssueCount  int64   `json:"issue_count"`
-	DoneCount   int64   `json:"done_count"`
+	ID                  string  `json:"id"`
+	WorkspaceID         string  `json:"workspace_id"`
+	Title               string  `json:"title"`
+	Description         *string `json:"description"`
+	Icon                *string `json:"icon"`
+	Status              string  `json:"status"`
+	Priority            string  `json:"priority"`
+	LeadType            *string `json:"lead_type"`
+	LeadID              *string `json:"lead_id"`
+	IntegrationProvider *string `json:"integration_provider"`
+	IntegrationRepo     *string `json:"integration_repo"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+	IssueCount          int64   `json:"issue_count"`
+	DoneCount           int64   `json:"done_count"`
 }
 
 func projectToResponse(p db.Project) ProjectResponse {
 	return ProjectResponse{
-		ID:          uuidToString(p.ID),
-		WorkspaceID: uuidToString(p.WorkspaceID),
-		Title:       p.Title,
-		Description: textToPtr(p.Description),
-		Icon:        textToPtr(p.Icon),
-		Status:      p.Status,
-		Priority:    p.Priority,
-		LeadType:    textToPtr(p.LeadType),
-		LeadID:      uuidToPtr(p.LeadID),
-		CreatedAt:   timestampToString(p.CreatedAt),
-		UpdatedAt:   timestampToString(p.UpdatedAt),
+		ID:                  uuidToString(p.ID),
+		WorkspaceID:         uuidToString(p.WorkspaceID),
+		Title:               p.Title,
+		Description:         textToPtr(p.Description),
+		Icon:                textToPtr(p.Icon),
+		Status:              p.Status,
+		Priority:            p.Priority,
+		LeadType:            textToPtr(p.LeadType),
+		LeadID:              uuidToPtr(p.LeadID),
+		IntegrationProvider: textToPtr(p.IntegrationProvider),
+		IntegrationRepo:     textToPtr(p.IntegrationRepo),
+		CreatedAt:           timestampToString(p.CreatedAt),
+		UpdatedAt:           timestampToString(p.UpdatedAt),
 	}
 }
 
@@ -57,23 +63,27 @@ func (h *Handler) loadProjectIssueStats(ctx context.Context, projectID pgtype.UU
 }
 
 type CreateProjectRequest struct {
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      string  `json:"status"`
-	Priority    string  `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
+	Title               string  `json:"title"`
+	Description         *string `json:"description"`
+	Icon                *string `json:"icon"`
+	Status              string  `json:"status"`
+	Priority            string  `json:"priority"`
+	LeadType            *string `json:"lead_type"`
+	LeadID              *string `json:"lead_id"`
+	IntegrationProvider *string `json:"integration_provider"`
+	IntegrationRepo     *string `json:"integration_repo"`
 }
 
 type UpdateProjectRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      *string `json:"status"`
-	Priority    *string `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
+	Title               *string `json:"title"`
+	Description         *string `json:"description"`
+	Icon                *string `json:"icon"`
+	Status              *string `json:"status"`
+	Priority            *string `json:"priority"`
+	LeadType            *string `json:"lead_type"`
+	LeadID              *string `json:"lead_id"`
+	IntegrationProvider *string `json:"integration_provider"`
+	IntegrationRepo     *string `json:"integration_repo"`
 }
 
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
@@ -169,16 +179,22 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		leadID = parseUUID(*req.LeadID)
 	}
 	project, err := h.Queries.CreateProject(r.Context(), db.CreateProjectParams{
-		WorkspaceID: parseUUID(workspaceID),
-		Title:       req.Title,
-		Description: ptrToText(req.Description),
-		Icon:        ptrToText(req.Icon),
-		Status:      status,
-		LeadType:    leadType,
-		LeadID:      leadID,
-		Priority:    priority,
+		WorkspaceID:         parseUUID(workspaceID),
+		Title:               req.Title,
+		Description:         ptrToText(req.Description),
+		Icon:                ptrToText(req.Icon),
+		Status:              status,
+		LeadType:            leadType,
+		LeadID:              leadID,
+		Priority:            priority,
+		IntegrationProvider: ptrToText(req.IntegrationProvider),
+		IntegrationRepo:     ptrToText(req.IntegrationRepo),
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			writeError(w, http.StatusConflict, "another project is already mapped to this repository")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create project")
 		return
 	}
@@ -215,11 +231,13 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(bodyBytes, &rawFields)
 
 	params := db.UpdateProjectParams{
-		ID:          prevProject.ID,
-		Description: prevProject.Description,
-		Icon:        prevProject.Icon,
-		LeadType:    prevProject.LeadType,
-		LeadID:      prevProject.LeadID,
+		ID:                  prevProject.ID,
+		Description:         prevProject.Description,
+		Icon:                prevProject.Icon,
+		LeadType:            prevProject.LeadType,
+		LeadID:              prevProject.LeadID,
+		IntegrationProvider: prevProject.IntegrationProvider,
+		IntegrationRepo:     prevProject.IntegrationRepo,
 	}
 	if req.Title != nil {
 		params.Title = pgtype.Text{String: *req.Title, Valid: true}
@@ -258,13 +276,57 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			params.LeadID = pgtype.UUID{Valid: false}
 		}
 	}
+	if _, ok := rawFields["integration_provider"]; ok {
+		if req.IntegrationProvider != nil {
+			params.IntegrationProvider = pgtype.Text{String: *req.IntegrationProvider, Valid: true}
+		} else {
+			params.IntegrationProvider = pgtype.Text{Valid: false}
+		}
+	}
+	if _, ok := rawFields["integration_repo"]; ok {
+		if req.IntegrationRepo != nil {
+			params.IntegrationRepo = pgtype.Text{String: *req.IntegrationRepo, Valid: true}
+		} else {
+			params.IntegrationRepo = pgtype.Text{Valid: false}
+		}
+	}
 	project, err := h.Queries.UpdateProject(r.Context(), params)
 	if err != nil {
+		if isUniqueViolation(err) {
+			writeError(w, http.StatusConflict, "another project is already mapped to this repository")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to update project")
 		return
 	}
 	resp := projectToResponse(project)
 	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": resp})
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// GetProjectByIntegrationRepo returns the project mapped to a given (provider, repo).
+// 404 if no mapping exists. Used by the frontend before importing to decide
+// whether to import directly or prompt the user to create / skip a project.
+// GET /api/workspaces/{id}/projects/by-integration?provider=github&repo=owner/repo
+func (h *Handler) GetProjectByIntegrationRepo(w http.ResponseWriter, r *http.Request) {
+	workspaceID := h.resolveWorkspaceID(r)
+	provider := r.URL.Query().Get("provider")
+	repo := r.URL.Query().Get("repo")
+	if provider == "" || repo == "" {
+		writeError(w, http.StatusBadRequest, "provider and repo are required")
+		return
+	}
+	project, err := h.Queries.GetProjectByIntegrationRepo(r.Context(), parseUUID(workspaceID), provider, repo)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "no project mapped to this repository")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to look up project")
+		return
+	}
+	resp := projectToResponse(project)
+	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), project.ID)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -408,6 +470,7 @@ func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) 
 	query := fmt.Sprintf(`SELECT p.id, p.workspace_id, p.title, p.description, p.icon,
 		p.status, p.priority, p.lead_type, p.lead_id,
 		p.created_at, p.updated_at,
+		p.integration_provider, p.integration_repo,
 		COUNT(*) OVER() AS total_count,
 		%s AS match_source
 	FROM project p
@@ -490,6 +553,8 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 			&row.project.LeadID,
 			&row.project.CreatedAt,
 			&row.project.UpdatedAt,
+			&row.project.IntegrationProvider,
+			&row.project.IntegrationRepo,
 			&row.totalCount,
 			&row.matchSource,
 		); err != nil {

@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
-import { Check, ChevronRight, Link2, ListTodo, MoreHorizontal, PanelRight, Pin, PinOff, Trash2, UserMinus } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, GitBranch, Link2, ListTodo, MoreHorizontal, PanelRight, Pin, PinOff, Trash2, UserMinus, X } from "lucide-react";
+import { Input } from "@multica/ui/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@multica/ui/lib/utils";
 import { toast } from "sonner";
@@ -239,6 +240,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   // Lead popover
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadFilter, setLeadFilter] = useState("");
+  const [repoMappingOpen, setRepoMappingOpen] = useState(false);
+  const [repoDraft, setRepoDraft] = useState("");
   const leadQuery = leadFilter.toLowerCase();
   const filteredMembers = members.filter((m) => m.name.toLowerCase().includes(leadQuery));
   const filteredAgents = agents.filter((a) => !a.archived_at && a.name.toLowerCase().includes(leadQuery));
@@ -439,6 +442,82 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                   {filteredMembers.length === 0 && filteredAgents.length === 0 && leadFilter && (
                     <div className="px-2 py-3 text-center text-sm text-muted-foreground">No results</div>
                   )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </PropRow>
+          <PropRow label="Repository">
+            <Popover
+              open={repoMappingOpen}
+              onOpenChange={(v) => {
+                setRepoMappingOpen(v);
+                if (v) setRepoDraft(project.integration_repo ?? "");
+              }}
+            >
+              <PopoverTrigger
+                render={
+                  <button type="button" className="inline-flex items-center gap-1.5 text-xs hover:text-foreground transition-colors min-w-0">
+                    {project.integration_repo ? (
+                      <>
+                        <GitBranch className="size-3 shrink-0" />
+                        <span className="font-mono truncate" title={project.integration_repo}>
+                          {project.integration_repo}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Not linked</span>
+                    )}
+                  </button>
+                }
+              />
+              <PopoverContent align="start" className="w-72 p-3 space-y-2">
+                <div>
+                  <p className="text-xs font-medium mb-1">GitHub repository</p>
+                  <Input
+                    value={repoDraft}
+                    onChange={(e) => setRepoDraft(e.target.value)}
+                    placeholder="owner/repo"
+                    className="text-sm font-mono"
+                  />
+                </div>
+                {project.integration_repo && repoDraft !== project.integration_repo && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                    <AlertTriangle className="size-3 mt-0.5 shrink-0" />
+                    <span>
+                      Webhook events for <span className="font-mono">{project.integration_repo}</span> will stop syncing to this project.
+                    </span>
+                  </p>
+                )}
+                <div className="flex justify-between gap-2 pt-1">
+                  {project.integration_repo && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        handleUpdateField({ integration_provider: null, integration_repo: null });
+                        setRepoMappingOpen(false);
+                      }}
+                    >
+                      <X className="size-3" /> Clear
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs ml-auto"
+                    disabled={repoDraft.trim() === (project.integration_repo ?? "") || (repoDraft.trim() !== "" && !/^[^/\s]+\/[^/\s]+$/.test(repoDraft.trim()))}
+                    onClick={() => {
+                      const trimmed = repoDraft.trim();
+                      if (trimmed === "") {
+                        handleUpdateField({ integration_provider: null, integration_repo: null });
+                      } else {
+                        handleUpdateField({ integration_provider: "github", integration_repo: trimmed });
+                      }
+                      setRepoMappingOpen(false);
+                    }}
+                  >
+                    Save
+                  </Button>
                 </div>
               </PopoverContent>
             </Popover>
