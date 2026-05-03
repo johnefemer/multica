@@ -15,6 +15,9 @@ import {
   X,
   FolderPlus,
   FolderOpen,
+  ArrowRight,
+  Plus,
+  GitBranch,
 } from "lucide-react";
 import { GitHubLogo } from "./logos/github-logo";
 import { SlackLogo } from "./logos/slack-logo";
@@ -47,7 +50,10 @@ import { useWorkspaceId } from "@multica/core/hooks";
 import { useCurrentWorkspace } from "@multica/core/paths";
 import { useAuthStore } from "@multica/core/auth";
 import { memberListOptions } from "@multica/core/workspace/queries";
+import { projectListOptions, useCreateProject, useUpdateProject } from "@multica/core/projects";
 import { api } from "@multica/core/api";
+import { useWorkspacePaths } from "@multica/core/paths";
+import { AppLink } from "../navigation";
 import {
   useIntegrations,
   useDisconnectIntegration,
@@ -186,18 +192,33 @@ function GitHubManagePanel({
   wsId: string;
   conn: IntegrationConnection;
 }) {
+  const wsPaths = useWorkspacePaths();
   const [dialogMode, setDialogMode] = useState<"import" | "webhook" | null>(null);
   const dialogOpen = dialogMode !== null;
   const [selectedRepo, setSelectedRepo] = useState("");
   const [alsoRegisterWebhook, setAlsoRegisterWebhook] = useState(false);
   const [precheck, setPrecheck] = useState<{ repo: string; existingProject: Project | null } | null>(null);
-  const { data: repos = [], isLoading: reposLoading } = useGitHubRepos(wsId, dialogOpen);
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [mappingRepo, setMappingRepo] = useState("");
+  const [mappingTarget, setMappingTarget] = useState<{ kind: "existing"; id: string } | { kind: "new" } | null>(null);
+  const [removeMappingTarget, setRemoveMappingTarget] = useState<Project | null>(null);
+  const { data: repos = [], isLoading: reposLoading } = useGitHubRepos(wsId, dialogOpen || mappingDialogOpen);
   const { data: webhooks = [] } = useGitHubWebhooks(wsId);
+  const { data: allProjects = [] } = useQuery(projectListOptions(wsId));
   const importIssues = useImportGitHubIssues(wsId);
   const registerWebhook = useRegisterGitHubWebhook(wsId);
   const removeWebhook = useRemoveGitHubWebhook(wsId);
+  const updateProject = useUpdateProject();
+  const createProject = useCreateProject();
 
   const registeredRepos = new Set(webhooks.map((w) => w.repo));
+  const mappedProjects = allProjects.filter(
+    (p) => p.integration_provider === "github" && p.integration_repo,
+  );
+  const mappedRepos = new Set(mappedProjects.map((p) => p.integration_repo));
+  const unmappedProjects = allProjects.filter(
+    (p) => !p.integration_repo,
+  );
 
   // Reset transient picker state every time the dialog closes.
   useEffect(() => {
@@ -305,6 +326,53 @@ function GitHubManagePanel({
     }
   };
 
+  const resetMappingDialog = () => {
+    setMappingDialogOpen(false);
+    setMappingRepo("");
+    setMappingTarget(null);
+  };
+
+  const handleSaveMapping = async () => {
+    if (!mappingRepo || !mappingTarget) return;
+    try {
+      if (mappingTarget.kind === "new") {
+        const repoName = mappingRepo.split("/").pop() || mappingRepo;
+        await createProject.mutateAsync({
+          title: repoName,
+          description: `Linked to GitHub repo ${mappingRepo}`,
+          integration_provider: "github",
+          integration_repo: mappingRepo,
+        });
+        toast.success(`Created project mapped to ${mappingRepo}`);
+      } else {
+        await updateProject.mutateAsync({
+          id: mappingTarget.id,
+          integration_provider: "github",
+          integration_repo: mappingRepo,
+        });
+        toast.success(`Mapped ${mappingRepo} to project`);
+      }
+      resetMappingDialog();
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to save mapping");
+    }
+  };
+
+  const handleConfirmRemoveMapping = async () => {
+    if (!removeMappingTarget) return;
+    try {
+      await updateProject.mutateAsync({
+        id: removeMappingTarget.id,
+        integration_provider: null,
+        integration_repo: null,
+      });
+      toast.success(`Removed mapping for ${removeMappingTarget.integration_repo}`);
+      setRemoveMappingTarget(null);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to remove mapping");
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Account info */}
@@ -351,6 +419,57 @@ function GitHubManagePanel({
           <Link className="size-3.5" />
           Register Webhook
         </Button>
+      </div>
+
+      {/* Repository ↔ Project mappings */}
+      <div className="rounded-md border p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">Repository ↔ Project mappings</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs gap-1"
+            onClick={() => setMappingDialogOpen(true)}
+          >
+            <Plus className="size-3" />
+            Add mapping
+          </Button>
+        </div>
+        {mappedProjects.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No mappings yet. Map a repo to a project so webhook events sync into the right place.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {mappedProjects.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <GitBranch className="size-3 shrink-0 text-muted-foreground" />
+                  <span className="font-mono truncate" title={p.integration_repo ?? ""}>
+                    {p.integration_repo}
+                  </span>
+                  <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                  <AppLink
+                    href={wsPaths.projectDetail(p.id)}
+                    className="truncate hover:underline"
+                    title={p.title}
+                  >
+                    {p.icon ? `${p.icon} ` : ""}{p.title}
+                  </AppLink>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => setRemoveMappingTarget(p)}
+                  title="Remove mapping"
+                >
+                  <X className="size-3" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Registered webhooks */}
@@ -604,6 +723,150 @@ function GitHubManagePanel({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPrecheck(null)} disabled={importIssues.isPending}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add mapping dialog */}
+      <Dialog open={mappingDialogOpen} onOpenChange={(o) => { if (!o) resetMappingDialog(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Map a repository to a project</DialogTitle>
+            <DialogDescription>
+              Choose a GitHub repository and the project it should sync into. Webhook events from
+              this repo will land in the chosen project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium block mb-1">Repository</label>
+              <Command className="border rounded-md">
+                <CommandInput placeholder="Search GitHub repos…" />
+                <CommandList className="max-h-40">
+                  {reposLoading ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground">Loading…</div>
+                  ) : (
+                    <>
+                      <CommandEmpty>No matching repositories.</CommandEmpty>
+                      <CommandGroup>
+                        {repos.map((r: GitHubRepo) => {
+                          const alreadyMapped = mappedRepos.has(r.full_name);
+                          return (
+                            <CommandItem
+                              key={r.full_name}
+                              value={`${r.full_name} ${r.description ?? ""}`}
+                              onSelect={() => {
+                                if (alreadyMapped) {
+                                  toast.warning("This repository is already mapped to another project. Remove the existing mapping first.");
+                                  return;
+                                }
+                                setMappingRepo(r.full_name);
+                              }}
+                              data-checked={r.full_name === mappingRepo || undefined}
+                            >
+                              <span className="font-mono truncate flex-1" title={r.full_name}>
+                                {r.full_name}
+                              </span>
+                              {alreadyMapped && (
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Mapped</span>
+                              )}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </>
+                  )}
+                </CommandList>
+              </Command>
+              {mappingRepo && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selected: <span className="font-mono">{mappingRepo}</span>
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-medium block mb-1">Project</label>
+              <div className="border rounded-md p-1 max-h-40 overflow-y-auto space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => mappingRepo && setMappingTarget({ kind: "new" })}
+                  disabled={!mappingRepo}
+                  data-checked={mappingTarget?.kind === "new" || undefined}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-left hover:bg-accent disabled:opacity-50 data-[checked]:bg-accent"
+                >
+                  <FolderPlus className="size-3.5 shrink-0" />
+                  <span>
+                    Create new project
+                    {mappingRepo && (
+                      <span className="text-muted-foreground"> &ldquo;{mappingRepo.split("/").pop()}&rdquo;</span>
+                    )}
+                  </span>
+                </button>
+                {unmappedProjects.length > 0 && (
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-2 pt-2 pb-0.5">
+                    Existing projects
+                  </div>
+                )}
+                {unmappedProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setMappingTarget({ kind: "existing", id: p.id })}
+                    data-checked={mappingTarget?.kind === "existing" && mappingTarget.id === p.id || undefined}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-left hover:bg-accent data-[checked]:bg-accent"
+                  >
+                    <FolderOpen className="size-3.5 shrink-0" />
+                    <span className="truncate">{p.icon ? `${p.icon} ` : ""}{p.title}</span>
+                  </button>
+                ))}
+                {unmappedProjects.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1.5">
+                    No unmapped projects available — pick &ldquo;Create new&rdquo; above.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={resetMappingDialog} disabled={createProject.isPending || updateProject.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveMapping}
+              disabled={!mappingRepo || !mappingTarget || createProject.isPending || updateProject.isPending}
+              className="gap-1.5"
+            >
+              {(createProject.isPending || updateProject.isPending) ? (
+                <><RefreshCw className="size-3.5 animate-spin" /> Saving…</>
+              ) : (
+                "Save mapping"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove mapping confirmation */}
+      <Dialog open={removeMappingTarget !== null} onOpenChange={(o) => { if (!o) setRemoveMappingTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove mapping?</DialogTitle>
+            <DialogDescription>
+              This unlinks <span className="font-mono">{removeMappingTarget?.integration_repo}</span>
+              {" "}from <strong>{removeMappingTarget?.title}</strong>. Webhook events for this repo will
+              be dropped until you create a new mapping. Existing issues stay where they are.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveMappingTarget(null)} disabled={updateProject.isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmRemoveMapping} disabled={updateProject.isPending}>
+              {updateProject.isPending ? "Removing…" : "Remove mapping"}
             </Button>
           </DialogFooter>
         </DialogContent>
