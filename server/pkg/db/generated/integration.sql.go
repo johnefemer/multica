@@ -14,14 +14,14 @@ import (
 const createIntegrationIssue = `-- name: CreateIntegrationIssue :one
 INSERT INTO issue (
     workspace_id, title, description, status, priority,
-    creator_type, creator_id, origin_type, number,
+    creator_type, creator_id, origin_type, number, project_id,
     integration_provider, integration_external_id, integration_external_url,
     integration_repo, integration_synced_at
 ) VALUES (
     $1, $2, $3, $4, $5,
-    $6, $7, 'integration', $8,
-    $9, $10, $11,
-    $12, now()
+    $6, $7, 'integration', $8, $9,
+    $10, $11, $12,
+    $13, now()
 )
 RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, integration_provider, integration_external_id, integration_external_url, integration_repo, integration_synced_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id
 `
@@ -35,6 +35,7 @@ type CreateIntegrationIssueParams struct {
 	CreatorType            string      `json:"creator_type"`
 	CreatorID              pgtype.UUID `json:"creator_id"`
 	Number                 int32       `json:"number"`
+	ProjectID              pgtype.UUID `json:"project_id"`
 	IntegrationProvider    pgtype.Text `json:"integration_provider"`
 	IntegrationExternalID  pgtype.Text `json:"integration_external_id"`
 	IntegrationExternalUrl pgtype.Text `json:"integration_external_url"`
@@ -43,7 +44,7 @@ type CreateIntegrationIssueParams struct {
 
 // Creates an issue that originated from an external provider (e.g. GitHub).
 // Caller must pass @number from IncrementIssueCounter to satisfy the
-// UNIQUE (workspace_id, number) constraint.
+// UNIQUE (workspace_id, number) constraint. @project_id is optional.
 func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrationIssueParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, createIntegrationIssue,
 		arg.WorkspaceID,
@@ -54,6 +55,7 @@ func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrat
 		arg.CreatorType,
 		arg.CreatorID,
 		arg.Number,
+		arg.ProjectID,
 		arg.IntegrationProvider,
 		arg.IntegrationExternalID,
 		arg.IntegrationExternalUrl,
@@ -96,6 +98,48 @@ func (q *Queries) CreateIntegrationIssue(ctx context.Context, arg CreateIntegrat
 		&i.LastActivityAt,
 		&i.TriageState,
 		&i.DuplicateOfIssueID,
+	)
+	return i, err
+}
+
+const deleteIntegrationMetaKey = `-- name: DeleteIntegrationMetaKey :one
+UPDATE integration_connection
+SET meta       = meta - $1::text,
+    updated_at = now()
+WHERE workspace_id = $2 AND provider = $3
+  AND disconnected_at IS NULL
+RETURNING id, workspace_id, connected_by, provider, provider_account_id, provider_account_name, provider_account_avatar, access_token, refresh_token, token_expires_at, scope, meta, status, error_message, created_at, updated_at, disconnected_at
+`
+
+type DeleteIntegrationMetaKeyParams struct {
+	Key         string      `json:"key"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Provider    string      `json:"provider"`
+}
+
+// Removes a single top-level key from the meta JSONB object.
+// Used to forget a webhook hook_id after we delete the hook on GitHub.
+func (q *Queries) DeleteIntegrationMetaKey(ctx context.Context, arg DeleteIntegrationMetaKeyParams) (IntegrationConnection, error) {
+	row := q.db.QueryRow(ctx, deleteIntegrationMetaKey, arg.Key, arg.WorkspaceID, arg.Provider)
+	var i IntegrationConnection
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ConnectedBy,
+		&i.Provider,
+		&i.ProviderAccountID,
+		&i.ProviderAccountName,
+		&i.ProviderAccountAvatar,
+		&i.AccessToken,
+		&i.RefreshToken,
+		&i.TokenExpiresAt,
+		&i.Scope,
+		&i.Meta,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisconnectedAt,
 	)
 	return i, err
 }

@@ -8,8 +8,8 @@ import "sync"
 // reads the current settings from the DB at delivery time, so multiple
 // rapid updates collapse into a single reload.
 type SettingsReloadStore struct {
-	mu     sync.Mutex
-	dirty  map[string]struct{}
+	mu    sync.Mutex
+	dirty map[string]struct{}
 }
 
 func NewSettingsReloadStore() *SettingsReloadStore {

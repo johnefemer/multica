@@ -25,3 +25,9 @@ export interface ImportIssuesResult {
   skipped: number;
   failed: number;
 }
+
+export interface GitHubWebhookRegistration {
+  repo: string;
+  hook_id: number;
+  exists_on_github?: boolean;
+}

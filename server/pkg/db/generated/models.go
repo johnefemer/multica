@@ -545,6 +545,14 @@ type ChatSession struct {
 	ExplicitlyCreatedAt pgtype.Timestamptz `json:"explicitly_created_at"`
 }
 
+type CliAuthCode struct {
+	Code      string             `json:"code"`
+	State     string             `json:"state"`
+	Jwt       string             `json:"jwt"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type ClientUsageDaily struct {
 	UserID          pgtype.UUID        `json:"user_id"`
 	ClientType      string             `json:"client_type"`
@@ -1338,19 +1346,21 @@ type PluginStorage struct {
 }
 
 type Project struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	Title       string             `json:"title"`
-	Description pgtype.Text        `json:"description"`
-	Icon        pgtype.Text        `json:"icon"`
-	Status      string             `json:"status"`
-	LeadType    pgtype.Text        `json:"lead_type"`
-	LeadID      pgtype.UUID        `json:"lead_id"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Priority    string             `json:"priority"`
-	StartDate   pgtype.Date        `json:"start_date"`
-	DueDate     pgtype.Date        `json:"due_date"`
+	ID                  pgtype.UUID        `json:"id"`
+	WorkspaceID         pgtype.UUID        `json:"workspace_id"`
+	Title               string             `json:"title"`
+	Description         pgtype.Text        `json:"description"`
+	Icon                pgtype.Text        `json:"icon"`
+	Status              string             `json:"status"`
+	LeadType            pgtype.Text        `json:"lead_type"`
+	LeadID              pgtype.UUID        `json:"lead_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Priority            string             `json:"priority"`
+	IntegrationProvider pgtype.Text        `json:"integration_provider"`
+	IntegrationRepo     pgtype.Text        `json:"integration_repo"`
+	StartDate           pgtype.Date        `json:"start_date"`
+	DueDate             pgtype.Date        `json:"due_date"`
 }
 
 type ProjectResource struct {

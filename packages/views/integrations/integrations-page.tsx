@@ -12,7 +12,9 @@ import {
   Trash2,
   RefreshCw,
   Link,
-  Info,
+  X,
+  FolderPlus,
+  FolderOpen,
 } from "lucide-react";
 import { GitHubLogo } from "./logos/github-logo";
 import { SlackLogo } from "./logos/slack-logo";
@@ -50,10 +52,12 @@ import {
   useIntegrations,
   useDisconnectIntegration,
   useGitHubRepos,
+  useGitHubWebhooks,
   useImportGitHubIssues,
   useRegisterGitHubWebhook,
+  useRemoveGitHubWebhook,
 } from "@multica/core/integrations";
-import type { IntegrationConnection, GitHubRepo } from "@multica/core/types";
+import type { IntegrationConnection, GitHubRepo, Project } from "@multica/core/types";
 
 // ── Provider catalog definition ──────────────────────────────────────────────
 
@@ -182,28 +186,33 @@ function GitHubManagePanel({
   wsId: string;
   conn: IntegrationConnection;
 }) {
-  const [importOpen, setImportOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"import" | "webhook" | null>(null);
+  const dialogOpen = dialogMode !== null;
   const [selectedRepo, setSelectedRepo] = useState("");
   const [alsoRegisterWebhook, setAlsoRegisterWebhook] = useState(false);
-  const { data: repos = [], isLoading: reposLoading } = useGitHubRepos(wsId, importOpen);
+  const [precheck, setPrecheck] = useState<{ repo: string; existingProject: Project | null } | null>(null);
+  const { data: repos = [], isLoading: reposLoading } = useGitHubRepos(wsId, dialogOpen);
+  const { data: webhooks = [] } = useGitHubWebhooks(wsId);
   const importIssues = useImportGitHubIssues(wsId);
   const registerWebhook = useRegisterGitHubWebhook(wsId);
+  const removeWebhook = useRemoveGitHubWebhook(wsId);
+
+  const registeredRepos = new Set(webhooks.map((w) => w.repo));
 
   // Reset transient picker state every time the dialog closes.
   useEffect(() => {
-    if (!importOpen) {
+    if (!dialogOpen) {
       setSelectedRepo("");
       setAlsoRegisterWebhook(false);
     }
-  }, [importOpen]);
+  }, [dialogOpen]);
 
   const selectedRepoMeta = repos.find((r: GitHubRepo) => r.full_name === selectedRepo);
   const isWorking = importIssues.isPending || registerWebhook.isPending;
 
-  const handleImport = async () => {
-    if (!selectedRepo) return;
+  const fireImport = async (repo: string, projectId: string | null) => {
     try {
-      const result = await importIssues.mutateAsync(selectedRepo);
+      const result = await importIssues.mutateAsync({ repo, projectId });
       const parts = [`${result.imported} imported`];
       if (result.skipped > 0) parts.push(`${result.skipped} already existed`);
       if (result.failed > 0) parts.push(`${result.failed} failed`);
@@ -215,29 +224,84 @@ function GitHubManagePanel({
       } else {
         toast.success(summary);
       }
-
       if (alsoRegisterWebhook) {
         try {
-          const r = await registerWebhook.mutateAsync(selectedRepo);
+          const r = await registerWebhook.mutateAsync(repo);
           toast.success(`Webhook registered on ${r.repo}`);
         } catch (e: unknown) {
           toast.error((e as Error)?.message ?? "Webhook registration failed");
         }
       }
-      setImportOpen(false);
     } catch (e: unknown) {
       toast.error((e as Error)?.message ?? "Failed to import issues");
     }
   };
 
+  const handleImport = async () => {
+    if (!selectedRepo) return;
+    setDialogMode(null);
+    // Precheck mapping. If a project is mapped, import directly. If not,
+    // open the 3-option modal so the user picks.
+    let existing: Project | null = null;
+    try {
+      existing = await api.getProjectByIntegrationRepo("github", selectedRepo);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to look up project mapping");
+      return;
+    }
+    if (existing) {
+      await fireImport(selectedRepo, existing.id);
+    } else {
+      setPrecheck({ repo: selectedRepo, existingProject: null });
+    }
+  };
+
+  const handleCreateProjectAndImport = async () => {
+    if (!precheck) return;
+    const { repo } = precheck;
+    const repoName = repo.split("/").pop() || repo;
+    try {
+      const project = await api.createProject({
+        title: repoName,
+        description: `Imported from GitHub repo ${repo}`,
+        integration_provider: "github",
+        integration_repo: repo,
+      });
+      setPrecheck(null);
+      await fireImport(repo, project.id);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to create project");
+    }
+  };
+
+  const handleImportWithoutProject = async () => {
+    if (!precheck) return;
+    const { repo } = precheck;
+    setPrecheck(null);
+    await fireImport(repo, null);
+  };
+
   const handleRegisterWebhookOnly = async () => {
     if (!selectedRepo) return;
+    if (registeredRepos.has(selectedRepo)) {
+      toast.warning("This repository already has a webhook. Remove it first to re-register.");
+      return;
+    }
     try {
       const r = await registerWebhook.mutateAsync(selectedRepo);
       toast.success(`Webhook registered on ${r.repo} (ID ${r.hook_id})`);
-      setImportOpen(false);
+      setDialogMode(null);
     } catch (e: unknown) {
       toast.error((e as Error)?.message ?? "Failed to register webhook");
+    }
+  };
+
+  const handleRemoveWebhook = async (repo: string) => {
+    try {
+      await removeWebhook.mutateAsync(repo);
+      toast.success(`Webhook removed from ${repo}`);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to remove webhook");
     }
   };
 
@@ -273,7 +337,7 @@ function GitHubManagePanel({
           variant="outline"
           size="sm"
           className="justify-start gap-2"
-          onClick={() => setImportOpen(true)}
+          onClick={() => setDialogMode("import")}
         >
           <Download className="size-3.5" />
           Import Issues
@@ -282,31 +346,51 @@ function GitHubManagePanel({
           variant="outline"
           size="sm"
           className="justify-start gap-2"
-          onClick={() => setImportOpen(true)}
+          onClick={() => setDialogMode("webhook")}
         >
           <Link className="size-3.5" />
           Register Webhook
         </Button>
       </div>
 
-      {/* Webhook URL hint */}
-      <div className="rounded-md border p-3 space-y-1">
-        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-          <Info className="size-3" />
-          Manual webhook URL
-        </p>
-        <code className="text-xs bg-muted px-1.5 py-0.5 rounded break-all block">
-          {typeof window !== "undefined" ? window.location.origin : "https://agenthost.kensink.com"}/webhooks/github?workspace_id={wsId}
-        </code>
-      </div>
+      {/* Registered webhooks */}
+      {webhooks.length > 0 && (
+        <div className="rounded-md border p-3 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Registered webhooks</p>
+          <ul className="space-y-1.5">
+            {webhooks.map((w) => (
+              <li key={w.repo} className="flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Link className="size-3 shrink-0 text-muted-foreground" />
+                  <span className="font-mono truncate" title={w.repo}>{w.repo}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => handleRemoveWebhook(w.repo)}
+                  disabled={removeWebhook.isPending}
+                  title="Remove webhook"
+                >
+                  <X className="size-3" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-      {/* Import dialog */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+      {/* Repo picker dialog — used for both Import Issues and Register Webhook */}
+      <Dialog open={dialogOpen} onOpenChange={(o) => setDialogMode(o ? (dialogMode ?? "import") : null)}>
         <DialogContent className="gap-0 p-0 sm:max-w-lg overflow-hidden flex flex-col max-h-[min(85vh,640px)]">
           <DialogHeader className="p-4 pb-3">
-            <DialogTitle>Import GitHub Issues</DialogTitle>
+            <DialogTitle>
+              {dialogMode === "webhook" ? "Register GitHub Webhook" : "Import GitHub Issues"}
+            </DialogTitle>
             <DialogDescription>
-              Select a repository to import its open issues. Already-imported issues are skipped.
+              {dialogMode === "webhook"
+                ? "Select a repository to register a webhook for real-time issue sync. Requires admin access on the repo."
+                : "Select a repository to import its open issues. Already-imported issues are skipped."}
             </DialogDescription>
           </DialogHeader>
 
@@ -335,12 +419,20 @@ function GitHubManagePanel({
                   <CommandGroup>
                     {repos.map((r: GitHubRepo) => {
                       const checked = r.full_name === selectedRepo;
+                      const isRegistered = registeredRepos.has(r.full_name);
+                      const blockedInWebhookMode = dialogMode === "webhook" && isRegistered;
                       return (
                         <CommandItem
                           key={r.full_name}
                           value={`${r.full_name} ${r.description ?? ""}`}
                           data-checked={checked || undefined}
-                          onSelect={() => setSelectedRepo(r.full_name)}
+                          onSelect={() => {
+                            if (blockedInWebhookMode) {
+                              toast.warning("This repository already has a webhook. Remove it first to re-register.");
+                              return;
+                            }
+                            setSelectedRepo(r.full_name);
+                          }}
                           className="py-2"
                         >
                           <div className="flex-1 min-w-0">
@@ -351,6 +443,11 @@ function GitHubManagePanel({
                               {r.private && (
                                 <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">
                                   <Lock className="size-3" /> Private
+                                </span>
+                              )}
+                              {isRegistered && (
+                                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-emerald-600 shrink-0">
+                                  Registered
                                 </span>
                               )}
                             </div>
@@ -392,63 +489,121 @@ function GitHubManagePanel({
               </p>
             )}
 
-            <label
-              className={`flex items-start gap-2 text-xs ${
-                selectedRepo ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground/60"
-              }`}
-            >
-              <Checkbox
-                checked={alsoRegisterWebhook}
-                onCheckedChange={(c) => setAlsoRegisterWebhook(!!c)}
-                disabled={!selectedRepo || isWorking}
-                className="mt-0.5"
-              />
-              <span>
-                Also register webhook for real-time sync
-                <span className="block text-muted-foreground">
-                  Pushes new / closed / edited issues to Agenthost as they happen.
+            {dialogMode === "import" && (
+              <label
+                className={`flex items-start gap-2 text-xs ${
+                  selectedRepo ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground/60"
+                }`}
+              >
+                <Checkbox
+                  checked={alsoRegisterWebhook}
+                  onCheckedChange={(c) => setAlsoRegisterWebhook(!!c)}
+                  disabled={!selectedRepo || isWorking}
+                  className="mt-0.5"
+                />
+                <span>
+                  Also register webhook for real-time sync
+                  <span className="block text-muted-foreground">
+                    Pushes new / closed / edited issues to Agenthost as they happen.
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            )}
           </div>
 
           <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button
               variant="outline"
-              onClick={() => setImportOpen(false)}
+              onClick={() => setDialogMode(null)}
               disabled={isWorking}
               className="sm:w-auto w-full"
             >
               Cancel
             </Button>
-            {selectedRepo && alsoRegisterWebhook && !importIssues.isPending && (
+            {dialogMode === "webhook" ? (
               <Button
-                variant="outline"
                 onClick={handleRegisterWebhookOnly}
-                disabled={isWorking}
+                disabled={!selectedRepo || isWorking}
                 className="sm:w-auto w-full gap-1.5"
-                title="Register the webhook without importing issues"
               >
-                <Link className="size-3.5" />
-                {registerWebhook.isPending ? "Registering…" : "Webhook only"}
+                {registerWebhook.isPending ? (
+                  <>
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    Registering…
+                  </>
+                ) : (
+                  <>
+                    <Link className="size-3.5" />
+                    Register Webhook
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleImport}
+                disabled={!selectedRepo || isWorking}
+                className="sm:w-auto w-full gap-1.5"
+              >
+                {importIssues.isPending ? (
+                  <>
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    Importing…
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-3.5" />
+                    {alsoRegisterWebhook ? "Import + register" : "Import Issues"}
+                  </>
+                )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import precheck — shown when no project is mapped to the selected repo */}
+      <Dialog open={precheck !== null} onOpenChange={(o) => { if (!o) setPrecheck(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>No project linked to {precheck?.repo}</DialogTitle>
+            <DialogDescription>
+              Imported issues need to live somewhere. Choose how to handle this import — and we&apos;ll
+              remember the mapping for future syncs.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
             <Button
-              onClick={handleImport}
-              disabled={!selectedRepo || isWorking}
-              className="sm:w-auto w-full gap-1.5"
+              variant="outline"
+              className="w-full justify-start gap-2 h-auto py-3"
+              onClick={handleCreateProjectAndImport}
+              disabled={importIssues.isPending}
             >
-              {importIssues.isPending ? (
-                <>
-                  <RefreshCw className="size-3.5 animate-spin" />
-                  Importing…
-                </>
-              ) : (
-                <>
-                  <Download className="size-3.5" />
-                  {alsoRegisterWebhook ? "Import + register" : "Import Issues"}
-                </>
-              )}
+              <FolderPlus className="size-4 shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium">Create project &ldquo;{precheck?.repo.split("/").pop()}&rdquo;</p>
+                <p className="text-xs text-muted-foreground">
+                  Mapped to {precheck?.repo}. Future webhook events sync into this project.
+                </p>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2 h-auto py-3"
+              onClick={handleImportWithoutProject}
+              disabled={importIssues.isPending}
+            >
+              <FolderOpen className="size-4 shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium">Import without project</p>
+                <p className="text-xs text-muted-foreground">
+                  Issues land at the workspace root. Webhook events for {precheck?.repo} will be dropped.
+                </p>
+              </div>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPrecheck(null)} disabled={importIssues.isPending}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -90,6 +90,11 @@ const nextConfig: NextConfig = {
               source: "/uploads/:path*",
               destination: `${remoteApiUrl}/uploads/:path*`,
             },
+            // Kensink: GitHub integration webhooks hit the backend directly.
+            {
+              source: "/webhooks/:path*",
+              destination: `${remoteApiUrl}/webhooks/:path*`,
+            },
           ]
         : [],
       fallback: [],

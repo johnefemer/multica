@@ -232,7 +232,7 @@ import type {
   CreateCommentSubIssueAgentRequest,
   CreateCommentSubIssueRequest,
 } from "../types";
-import type { IntegrationConnection, GitHubRepo, ImportIssuesResult } from "../types/integration";
+import type { IntegrationConnection, GitHubRepo, ImportIssuesResult, GitHubWebhookRegistration } from "../types/integration";
 import type { OnboardingCompletionPath } from "../onboarding/types";
 import type {
   CreateFeedbackResponse,
@@ -5266,10 +5266,14 @@ export class ApiClient {
     return this.fetch(`/api/workspaces/${workspaceId}/integrations/github/repos`);
   }
 
-  async importGitHubIssues(workspaceId: string, repo: string): Promise<ImportIssuesResult> {
+  async importGitHubIssues(
+    workspaceId: string,
+    repo: string,
+    projectId?: string | null,
+  ): Promise<ImportIssuesResult> {
     return this.fetch(`/api/workspaces/${workspaceId}/integrations/github/import-issues`, {
       method: "POST",
-      body: JSON.stringify({ repo }),
+      body: JSON.stringify({ repo, project_id: projectId ?? null }),
     });
   }
 
@@ -5278,6 +5282,37 @@ export class ApiClient {
       method: "POST",
       body: JSON.stringify({ repo }),
     });
+  }
+
+  async listGitHubWebhooks(
+    workspaceId: string,
+    opts?: { verify?: boolean },
+  ): Promise<GitHubWebhookRegistration[]> {
+    const qs = opts?.verify ? "?verify=1" : "";
+    const resp = await this.fetch<{ webhooks: GitHubWebhookRegistration[] }>(
+      `/api/workspaces/${workspaceId}/integrations/github/webhooks${qs}`,
+    );
+    return resp.webhooks ?? [];
+  }
+
+  async removeGitHubWebhook(workspaceId: string, repo: string): Promise<void> {
+    await this.fetch(
+      `/api/workspaces/${workspaceId}/integrations/github/webhooks/${encodeURIComponent(repo)}`,
+      { method: "DELETE" },
+    );
+  }
+
+  async getProjectByIntegrationRepo(
+    provider: string,
+    repo: string,
+  ): Promise<Project | null> {
+    try {
+      const params = new URLSearchParams({ provider, repo });
+      return await this.fetch<Project>(`/api/projects/by-integration?${params.toString()}`);
+    } catch (e) {
+      if (e instanceof Error && /404/.test(e.message)) return null;
+      throw e;
+    }
   }
 
   getGitHubOAuthURL(workspaceSlug: string): string {

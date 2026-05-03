@@ -16,6 +16,9 @@ export interface Project {
   // issue.start_date / issue.due_date.
   start_date: string | null;
   due_date: string | null;
+  /** Kensink: GitHub repo mapping (absent on older backends). */
+  integration_provider?: string | null;
+  integration_repo?: string | null;
   created_at: string;
   updated_at: string;
   issue_count: number;
@@ -36,6 +39,8 @@ export interface CreateProjectRequest {
   // Resources to attach in the same transaction as the project. Server returns
   // 4xx (and rolls back) if any one is invalid or duplicate.
   resources?: CreateProjectResourceRequest[];
+  integration_provider?: string;
+  integration_repo?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -49,6 +54,8 @@ export interface UpdateProjectRequest {
   // Omit the key to leave the date untouched; send null (or "") to clear it.
   start_date?: string | null;
   due_date?: string | null;
+  integration_provider?: string | null;
+  integration_repo?: string | null;
 }
 
 export interface ListProjectsResponse {

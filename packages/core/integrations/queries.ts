@@ -5,6 +5,7 @@ export const integrationKeys = {
   all: (wsId: string) => ["integrations", wsId] as const,
   provider: (wsId: string, provider: string) => ["integrations", wsId, provider] as const,
   githubRepos: (wsId: string) => ["integrations", wsId, "github", "repos"] as const,
+  githubWebhooks: (wsId: string) => ["integrations", wsId, "github", "webhooks"] as const,
 };
 
 export function useIntegrations(wsId: string) {
@@ -31,6 +32,14 @@ export function useGitHubRepos(wsId: string, enabled: boolean) {
   });
 }
 
+export function useGitHubWebhooks(wsId: string, enabled = true) {
+  return useQuery({
+    queryKey: integrationKeys.githubWebhooks(wsId),
+    queryFn: () => api.listGitHubWebhooks(wsId),
+    enabled: !!wsId && enabled,
+  });
+}
+
 export function useDisconnectIntegration(wsId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -41,9 +50,15 @@ export function useDisconnectIntegration(wsId: string) {
   });
 }
 
+export interface ImportGitHubIssuesArgs {
+  repo: string;
+  projectId?: string | null;
+}
+
 export function useImportGitHubIssues(wsId: string) {
   return useMutation({
-    mutationFn: (repo: string) => api.importGitHubIssues(wsId, repo),
+    mutationFn: ({ repo, projectId }: ImportGitHubIssuesArgs) =>
+      api.importGitHubIssues(wsId, repo, projectId),
   });
 }
 
@@ -53,6 +68,17 @@ export function useRegisterGitHubWebhook(wsId: string) {
     mutationFn: (repo: string) => api.registerGitHubWebhook(wsId, repo),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: integrationKeys.provider(wsId, "github") });
+      qc.invalidateQueries({ queryKey: integrationKeys.githubWebhooks(wsId) });
+    },
+  });
+}
+
+export function useRemoveGitHubWebhook(wsId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (repo: string) => api.removeGitHubWebhook(wsId, repo),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: integrationKeys.githubWebhooks(wsId) });
     },
   });
 }

@@ -235,7 +235,7 @@ function GitHubActions({
   const handleImport = async () => {
     if (!selectedRepo) return;
     try {
-      const result = await importIssues.mutateAsync(selectedRepo);
+      const result = await importIssues.mutateAsync({ repo: selectedRepo });
       const parts = [`${result.imported} imported`];
       if (result.skipped > 0) parts.push(`${result.skipped} already existed`);
       if (result.failed > 0) parts.push(`${result.failed} failed`);

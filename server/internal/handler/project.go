@@ -31,6 +31,9 @@ type ProjectResponse struct {
 	Priority    string  `json:"priority"`
 	LeadType    *string `json:"lead_type"`
 	LeadID      *string `json:"lead_id"`
+	// Kensink: GitHub repo this project's imported issues sync from.
+	IntegrationProvider *string `json:"integration_provider"`
+	IntegrationRepo     *string `json:"integration_repo"`
 	// StartDate / DueDate are calendar days ("YYYY-MM-DD"), no time-of-day or
 	// timezone — same contract as issue.start_date / issue.due_date.
 	StartDate  *string `json:"start_date"`
@@ -48,19 +51,21 @@ type ProjectResponse struct {
 
 func projectToResponse(p db.Project) ProjectResponse {
 	return ProjectResponse{
-		ID:          uuidToString(p.ID),
-		WorkspaceID: uuidToString(p.WorkspaceID),
-		Title:       p.Title,
-		Description: textToPtr(p.Description),
-		Icon:        textToPtr(p.Icon),
-		Status:      p.Status,
-		Priority:    p.Priority,
-		LeadType:    textToPtr(p.LeadType),
-		LeadID:      uuidToPtr(p.LeadID),
-		StartDate:   dateToPtr(p.StartDate),
-		DueDate:     dateToPtr(p.DueDate),
-		CreatedAt:   timestampToString(p.CreatedAt),
-		UpdatedAt:   timestampToString(p.UpdatedAt),
+		ID:                  uuidToString(p.ID),
+		WorkspaceID:         uuidToString(p.WorkspaceID),
+		Title:               p.Title,
+		Description:         textToPtr(p.Description),
+		Icon:                textToPtr(p.Icon),
+		Status:              p.Status,
+		Priority:            p.Priority,
+		LeadType:            textToPtr(p.LeadType),
+		LeadID:              uuidToPtr(p.LeadID),
+		IntegrationProvider: textToPtr(p.IntegrationProvider),
+		IntegrationRepo:     textToPtr(p.IntegrationRepo),
+		StartDate:           dateToPtr(p.StartDate),
+		DueDate:             dateToPtr(p.DueDate),
+		CreatedAt:           timestampToString(p.CreatedAt),
+		UpdatedAt:           timestampToString(p.UpdatedAt),
 	}
 }
 
@@ -99,16 +104,18 @@ func (h *Handler) loadProjectResourceCount(ctx context.Context, projectID pgtype
 }
 
 type CreateProjectRequest struct {
-	Title       string                                `json:"title"`
-	Description *string                               `json:"description"`
-	Icon        *string                               `json:"icon"`
-	Status      string                                `json:"status"`
-	Priority    string                                `json:"priority"`
-	LeadType    *string                               `json:"lead_type"`
-	LeadID      *string                               `json:"lead_id"`
-	StartDate   *string                               `json:"start_date"`
-	DueDate     *string                               `json:"due_date"`
-	Resources   []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
+	Title               string                                `json:"title"`
+	Description         *string                               `json:"description"`
+	Icon                *string                               `json:"icon"`
+	Status              string                                `json:"status"`
+	Priority            string                                `json:"priority"`
+	LeadType            *string                               `json:"lead_type"`
+	LeadID              *string                               `json:"lead_id"`
+	StartDate           *string                               `json:"start_date"`
+	DueDate             *string                               `json:"due_date"`
+	Resources           []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
+	IntegrationProvider *string                               `json:"integration_provider"`
+	IntegrationRepo     *string                               `json:"integration_repo"`
 }
 
 // CreateProjectResourceRequestPayload mirrors CreateProjectResourceRequest but
@@ -122,15 +129,17 @@ type CreateProjectResourceRequestPayload struct {
 }
 
 type UpdateProjectRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      *string `json:"status"`
-	Priority    *string `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
-	StartDate   *string `json:"start_date"`
-	DueDate     *string `json:"due_date"`
+	Title               *string `json:"title"`
+	Description         *string `json:"description"`
+	Icon                *string `json:"icon"`
+	Status              *string `json:"status"`
+	Priority            *string `json:"priority"`
+	LeadType            *string `json:"lead_type"`
+	LeadID              *string `json:"lead_id"`
+	StartDate           *string `json:"start_date"`
+	DueDate             *string `json:"due_date"`
+	IntegrationProvider *string `json:"integration_provider"`
+	IntegrationRepo     *string `json:"integration_repo"`
 }
 
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
@@ -247,6 +256,11 @@ func validateProjectEnum(w http.ResponseWriter, field, value string, allowed []s
 // error so transient DB failures are diagnosable (#3925 had no server-side
 // signal) and return 500.
 func (h *Handler) writeProjectWriteError(w http.ResponseWriter, r *http.Request, err error, action string) {
+	if isUniqueViolation(err) {
+		// Kensink: one project per (provider, repo) integration mapping.
+		writeError(w, http.StatusConflict, "another project is already mapped to this repository")
+		return
+	}
 	if isCheckViolation(err) {
 		writeError(w, http.StatusBadRequest, "project "+action+" rejected: a field value failed a database constraint")
 		return
@@ -368,16 +382,18 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createParams := db.CreateProjectParams{
-		WorkspaceID: wsUUID,
-		Title:       req.Title,
-		Description: ptrToText(req.Description),
-		Icon:        ptrToText(req.Icon),
-		Status:      status,
-		LeadType:    leadType,
-		LeadID:      leadID,
-		Priority:    priority,
-		StartDate:   startDate,
-		DueDate:     dueDate,
+		WorkspaceID:         wsUUID,
+		Title:               req.Title,
+		Description:         ptrToText(req.Description),
+		Icon:                ptrToText(req.Icon),
+		Status:              status,
+		LeadType:            leadType,
+		LeadID:              leadID,
+		Priority:            priority,
+		StartDate:           startDate,
+		DueDate:             dueDate,
+		IntegrationProvider: ptrToText(req.IntegrationProvider),
+		IntegrationRepo:     ptrToText(req.IntegrationRepo),
 	}
 
 	// Without resources, keep the simple non-tx path.
@@ -504,13 +520,15 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(bodyBytes, &rawFields)
 
 	params := db.UpdateProjectParams{
-		ID:          prevProject.ID,
-		Description: prevProject.Description,
-		Icon:        prevProject.Icon,
-		LeadType:    prevProject.LeadType,
-		LeadID:      prevProject.LeadID,
-		StartDate:   prevProject.StartDate,
-		DueDate:     prevProject.DueDate,
+		ID:                  prevProject.ID,
+		Description:         prevProject.Description,
+		Icon:                prevProject.Icon,
+		LeadType:            prevProject.LeadType,
+		LeadID:              prevProject.LeadID,
+		StartDate:           prevProject.StartDate,
+		DueDate:             prevProject.DueDate,
+		IntegrationProvider: prevProject.IntegrationProvider,
+		IntegrationRepo:     prevProject.IntegrationRepo,
 	}
 	if req.Title != nil {
 		params.Title = pgtype.Text{String: *req.Title, Valid: true}
@@ -585,6 +603,20 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			params.DueDate = pgtype.Date{Valid: false} // explicit null = clear date
 		}
 	}
+	if _, ok := rawFields["integration_provider"]; ok {
+		if req.IntegrationProvider != nil {
+			params.IntegrationProvider = pgtype.Text{String: *req.IntegrationProvider, Valid: true}
+		} else {
+			params.IntegrationProvider = pgtype.Text{Valid: false}
+		}
+	}
+	if _, ok := rawFields["integration_repo"]; ok {
+		if req.IntegrationRepo != nil {
+			params.IntegrationRepo = pgtype.Text{String: *req.IntegrationRepo, Valid: true}
+		} else {
+			params.IntegrationRepo = pgtype.Text{Valid: false}
+		}
+	}
 	project, err := h.Queries.UpdateProject(r.Context(), params)
 	if err != nil {
 		h.writeProjectWriteError(w, r, err, "update")
@@ -594,6 +626,32 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), wsUUID, project.ID)
 	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
 	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": resp})
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// GetProjectByIntegrationRepo returns the project mapped to a given (provider, repo).
+// 404 if no mapping exists. Used by the frontend before importing to decide
+// whether to import directly or prompt the user to create / skip a project.
+// GET /api/workspaces/{id}/projects/by-integration?provider=github&repo=owner/repo
+func (h *Handler) GetProjectByIntegrationRepo(w http.ResponseWriter, r *http.Request) {
+	workspaceID := h.resolveWorkspaceID(r)
+	provider := r.URL.Query().Get("provider")
+	repo := r.URL.Query().Get("repo")
+	if provider == "" || repo == "" {
+		writeError(w, http.StatusBadRequest, "provider and repo are required")
+		return
+	}
+	project, err := h.Queries.GetProjectByIntegrationRepo(r.Context(), db.GetProjectByIntegrationRepoParams{WorkspaceID: parseUUID(workspaceID), Provider: strToText(provider), Repo: strToText(repo)})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "no project mapped to this repository")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to look up project")
+		return
+	}
+	resp := projectToResponse(project)
+	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), project.WorkspaceID, project.ID)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -799,6 +857,7 @@ func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) 
 
 	query := fmt.Sprintf(`SELECT p.id, p.workspace_id, p.title, p.description, p.icon,
 		p.status, p.priority, p.lead_type, p.lead_id,
+		p.integration_provider, p.integration_repo,
 		p.start_date, p.due_date,
 		p.created_at, p.updated_at,
 		%s AS match_source
@@ -876,6 +935,8 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 				&row.project.Priority,
 				&row.project.LeadType,
 				&row.project.LeadID,
+				&row.project.IntegrationProvider,
+				&row.project.IntegrationRepo,
 				&row.project.StartDate,
 				&row.project.DueDate,
 				&row.project.CreatedAt,
