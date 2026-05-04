@@ -194,6 +194,13 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 	// Webhook ingestion (no auth, provider HMAC verified)
 	r.Post("/webhooks/{provider}", h.IntegrationWebhook)
 
+	// Slack webhooks: three distinct endpoints with different content types
+	// and signing envelopes — they don't fit the generic /webhooks/{provider}
+	// dispatcher. Phase 3 of #18.
+	r.Post("/webhooks/slack/events", h.HandleSlackEvents)
+	r.Post("/webhooks/slack/commands", h.HandleSlackCommands)
+	r.Post("/webhooks/slack/interactivity", h.HandleSlackInteractivity)
+
 	// Public API
 	r.Get("/api/config", h.GetConfig)
 

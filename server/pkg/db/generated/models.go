@@ -167,6 +167,18 @@ type ChatChannelBinding struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
+type ChatUserLink struct {
+	ID             pgtype.UUID        `json:"id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	Platform       string             `json:"platform"`
+	ExternalTeamID string             `json:"external_team_id"`
+	ExternalUserID string             `json:"external_user_id"`
+	ExternalEmail  pgtype.Text        `json:"external_email"`
+	ExternalName   pgtype.Text        `json:"external_name"`
+	LinkedAt       pgtype.Timestamptz `json:"linked_at"`
+}
+
 type ChatMessage struct {
 	ID            pgtype.UUID        `json:"id"`
 	ChatSessionID pgtype.UUID        `json:"chat_session_id"`
@@ -475,17 +487,18 @@ type VerificationCode struct {
 }
 
 type Workspace struct {
-	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
-	Slug         string             `json:"slug"`
-	Description  pgtype.Text        `json:"description"`
-	Settings     []byte             `json:"settings"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Context      pgtype.Text        `json:"context"`
-	Repos        []byte             `json:"repos"`
-	IssuePrefix  string             `json:"issue_prefix"`
-	IssueCounter int32              `json:"issue_counter"`
+	ID              pgtype.UUID        `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	Description     pgtype.Text        `json:"description"`
+	Settings        []byte             `json:"settings"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Context         pgtype.Text        `json:"context"`
+	Repos           []byte             `json:"repos"`
+	IssuePrefix     string             `json:"issue_prefix"`
+	IssueCounter    int32              `json:"issue_counter"`
+	ChatAutoOnboard bool               `json:"chat_auto_onboard"`
 }
 
 type WorkspaceInvitation struct {
