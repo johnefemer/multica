@@ -902,8 +902,13 @@ function SlackManagePanel({
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const { data: bindings = [] } = useSlackBindings(wsId);
-  const { data: channels = [], isLoading: channelsLoading, isError: channelsError } =
-    useSlackChannels(wsId, pickerOpen);
+  const {
+    data: channels = [],
+    isLoading: channelsLoading,
+    isFetching: channelsFetching,
+    isError: channelsError,
+    refetch: refetchChannels,
+  } = useSlackChannels(wsId, pickerOpen);
   const createBinding = useCreateSlackBinding(wsId);
   const deleteBinding = useDeleteSlackBinding(wsId);
 
@@ -982,13 +987,29 @@ function SlackManagePanel({
               </Button>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Bind a Slack channel</DialogTitle>
-                  <DialogDescription>
-                    Routes messages from this channel to the current workspace.
-                    Add the bot to private channels first via Slack&apos;s
-                    &quot;Add apps to channel&quot; menu — only channels the bot
-                    is in will appear here.
-                  </DialogDescription>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <DialogTitle>Bind a Slack channel</DialogTitle>
+                      <DialogDescription>
+                        Routes messages from this channel to the current workspace.
+                        Add the bot to private channels first via Slack&apos;s
+                        &quot;Add apps to channel&quot; menu — only channels the bot
+                        is in will appear here.
+                      </DialogDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 shrink-0"
+                      onClick={() => refetchChannels()}
+                      disabled={channelsFetching}
+                      title="Refresh channel list"
+                    >
+                      <RefreshCw
+                        className={`size-3.5 ${channelsFetching ? "animate-spin" : ""}`}
+                      />
+                    </Button>
+                  </div>
                 </DialogHeader>
                 <div className="py-2 max-h-80 overflow-y-auto">
                   {channelsLoading ? (
@@ -997,7 +1018,7 @@ function SlackManagePanel({
                     <p className="text-sm text-destructive">Failed to load channels.</p>
                   ) : availableChannels.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No unbound channels found. Invite the bot to a channel and reload.
+                      No unbound channels found. Invite the bot to a channel, then click refresh.
                     </p>
                   ) : (
                     <Command>
