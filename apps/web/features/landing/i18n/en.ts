@@ -1070,11 +1070,6 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           p: "Activity log captures every actor. Skill library captures the playbook. Next time, the agent is faster.",
         },
       ],
-      asciiDiagram: `  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-  │  HUMAN   │ →  │  DAEMON  │ →  │  AGENT   │ →  │   PR     │
-  └──────────┘    └──────────┘    └──────────┘    └──────────┘
-       ▲                                                │
-       └─────── activity_log · skill_library ───────────┘`,
     },
     stats: {
       label: "NUMBERS",
