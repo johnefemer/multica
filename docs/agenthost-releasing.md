@@ -499,6 +499,54 @@ Plus `GITHUB_TOKEN` (auto-provided) with `packages: write` — granted via the j
 
 ---
 
+## Integration OAuth secrets (server-side)
+
+OAuth integrations register lazily: the backend only mounts a provider when its `*_CLIENT_ID` env var is present at startup ([router.go:107](../server/cmd/server/router.go#L107)). Without the var, the backend silently skips registration and `/api/config` omits the provider's `client_id`. The integrations UI then renders the tile with a disabled "Connect" button (tooltip: `<PROVIDER>_CLIENT_ID not configured`). These vars live in `/opt/multica/.env` and the backend container must restart to pick them up.
+
+### Required vars
+
+| Provider | `.env` keys | Source |
+|---|---|---|
+| GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_WEBHOOK_SECRET` | github.com → Settings → Developer settings → OAuth Apps |
+| Slack | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET` | api.slack.com/apps → your app → Basic Information |
+
+See [docs/slack-app-setup.md](./slack-app-setup.md) for the Slack app creation walkthrough. Slack also exposes a deprecated "Verification Token" — ignore it; the backend only reads `SLACK_SIGNING_SECRET`.
+
+### Applying new values
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 'cd /opt/multica && nano .env && \
+  docker compose -f docker-compose.selfhost.yml restart backend'
+```
+
+For one-off rotation of a single key without an editor:
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
+  sed -i 's|^SLACK_CLIENT_SECRET=.*|SLACK_CLIENT_SECRET=<NEW>|' /opt/multica/.env
+  docker compose -f /opt/multica/docker-compose.selfhost.yml restart backend
+"
+```
+
+### Verifying
+
+```bash
+# Server-side: vars present in .env
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  "grep -E '^(GITHUB|SLACK)_CLIENT_ID' /opt/multica/.env"
+
+# Client-side: /api/config exposes the public client_id (omitted when unset)
+curl -s https://agenthost.kensink.com/api/config
+```
+
+A non-empty `github_client_id` / `slack_client_id` in the response means the corresponding "Connect" button will be enabled. The frontend caches `/api/config` for 5 minutes (`staleTime`) — hard-refresh the page if you just rotated a key.
+
+### OAuth callback note
+
+The OAuth callback (`/auth/{provider}/callback`) intentionally has **no** auth middleware. The session cookie is `SameSite=Strict` and is dropped by browsers on the cross-site redirect from the provider — identity is recovered from the state cookie (`SameSite=Lax`) stashed during `/auth/{provider}/start`. Don't add `middleware.Auth(queries)` back to the callback route or all OAuth installs will 401 with `{"error":"missing authorization"}`.
+
+---
+
 ## Common failure modes
 
 | Symptom | Likely cause | Fix |
@@ -507,6 +555,8 @@ Plus `GITHUB_TOKEN` (auto-provided) with `packages: write` — granted via the j
 | Migration error on boot, backend crash-loops | Bad `.up.sql` or conflicting schema | `docker logs multica-backend-1` to see the Postgres error; if safe, `./migrate down 1` and redeploy a fix |
 | Disk full mid-deploy | Layer accumulation | `docker system prune -af` then re-run deploy |
 | Health stays unhealthy after deploy | App-level crash after migrations | Tail logs — usually an env var missing (`GITHUB_CLIENT_ID`, etc.) |
+| Integration tile shows "Connect" button greyed out / tooltip says `<PROVIDER>_CLIENT_ID not configured` | OAuth secret missing from server `.env` | See [Integration OAuth secrets](#integration-oauth-secrets-server-side); add the var, restart backend, hard-refresh page |
+| OAuth callback returns `{"error":"missing authorization"}` | Auth middleware re-added to `/auth/{provider}/callback` | Remove it — callback runs unauth'd by design; identity comes from the state cookie. See [OAuth callback note](#oauth-callback-note) |
 | `connection refused` on SSH from GHA | EC2 restarted, fresh fingerprint | The workflow does `ssh-keyscan` fresh each run, so this is rare. If persistent, check AWS Security Group still allows GHA runner IPs (they're wide) |
 | `kensink-install.sh` gives `Download failed` | `release-cli.yml` didn't run or failed | Check `gh run list --workflow=release-cli.yml -R johnefemer/multica`; re-run it manually if needed |
 | `agenthost version` shows an old build after install | User already had a binary, `install_or_upgrade_cli` path only reinstalls current — but install was successful. | Usually nothing — the script always overwrites. If truly stuck, `which agenthost` and remove stale copies in `~/.local/bin` and `/usr/local/bin` |
