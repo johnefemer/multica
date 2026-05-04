@@ -31,3 +31,21 @@ export interface GitHubWebhookRegistration {
   hook_id: number;
   exists_on_github?: boolean;
 }
+
+export interface SlackChannel {
+  id: string;
+  name: string;
+  is_private: boolean;
+  is_member: boolean;
+}
+
+export interface ChatChannelBinding {
+  id: string;
+  workspace_id: string;
+  platform: "slack" | "discord" | "teams";
+  external_team_id: string;
+  external_channel_id: string;
+  external_channel_name: string | null;
+  created_at: string;
+  created_by?: string;
+}

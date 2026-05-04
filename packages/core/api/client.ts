@@ -67,7 +67,14 @@ import type {
   GetAutopilotResponse,
   ListAutopilotRunsResponse,
 } from "../types";
-import type { IntegrationConnection, GitHubRepo, ImportIssuesResult, GitHubWebhookRegistration } from "../types/integration";
+import type {
+  IntegrationConnection,
+  GitHubRepo,
+  ImportIssuesResult,
+  GitHubWebhookRegistration,
+  SlackChannel,
+  ChatChannelBinding,
+} from "../types/integration";
 import type { OnboardingCompletionPath } from "../onboarding/types";
 import { type Logger, noopLogger } from "../logger";
 import { createRequestId } from "../utils";
@@ -1139,6 +1146,31 @@ export class ApiClient {
   async removeGitHubWebhook(workspaceId: string, repo: string): Promise<void> {
     await this.fetch(
       `/api/workspaces/${workspaceId}/integrations/github/webhooks/${encodeURIComponent(repo)}`,
+      { method: "DELETE" },
+    );
+  }
+
+  async listSlackChannels(workspaceId: string): Promise<SlackChannel[]> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/slack/channels`);
+  }
+
+  async listSlackBindings(workspaceId: string): Promise<ChatChannelBinding[]> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/slack/bindings`);
+  }
+
+  async createSlackBinding(
+    workspaceId: string,
+    args: { external_channel_id: string; external_channel_name: string },
+  ): Promise<ChatChannelBinding> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/slack/bindings`, {
+      method: "POST",
+      body: JSON.stringify(args),
+    });
+  }
+
+  async deleteSlackBinding(workspaceId: string, bindingId: string): Promise<void> {
+    await this.fetch(
+      `/api/workspaces/${workspaceId}/integrations/slack/bindings/${bindingId}`,
       { method: "DELETE" },
     );
   }

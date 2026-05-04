@@ -62,6 +62,10 @@ import {
   useImportGitHubIssues,
   useRegisterGitHubWebhook,
   useRemoveGitHubWebhook,
+  useSlackChannels,
+  useSlackBindings,
+  useCreateSlackBinding,
+  useDeleteSlackBinding,
 } from "@multica/core/integrations";
 import type { IntegrationConnection, GitHubRepo, Project } from "@multica/core/types";
 
@@ -877,20 +881,60 @@ function GitHubManagePanel({
 
 // ── Slack management panel ───────────────────────────────────────────────────
 //
-// Phase 1 of the Slack integration only ships OAuth install. Channel binding,
-// slash commands, and channel notifications land in later phases (see
-// docs/slack-integration.md). Until then this panel surfaces what the install
-// captured and previews what's coming, so the Manage button isn't a dead end.
+// Phase 2 ships channel binding. A workspace admin picks a Slack channel from
+// the picker; the binding row tells later phases (events / notifications) which
+// workspace context that channel routes to. Slash commands, mirroring, and
+// outbound notifications land in subsequent phases.
 
-function SlackManagePanel({ conn }: { conn: IntegrationConnection }) {
+function SlackManagePanel({
+  wsId,
+  conn,
+  canManage,
+}: {
+  wsId: string;
+  conn: IntegrationConnection;
+  canManage: boolean;
+}) {
   const scopes = conn.scope ? conn.scope.split(",").filter(Boolean) : [];
   const slackAppsURL = conn.provider_account_id
     ? `https://app.slack.com/manage/${conn.provider_account_id}/integrations/installed`
     : "https://app.slack.com/manage";
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const { data: bindings = [] } = useSlackBindings(wsId);
+  const { data: channels = [], isLoading: channelsLoading, isError: channelsError } =
+    useSlackChannels(wsId, pickerOpen);
+  const createBinding = useCreateSlackBinding(wsId);
+  const deleteBinding = useDeleteSlackBinding(wsId);
+
+  const boundChannelIds = new Set(bindings.map((b) => b.external_channel_id));
+  const availableChannels = channels.filter((c) => !boundChannelIds.has(c.id));
+
+  const handleBind = async (channelId: string, channelName: string) => {
+    try {
+      await createBinding.mutateAsync({
+        external_channel_id: channelId,
+        external_channel_name: channelName,
+      });
+      toast.success(`Bound #${channelName}`);
+      setPickerOpen(false);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to bind channel");
+    }
+  };
+
+  const handleUnbind = async (bindingId: string, channelName: string | null) => {
+    try {
+      await deleteBinding.mutateAsync(bindingId);
+      toast.success(`Unbound ${channelName ? `#${channelName}` : "channel"}`);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Failed to unbind channel");
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Account info — mirrors GitHub panel */}
+      {/* Account info */}
       <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
         {conn.provider_account_avatar && (
           <img
@@ -919,6 +963,112 @@ function SlackManagePanel({ conn }: { conn: IntegrationConnection }) {
         </a>
       </div>
 
+      {/* Bindings */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Bound channels ({bindings.length})
+          </p>
+          {canManage && (
+            <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPickerOpen(true)}
+              >
+                <Plus className="size-3 mr-1" />
+                Bind channel
+              </Button>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Bind a Slack channel</DialogTitle>
+                  <DialogDescription>
+                    Routes messages from this channel to the current workspace.
+                    Add the bot to private channels first via Slack&apos;s
+                    &quot;Add apps to channel&quot; menu — only channels the bot
+                    is in will appear here.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-2 max-h-80 overflow-y-auto">
+                  {channelsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading channels…</p>
+                  ) : channelsError ? (
+                    <p className="text-sm text-destructive">Failed to load channels.</p>
+                  ) : availableChannels.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No unbound channels found. Invite the bot to a channel and reload.
+                    </p>
+                  ) : (
+                    <Command>
+                      <CommandInput placeholder="Search channels…" />
+                      <CommandList>
+                        <CommandEmpty>No matches.</CommandEmpty>
+                        <CommandGroup>
+                          {availableChannels.map((c) => (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => handleBind(c.id, c.name)}
+                              disabled={createBinding.isPending}
+                            >
+                              <span className="font-mono text-xs mr-2 text-muted-foreground">
+                                {c.is_private ? <Lock className="size-3 inline" /> : "#"}
+                              </span>
+                              {c.name}
+                              {c.is_private && (
+                                <Badge variant="outline" className="ml-auto text-[10px]">
+                                  private
+                                </Badge>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {bindings.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">
+            No channels bound yet. Bind a channel to route Slack messages to this workspace.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {bindings.map((b) => (
+              <div
+                key={b.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md border text-sm"
+              >
+                <span className="text-muted-foreground">#</span>
+                <span className="flex-1 truncate">
+                  {b.external_channel_name ?? b.external_channel_id}
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {b.external_channel_id}
+                </span>
+                {canManage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    onClick={() => handleUnbind(b.id, b.external_channel_name)}
+                    disabled={deleteBinding.isPending}
+                    title="Unbind"
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Granted scopes */}
       {scopes.length > 0 && (
         <div>
@@ -937,26 +1087,30 @@ function SlackManagePanel({ conn }: { conn: IntegrationConnection }) {
 
       {/* Phase status */}
       <div className="rounded-lg border p-3 space-y-2 text-xs text-muted-foreground">
-        <p className="font-medium text-foreground">What's wired up</p>
+        <p className="font-medium text-foreground">What&apos;s wired up</p>
         <ul className="space-y-1">
           <li className="flex items-start gap-1.5">
             <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-emerald-500" />
             OAuth install — bot is added to the Slack workspace
+          </li>
+          <li className="flex items-start gap-1.5">
+            <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-emerald-500" />
+            Channel binding — pick which channels route to this workspace
           </li>
         </ul>
         <p className="font-medium text-foreground pt-1">Coming next</p>
         <ul className="space-y-1">
           <li className="flex items-start gap-1.5">
             <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
-            Bind Slack channels to Agenthost workspaces (1:1)
+            <code className="font-mono">@agenthost</code> mentions in bound channels (Phase 4)
           </li>
           <li className="flex items-start gap-1.5">
             <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
-            <code className="font-mono">/agenthost</code> slash commands
+            <code className="font-mono">/agenthost</code> slash commands (Phase 5)
           </li>
           <li className="flex items-start gap-1.5">
             <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
-            Two-way thread mirroring + channel notifications
+            Channel notifications on issue events (Phase 6)
           </li>
         </ul>
       </div>
@@ -1105,7 +1259,7 @@ function IntegrationCard({
               <GitHubManagePanel wsId={wsId} conn={conn!} />
             )}
             {def.key === "slack" && (
-              <SlackManagePanel conn={conn!} />
+              <SlackManagePanel wsId={wsId} conn={conn!} canManage={canManage} />
             )}
           </div>
         </CardContent>

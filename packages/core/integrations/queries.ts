@@ -6,6 +6,8 @@ export const integrationKeys = {
   provider: (wsId: string, provider: string) => ["integrations", wsId, provider] as const,
   githubRepos: (wsId: string) => ["integrations", wsId, "github", "repos"] as const,
   githubWebhooks: (wsId: string) => ["integrations", wsId, "github", "webhooks"] as const,
+  slackChannels: (wsId: string) => ["integrations", wsId, "slack", "channels"] as const,
+  slackBindings: (wsId: string) => ["integrations", wsId, "slack", "bindings"] as const,
 };
 
 export function useIntegrations(wsId: string) {
@@ -79,6 +81,51 @@ export function useRemoveGitHubWebhook(wsId: string) {
     mutationFn: (repo: string) => api.removeGitHubWebhook(wsId, repo),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: integrationKeys.githubWebhooks(wsId) });
+    },
+  });
+}
+
+// ── Slack ──────────────────────────────────────────────────────────────────
+
+export function useSlackChannels(wsId: string, enabled = true) {
+  return useQuery({
+    queryKey: integrationKeys.slackChannels(wsId),
+    queryFn: () => api.listSlackChannels(wsId),
+    enabled: !!wsId && enabled,
+    // Channel lists are large and stable — cache for 5 minutes.
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSlackBindings(wsId: string, enabled = true) {
+  return useQuery({
+    queryKey: integrationKeys.slackBindings(wsId),
+    queryFn: () => api.listSlackBindings(wsId),
+    enabled: !!wsId && enabled,
+  });
+}
+
+export interface CreateSlackBindingArgs {
+  external_channel_id: string;
+  external_channel_name: string;
+}
+
+export function useCreateSlackBinding(wsId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: CreateSlackBindingArgs) => api.createSlackBinding(wsId, args),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: integrationKeys.slackBindings(wsId) });
+    },
+  });
+}
+
+export function useDeleteSlackBinding(wsId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (bindingId: string) => api.deleteSlackBinding(wsId, bindingId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: integrationKeys.slackBindings(wsId) });
     },
   });
 }

@@ -444,6 +444,11 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 				r.Post("/github/register-webhook", h.RegisterGitHubWebhook)
 				r.Get("/github/webhooks", h.ListGitHubWebhooks)
 				r.Delete("/github/webhooks/{repo}", h.RemoveGitHubWebhook)
+				// Slack-specific actions: channel listing + channel binding CRUD (Phase 2)
+				r.Get("/slack/channels", h.ListSlackChannels)
+				r.Get("/slack/bindings", h.ListChatChannelBindings)
+				r.Post("/slack/bindings", h.CreateChatChannelBinding)
+				r.Delete("/slack/bindings/{bindingId}", h.DeleteChatChannelBinding)
 			})
 
 			// Tasks (user-facing, with ownership check)
