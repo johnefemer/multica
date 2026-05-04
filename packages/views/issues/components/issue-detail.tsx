@@ -23,6 +23,8 @@ import {
   ChevronRight,
   CircleCheck,
   Milestone,
+  ExternalLink,
+  GitBranch,
   MoreHorizontal,
   PanelRight,
   Pin,
@@ -31,6 +33,7 @@ import {
   SlidersHorizontal,
   Tag,
   Unlink,
+  RefreshCw,
   Users,
 } from "lucide-react";
 import { BreadcrumbHeader, type BreadcrumbSegment } from "../../layout/breadcrumb-header";
@@ -135,6 +138,7 @@ import { projectDetailOptions } from "@multica/core/projects/queries";
 import { ProjectIcon } from "../../projects/components/project-icon";
 import { issueLabelsOptions } from "@multica/core/labels";
 import { propertyListOptions } from "@multica/core/properties";
+import { useSyncIssueFromIntegration } from "@multica/core/issues/mutations";
 import { memberListOptions, agentListOptions } from "@multica/core/workspace/queries";
 import {
   selectExpandedResolved,
@@ -1440,6 +1444,9 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   const scrollToTimelineBottom = useCallback((commentId: string) => {
     setPendingPostedCommentId(commentId);
   }, []);
+  // Kensink: GitHub source panel for issues imported from an integration.
+  const [sourceOpen, setSourceOpen] = useState(true);
+  const syncFromIntegration = useSyncIssueFromIntegration();
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   // User preference: pin the bottom comment bar to the scroll viewport. Off
   // below `md` regardless of the preference — see the hook.
@@ -2873,6 +2880,80 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
         defaultAgentId={issue.assignee_type === "agent" ? (issue.assignee_id ?? undefined) : undefined}
       />
       <PluginPanelSection issueId={issue.id} />
+
+      {/* Source — shown when the issue was imported from an external provider */}
+      {issue.integration_provider === "github" && (
+        <div>
+          <button
+            className={`flex w-full items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-2 hover:bg-accent/70 ${sourceOpen ? "" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setSourceOpen(!sourceOpen)}
+          >
+            Source
+            <ChevronRight className={`!size-3 shrink-0 stroke-[2.5] text-muted-foreground transition-transform ${sourceOpen ? "rotate-90" : ""}`} />
+          </button>
+          {sourceOpen && <div className="space-y-0.5 pl-2">
+            <PropRow label="Provider">
+              {issue.integration_external_url ? (
+                <a
+                  href={issue.integration_external_url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors group/source"
+                >
+                  <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    GitHub
+                    {issue.integration_external_id && (
+                      <span className="text-muted-foreground"> #{issue.integration_external_id}</span>
+                    )}
+                  </span>
+                  <ExternalLink className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/source:opacity-100" />
+                </a>
+              ) : (
+                <>
+                  <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">GitHub</span>
+                </>
+              )}
+            </PropRow>
+            {issue.integration_repo && (
+              <PropRow label="Repo">
+                <span className="truncate text-muted-foreground">{issue.integration_repo}</span>
+              </PropRow>
+            )}
+            <PropRow label="Synced">
+              <span className="text-muted-foreground">
+                {issue.integration_synced_at ? timeAgo(issue.integration_synced_at) : "never"}
+              </span>
+            </PropRow>
+            <div className="pt-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-full text-xs"
+                disabled={syncFromIntegration.isPending}
+                onClick={() =>
+                  syncFromIntegration.mutate(issue.id, {
+                    onSuccess: () => toast.success("Pulled latest from GitHub"),
+                    onError: (err) =>
+                      toast.error(
+                        err instanceof Error ? err.message : "Failed to pull latest",
+                      ),
+                  })
+                }
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    syncFromIntegration.isPending && "animate-spin",
+                  )}
+                />
+                {syncFromIntegration.isPending ? "Pulling..." : "Pull latest"}
+              </Button>
+            </div>
+          </div>}
+        </div>
+      )}
 
       {/* Parent issue — standalone section, only when the issue has a
           parent. Setting a parent is reachable via the issue actions menu;
