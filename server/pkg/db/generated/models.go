@@ -518,6 +518,7 @@ type ChatMessage struct {
 	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
 	FailureReason                 pgtype.Text        `json:"failure_reason"`
 	ElapsedMs                     pgtype.Int8        `json:"elapsed_ms"`
+	ExternalMessageID             pgtype.Text        `json:"external_message_id"`
 	MessageKind                   string             `json:"message_kind"`
 	ChannelMediaPendingUntil      pgtype.Timestamptz `json:"channel_media_pending_until"`
 	ChannelIngested               bool               `json:"channel_ingested"`
@@ -551,6 +552,10 @@ type ChatSession struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	UnreadSince         pgtype.Timestamptz `json:"unread_since"`
 	RuntimeID           pgtype.UUID        `json:"runtime_id"`
+	Source              string             `json:"source"`
+	ExternalTeamID      pgtype.Text        `json:"external_team_id"`
+	ExternalChannelID   pgtype.Text        `json:"external_channel_id"`
+	ExternalThreadID    pgtype.Text        `json:"external_thread_id"`
 	LastReadAt          pgtype.Timestamptz `json:"last_read_at"`
 	IsAgentIntro        bool               `json:"is_agent_intro"`
 	PinnedAt            pgtype.Timestamptz `json:"pinned_at"`
@@ -1493,6 +1498,18 @@ type SkillToLabel struct {
 	SkillID   pgtype.UUID        `json:"skill_id"`
 	LabelID   pgtype.UUID        `json:"label_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SlackPendingChatPick struct {
+	ID                pgtype.UUID        `json:"id"`
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	CreatorID         pgtype.UUID        `json:"creator_id"`
+	ExternalTeamID    string             `json:"external_team_id"`
+	ExternalChannelID string             `json:"external_channel_id"`
+	ExternalThreadID  string             `json:"external_thread_id"`
+	InitialText       string             `json:"initial_text"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type Squad struct {
