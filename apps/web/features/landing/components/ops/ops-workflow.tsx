@@ -13,6 +13,108 @@ const FRAME_LABELS = [
   "FRAME_05 · activity_log · ENG-242",
 ];
 
+type FlowTone = "warn" | "accent2" | "accent" | "pop";
+
+const FLOW_TONE_CLASSES: Record<FlowTone, { box: string; dot: string; text: string }> = {
+  warn: {
+    box: "border-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--bg2))]",
+    dot: "bg-[var(--warn)]",
+    text: "text-[var(--warn)]",
+  },
+  accent2: {
+    box: "border-[var(--accent2)] bg-[color-mix(in_srgb,var(--accent2)_8%,var(--bg2))]",
+    dot: "bg-[var(--accent2)]",
+    text: "text-[var(--accent2)]",
+  },
+  accent: {
+    box: "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg2))]",
+    dot: "bg-[var(--accent)]",
+    text: "text-[var(--accent)]",
+  },
+  pop: {
+    box: "border-[var(--pop)] bg-[color-mix(in_srgb,var(--pop)_8%,var(--bg2))]",
+    dot: "bg-[var(--pop)]",
+    text: "text-[var(--pop)]",
+  },
+};
+
+function FlowBox({
+  tone,
+  label,
+  sub,
+}: {
+  tone: FlowTone;
+  label: string;
+  sub: string;
+}) {
+  const t = FLOW_TONE_CLASSES[tone];
+  return (
+    <div
+      className={cn(
+        "flex min-w-[110px] flex-1 flex-col items-center gap-1 border px-3 py-[10px]",
+        t.box,
+      )}
+    >
+      <span className="flex items-center gap-[6px] text-[length:var(--font-size-tag)] font-[number:var(--weight-bold)] tracking-[var(--tr-label)] text-[var(--txt)]">
+        <span className={cn("inline-block h-[6px] w-[6px]", t.dot)} aria-hidden="true" />
+        {label}
+      </span>
+      <span className={cn("text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)]", t.text)}>
+        {sub}
+      </span>
+    </div>
+  );
+}
+
+function FlowArrow() {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative flex h-[2px] flex-1 items-center bg-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+    >
+      <span className="absolute right-[-1px] top-1/2 -translate-y-1/2 text-[length:var(--font-size-tag)] font-[number:var(--weight-bold)] leading-none text-[var(--accent)]">
+        ▶
+      </span>
+    </span>
+  );
+}
+
+function FlowDiagram() {
+  return (
+    <div className="border border-[var(--line2)] bg-[var(--bg2)] px-[18px] py-[16px] max-[640px]:hidden">
+      <div className="mb-3 flex items-center justify-between text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+        <span>{"// FLOW_OF_OPERATIONS"}</span>
+        <span className="text-[var(--accent)]">closed_loop · every iteration faster</span>
+      </div>
+
+      <div className="flex items-stretch gap-2">
+        <FlowBox tone="warn" label="HUMAN" sub="files · reviews" />
+        <FlowArrow />
+        <FlowBox tone="accent2" label="DAEMON" sub="claims · injects skills" />
+        <FlowArrow />
+        <FlowBox tone="accent" label="AGENT" sub="codes · streams" />
+        <FlowArrow />
+        <FlowBox tone="accent" label="PR" sub="merged · closed" />
+      </div>
+
+      <div className="mt-[10px] grid grid-cols-[14px_1fr_14px] items-center text-[length:var(--font-size-nano)]">
+        <span aria-hidden="true" className="text-[var(--accent)]">↰</span>
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="block h-px flex-1 border-t border-dashed border-[var(--accent)]" />
+          <span className="whitespace-nowrap tracking-[var(--tr-tag)] text-[var(--accent)]">
+            activity_log <span className="text-[var(--dim)]">·</span> skill_library
+          </span>
+          <span aria-hidden="true" className="block h-px flex-1 border-t border-dashed border-[var(--accent)]" />
+        </div>
+        <span aria-hidden="true" className="text-right text-[var(--accent)]">↱</span>
+      </div>
+      <div className="mt-1 text-center text-[length:var(--font-size-nano)] tracking-[var(--tr-tag)] text-[var(--dim)]">
+        {"// every actor logged · every win replayable"}
+      </div>
+    </div>
+  );
+}
+
 function Pill({
   tone = "default",
   children,
@@ -322,9 +424,7 @@ export function OpsWorkflow() {
           <div className="relative flex flex-1 flex-col gap-3 border border-[var(--line2)] bg-[var(--bg2)] p-5">
             {FRAMES[activeStep]}
           </div>
-          <pre className="m-0 overflow-x-auto whitespace-pre border border-[var(--line2)] bg-[var(--bg2)] px-[18px] py-[14px] text-[length:var(--font-size-micro)] leading-[1.4] text-[var(--dim)] max-[640px]:hidden">
-            {workflow.asciiDiagram}
-          </pre>
+          <FlowDiagram />
         </div>
       </div>
     </OpsSection>

@@ -380,7 +380,6 @@ export type OpsDict = {
     headlineParts: string[];
     sub: string;
     steps: { stepnum: string; h: string; p: string }[];
-    asciiDiagram: string;
   };
   stats: {
     label: string;
