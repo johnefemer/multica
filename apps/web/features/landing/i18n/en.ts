@@ -1111,9 +1111,9 @@ export function createEnDict(allowSignup: boolean): LandingDict {
       label: "VS_REST",
       num: "§05",
       headlineParts: [
-        "ISSUE TRACKERS DON'T",
+        "ISSUE TRACKERS DON'T ",
         "KNOW WHAT AN AGENT IS. ",
-        "// AGENT_IDES",
+        "// AGENT_IDES ",
         "DON'T KNOW WHAT A TEAM IS.",
       ],
       sub: "AgentHost isn't a fork of either. It's the missing operational layer between them.",
