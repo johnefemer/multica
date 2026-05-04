@@ -8,7 +8,6 @@ import { OpsWorkflow } from "./ops-workflow";
 import { OpsStats } from "./ops-stats";
 import { OpsCompare } from "./ops-compare";
 import { OpsQuote } from "./ops-quote";
-import { OpsPricing } from "./ops-pricing";
 import { OpsCallToAction } from "./ops-cta";
 
 export function OpsLanding() {
@@ -21,7 +20,6 @@ export function OpsLanding() {
       <OpsStats />
       <OpsCompare />
       <OpsQuote />
-      <OpsPricing />
       <OpsCallToAction />
     </OpsPageShell>
   );
