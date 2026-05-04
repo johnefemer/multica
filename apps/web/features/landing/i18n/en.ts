@@ -4479,7 +4479,7 @@ export function createEnDict(
             "Procurement, redlines, MSAs",
           ],
           cta: "CONTACT_SALES →",
-          href: "mailto:sales@agenthost.kensink.com",
+          href: "mailto:agenthost@kensink.com",
         },
       ],
     },
@@ -4499,7 +4499,7 @@ export function createEnDict(
         license: "MIT (server / daemon / cli)",
         runtime: "macos · linux · windows",
         status: "● ALL_SYSTEMS_NORMAL",
-        contact: "team@agenthost.kensink.com",
+        contact: "agenthost@kensink.com",
         repo: "github.com/johnefemer/multica",
       },
     },
@@ -4532,7 +4532,7 @@ export function createEnDict(
           links: [
             { label: "About Kensink", href: "/about" },
             { label: "Open source", href: "https://github.com/johnefemer/multica" },
-            { label: "Contact", href: "mailto:team@agenthost.kensink.com" },
+            { label: "Contact", href: "mailto:agenthost@kensink.com" },
           ],
         },
         {
@@ -4554,7 +4554,7 @@ export function createEnDict(
   legal: {
     lastUpdatedLabel: "Last updated",
     contactLine:
-      "Questions about this document? Reach us at team@agenthost.kensink.com.",
+      "Questions about this document? Reach us at agenthost@kensink.com.",
     terms: {
       title: "Terms of Service",
       intro:
@@ -4613,7 +4613,7 @@ export function createEnDict(
         {
           heading: "9. Contact",
           paragraphs: [
-            "For legal notices, write to team@agenthost.kensink.com.",
+            "For legal notices, write to agenthost@kensink.com.",
           ],
         },
         {
@@ -4660,7 +4660,7 @@ export function createEnDict(
         {
           heading: "5. Your rights",
           paragraphs: [
-            "You can request access, export, correction, or deletion of your personal data by writing to team@agenthost.kensink.com. Where applicable law grants you additional rights (such as GDPR or CCPA), we will honor them.",
+            "You can request access, export, correction, or deletion of your personal data by writing to agenthost@kensink.com. Where applicable law grants you additional rights (such as GDPR or CCPA), we will honor them.",
           ],
         },
         {
@@ -4672,7 +4672,7 @@ export function createEnDict(
         {
           heading: "7. Contact",
           paragraphs: [
-            "For privacy questions, write to team@agenthost.kensink.com.",
+            "For privacy questions, write to agenthost@kensink.com.",
           ],
         },
         {
@@ -4830,7 +4830,7 @@ export function createEnDict(
         {
           heading: "Notifications of change",
           paragraphs: [
-            "Customers can subscribe to subprocessor change notifications by writing to team@agenthost.kensink.com. Material additions are announced at least 30 days before they take effect.",
+            "Customers can subscribe to subprocessor change notifications by writing to agenthost@kensink.com. Material additions are announced at least 30 days before they take effect.",
           ],
         },
         {
