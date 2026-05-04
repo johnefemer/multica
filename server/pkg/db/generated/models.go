@@ -487,6 +487,19 @@ type ChannelUserBinding struct {
 	BoundAt        pgtype.Timestamptz `json:"bound_at"`
 }
 
+type ChatChannelBinding struct {
+	ID                  pgtype.UUID        `json:"id"`
+	WorkspaceID         pgtype.UUID        `json:"workspace_id"`
+	Platform            string             `json:"platform"`
+	ExternalTeamID      string             `json:"external_team_id"`
+	ExternalChannelID   string             `json:"external_channel_id"`
+	ExternalChannelName pgtype.Text        `json:"external_channel_name"`
+	DefaultAgentID      pgtype.UUID        `json:"default_agent_id"`
+	EventFilters        []string           `json:"event_filters"`
+	CreatedBy           pgtype.UUID        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type ChatDraftRestore struct {
 	ID            pgtype.UUID        `json:"id"`
 	ChatSessionID pgtype.UUID        `json:"chat_session_id"`
