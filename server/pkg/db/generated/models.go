@@ -558,6 +558,18 @@ type ChatSession struct {
 	ExplicitlyCreatedAt pgtype.Timestamptz `json:"explicitly_created_at"`
 }
 
+type ChatUserLink struct {
+	ID             pgtype.UUID        `json:"id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	Platform       string             `json:"platform"`
+	ExternalTeamID string             `json:"external_team_id"`
+	ExternalUserID string             `json:"external_user_id"`
+	ExternalEmail  pgtype.Text        `json:"external_email"`
+	ExternalName   pgtype.Text        `json:"external_name"`
+	LinkedAt       pgtype.Timestamptz `json:"linked_at"`
+}
+
 type CliAuthCode struct {
 	Code      string             `json:"code"`
 	State     string             `json:"state"`
@@ -1762,18 +1774,19 @@ type WebhookDelivery struct {
 }
 
 type Workspace struct {
-	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
-	Slug         string             `json:"slug"`
-	Description  pgtype.Text        `json:"description"`
-	Settings     []byte             `json:"settings"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Context      pgtype.Text        `json:"context"`
-	Repos        []byte             `json:"repos"`
-	IssuePrefix  string             `json:"issue_prefix"`
-	IssueCounter int32              `json:"issue_counter"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
+	ID              pgtype.UUID        `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	Description     pgtype.Text        `json:"description"`
+	Settings        []byte             `json:"settings"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Context         pgtype.Text        `json:"context"`
+	Repos           []byte             `json:"repos"`
+	IssuePrefix     string             `json:"issue_prefix"`
+	IssueCounter    int32              `json:"issue_counter"`
+	ChatAutoOnboard bool               `json:"chat_auto_onboard"`
+	AvatarUrl       pgtype.Text        `json:"avatar_url"`
 	// When TRUE, an agent run that resolves to no precise accountable human (would be owner_fallback) is refused at enqueue instead of degrading to the agent owner (MUL-4302 §3.5). Default FALSE = owner_fallback. Never affects authorization (originator_user_id).
 	AttributionFailClosed bool `json:"attribution_fail_closed"`
 }
