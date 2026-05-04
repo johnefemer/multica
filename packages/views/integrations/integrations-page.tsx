@@ -913,7 +913,15 @@ function SlackManagePanel({
   const deleteBinding = useDeleteSlackBinding(wsId);
 
   const boundChannelIds = new Set(bindings.map((b) => b.external_channel_id));
-  const availableChannels = channels.filter((c) => !boundChannelIds.has(c.id));
+  // Only surface channels the bot has actually been added to. Slack returns
+  // every public channel from conversations.list (whether the bot is in it
+  // or not) but only delivers app_mention events for channels with
+  // is_member=true. Showing the rest in the picker is a footgun: the user
+  // binds the channel, the row writes, but @-mentions silently never fire
+  // because Slackbot intercepts them with "they're not in this channel".
+  const availableChannels = channels.filter(
+    (c) => c.is_member && !boundChannelIds.has(c.id),
+  );
 
   const handleBind = async (channelId: string, channelName: string) => {
     try {
@@ -992,9 +1000,10 @@ function SlackManagePanel({
                       <DialogTitle>Bind a Slack channel</DialogTitle>
                       <DialogDescription>
                         Routes messages from this channel to the current workspace.
-                        Add the bot to private channels first via Slack&apos;s
-                        &quot;Add apps to channel&quot; menu — only channels the bot
-                        is in will appear here.
+                        Only channels the bot has been added to are shown — invite
+                        the bot via Slack&apos;s &quot;Add apps to channel&quot; menu
+                        (or by mentioning <code>@agenthost</code> in the channel and
+                        accepting the prompt) before binding here.
                       </DialogDescription>
                     </div>
                     <Button
@@ -1017,9 +1026,15 @@ function SlackManagePanel({
                   ) : channelsError ? (
                     <p className="text-sm text-destructive">Failed to load channels.</p>
                   ) : availableChannels.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No unbound channels found. Invite the bot to a channel, then click refresh.
-                    </p>
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <p>No channels available to bind.</p>
+                      <p className="text-xs">
+                        The bot needs to be added to a Slack channel before it can
+                        be bound. Open Slack, type <code>@agenthost</code> in the
+                        channel and click <strong>Add Them</strong> when Slackbot
+                        prompts you, then click ↻ to refresh this list.
+                      </p>
+                    </div>
                   ) : (
                     <Command>
                       <CommandInput placeholder="Search channels…" />
