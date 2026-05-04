@@ -24,8 +24,8 @@ import { DISCORD_URL, DiscordIcon } from "./discord";
 import { useT } from "../i18n";
 import { docsLocalePrefix } from "../common/docs-locale";
 
-const DOCS_URL = "https://multica.ai/docs";
-const CHANGELOG_URL = "https://multica.ai/changelog";
+const DOCS_URL = "https://agenthost.kensink.com/docs";
+const CHANGELOG_URL = "https://agenthost.kensink.com/changelog";
 // Absolute, including on self-hosted deployments: the installers we ship are
 // the same binaries either way, and the desktop client can point at a
 // self-hosted backend once installed. A self-host-relative /download would
