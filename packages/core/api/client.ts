@@ -1114,6 +1114,10 @@ export class ApiClient {
     return this.fetch(`/api/workspaces/${workspaceId}/integrations/github/repos`);
   }
 
+  async syncIssueFromIntegration(issueId: string): Promise<Issue> {
+    return this.fetch(`/api/issues/${issueId}/sync-integration`, { method: "POST" });
+  }
+
   async importGitHubIssues(
     workspaceId: string,
     repo: string,

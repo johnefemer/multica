@@ -224,6 +224,32 @@ export function useDeleteIssue() {
   });
 }
 
+/**
+ * Pull the latest title/description/status from the upstream provider for an
+ * issue imported from an integration (currently GitHub-only). On success the
+ * server bumps `integration_synced_at`; we patch the detail/list cache with
+ * the fresh fields and invalidate to pick up anything we missed.
+ */
+export function useSyncIssueFromIntegration() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: (issueId: string) => api.syncIssueFromIntegration(issueId),
+    onSuccess: (updated) => {
+      qc.setQueryData<Issue>(issueKeys.detail(wsId, updated.id), (old) =>
+        old ? { ...old, ...updated } : updated,
+      );
+      qc.setQueryData<ListIssuesCache>(issueKeys.list(wsId), (old) =>
+        old ? patchIssueInBuckets(old, updated.id, updated) : old,
+      );
+    },
+    onSettled: (_data, _err, issueId) => {
+      qc.invalidateQueries({ queryKey: issueKeys.detail(wsId, issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.list(wsId) });
+    },
+  });
+}
+
 /** Queue a new agent run for the issue's current assignee (same as `multica issue rerun`). */
 export function useRerunIssue() {
   const qc = useQueryClient();

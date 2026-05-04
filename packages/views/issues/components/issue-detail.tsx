@@ -9,11 +9,14 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
+  GitBranch,
   MoreHorizontal,
   PanelRight,
   Pin,
   PinOff,
   Plus,
+  RefreshCw,
   Users,
 } from "lucide-react";
 import { PageHeader } from "../../layout/page-header";
@@ -48,6 +51,8 @@ import { useCurrentWorkspace, useWorkspacePaths } from "@multica/core/paths";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { issueListOptions, issueDetailOptions, childIssuesOptions, issueUsageOptions } from "@multica/core/issues/queries";
+import { useSyncIssueFromIntegration } from "@multica/core/issues/mutations";
+import { toast } from "sonner";
 import { memberListOptions, agentListOptions } from "@multica/core/workspace/queries";
 import { useRecentIssuesStore } from "@multica/core/issues/stores";
 import { useIssueTimeline } from "../hooks/use-issue-timeline";
@@ -199,6 +204,8 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [parentIssueOpen, setParentIssueOpen] = useState(true);
   const [tokenUsageOpen, setTokenUsageOpen] = useState(true);
+  const [sourceOpen, setSourceOpen] = useState(true);
+  const syncFromIntegration = useSyncIssueFromIntegration();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const didHighlightRef = useRef<string | null>(null);
@@ -410,6 +417,80 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
           </PropRow>
         </div>}
       </div>
+
+      {/* Source — shown when the issue was imported from an external provider */}
+      {issue.integration_provider === "github" && (
+        <div>
+          <button
+            className={`flex w-full items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-2 hover:bg-accent/70 ${sourceOpen ? "" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setSourceOpen(!sourceOpen)}
+          >
+            Source
+            <ChevronRight className={`!size-3 shrink-0 stroke-[2.5] text-muted-foreground transition-transform ${sourceOpen ? "rotate-90" : ""}`} />
+          </button>
+          {sourceOpen && <div className="space-y-0.5 pl-2">
+            <PropRow label="Provider">
+              {issue.integration_external_url ? (
+                <a
+                  href={issue.integration_external_url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors group/source"
+                >
+                  <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    GitHub
+                    {issue.integration_external_id && (
+                      <span className="text-muted-foreground"> #{issue.integration_external_id}</span>
+                    )}
+                  </span>
+                  <ExternalLink className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/source:opacity-100" />
+                </a>
+              ) : (
+                <>
+                  <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">GitHub</span>
+                </>
+              )}
+            </PropRow>
+            {issue.integration_repo && (
+              <PropRow label="Repo">
+                <span className="truncate text-muted-foreground">{issue.integration_repo}</span>
+              </PropRow>
+            )}
+            <PropRow label="Synced">
+              <span className="text-muted-foreground">
+                {issue.integration_synced_at ? timeAgo(issue.integration_synced_at) : "never"}
+              </span>
+            </PropRow>
+            <div className="pt-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-full text-xs"
+                disabled={syncFromIntegration.isPending}
+                onClick={() =>
+                  syncFromIntegration.mutate(issue.id, {
+                    onSuccess: () => toast.success("Pulled latest from GitHub"),
+                    onError: (err) =>
+                      toast.error(
+                        err instanceof Error ? err.message : "Failed to pull latest",
+                      ),
+                  })
+                }
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    syncFromIntegration.isPending && "animate-spin",
+                  )}
+                />
+                {syncFromIntegration.isPending ? "Pulling..." : "Pull latest"}
+              </Button>
+            </div>
+          </div>}
+        </div>
+      )}
 
       {/* Parent issue */}
       {parentIssue && (
