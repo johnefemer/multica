@@ -1250,12 +1250,12 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         {
           label: "// PRODUCT",
           links: [
-            { label: "Issues", href: "#primitives" },
-            { label: "Agents", href: "#primitives" },
-            { label: "Skills", href: "#primitives" },
-            { label: "Autopilot", href: "#primitives" },
-            { label: "Inbox", href: "#primitives" },
-            { label: "Runtimes", href: "#primitives" },
+            { label: "Issues", href: "/#primitives" },
+            { label: "Agents", href: "/#primitives" },
+            { label: "Skills", href: "/#primitives" },
+            { label: "Autopilot", href: "/#primitives" },
+            { label: "Inbox", href: "/#primitives" },
+            { label: "Runtimes", href: "/#primitives" },
           ],
         },
         {

@@ -58,7 +58,7 @@ export function OpsHero() {
               <Link href={ctaHref} className={opsButtonClassName("solid")}>
                 {hero.ctaPrimary}
               </Link>
-              <Link href="#workflow" className={opsButtonClassName("ghost")}>
+              <Link href="/#workflow" className={opsButtonClassName("ghost")}>
                 {hero.ctaSecondary}
               </Link>
               <span className="ml-[6px] text-[length:var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--dim)]">
