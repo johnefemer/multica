@@ -2116,6 +2116,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Post("/pull-requests", h.LinkIssuePullRequest)
 					r.Delete("/pull-requests/{prId}", h.UnlinkIssuePullRequest)
 					r.Put("/pr-auto-complete", h.SetIssuePRAutoComplete)
+					r.Post("/sync-integration", h.SyncIssueFromIntegration)
 				})
 			})
 

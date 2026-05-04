@@ -249,6 +249,38 @@ type GitHubIssue struct {
 	PullRequest *struct{} `json:"pull_request,omitempty"`
 }
 
+// GetIssue fetches a single issue from a GitHub repo by number.
+// Returns (nil, nil) when the issue no longer exists (404).
+func GetIssue(ctx context.Context, token, repo string, number int) (*GitHubIssue, error) {
+	reqURL := fmt.Sprintf("%s/repos/%s/issues/%d", apiBase, repo, number)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("github: build get-issue request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("github: get issue failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github: get issue returned %d: %s", resp.StatusCode, string(b))
+	}
+	var issue GitHubIssue
+	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+		return nil, fmt.Errorf("github: decode issue: %w", err)
+	}
+	return &issue, nil
+}
+
 // RegisterWebhook creates a webhook on the given repo.
 func RegisterWebhook(ctx context.Context, token, repo, webhookURL, secret string) (int64, error) {
 	type hookConfig struct {
