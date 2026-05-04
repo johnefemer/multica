@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -708,4 +709,81 @@ func redirectWithError(w http.ResponseWriter, r *http.Request, wsSlug, provider,
 			wsSlug, msg, provider),
 		http.StatusFound,
 	)
+}
+
+// SyncIssueFromIntegration refreshes an imported issue's title, description,
+// and status from the upstream provider. Currently GitHub-only.
+// POST /api/issues/{id}/sync-integration
+func (h *Handler) SyncIssueFromIntegration(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	issue, ok := h.loadIssueForUser(w, r, id)
+	if !ok {
+		return
+	}
+
+	if !issue.IntegrationProvider.Valid || issue.IntegrationProvider.String != "github" {
+		writeError(w, http.StatusBadRequest, "issue is not linked to a supported integration")
+		return
+	}
+	if !issue.IntegrationRepo.Valid || !issue.IntegrationExternalID.Valid {
+		writeError(w, http.StatusBadRequest, "issue is missing integration repo/external id")
+		return
+	}
+
+	number, err := strconv.Atoi(issue.IntegrationExternalID.String)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid integration external id")
+		return
+	}
+
+	ctx := r.Context()
+	conn, err := h.Queries.GetIntegrationConnection(ctx, issue.WorkspaceID, "github")
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusFailedDependency, "GitHub is not connected for this workspace")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	ghi, err := githubprovider.GetIssue(ctx, conn.AccessToken, issue.IntegrationRepo.String, number)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "failed to fetch GitHub issue: "+err.Error())
+		return
+	}
+	if ghi == nil {
+		writeError(w, http.StatusNotFound, "GitHub issue not found (may have been deleted)")
+		return
+	}
+
+	// Mirror webhook + import behavior: open → todo, closed → done. Only
+	// flip status when the upstream state actually disagrees with ours,
+	// otherwise a closed-then-reopened-then-pulled flow would clobber
+	// in-flight statuses like in_progress.
+	status := issue.Status
+	switch ghi.State {
+	case "open":
+		if status == "done" || status == "cancelled" {
+			status = "todo"
+		}
+	case "closed":
+		status = "done"
+	}
+
+	updated, err := h.Queries.SyncIssueFromIntegration(ctx, issue.ID, ghi.Title,
+		pgtype.Text{String: ghi.Body, Valid: ghi.Body != ""}, status)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update issue")
+		return
+	}
+
+	prefix := h.getIssuePrefix(ctx, updated.WorkspaceID)
+	resp := issueToResponse(updated, prefix)
+	h.Bus.Publish(events.Event{
+		Type:        protocol.EventIssueUpdated,
+		WorkspaceID: uuidToString(updated.WorkspaceID),
+		Payload:     resp,
+	})
+	writeJSON(w, http.StatusOK, resp)
 }

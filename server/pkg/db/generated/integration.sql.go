@@ -298,3 +298,41 @@ func (q *Queries) DeleteIntegrationMetaKey(ctx context.Context, workspaceID pgty
 	return i, err
 }
 
+const syncIssueFromIntegration = `-- name: SyncIssueFromIntegration :one
+UPDATE issue SET
+    title                 = $2,
+    description           = $3,
+    status                = $4,
+    integration_synced_at = now(),
+    updated_at            = now()
+WHERE id = $1
+RETURNING id, workspace_id, title, description, status, priority,
+          assignee_type, assignee_id, creator_type, creator_id,
+          parent_issue_id, acceptance_criteria, context_refs, position, due_date,
+          created_at, updated_at, number, project_id, origin_type, origin_id,
+          first_executed_at,
+          integration_provider, integration_external_id, integration_external_url,
+          integration_repo, integration_synced_at
+`
+
+// SyncIssueFromIntegration refreshes an imported issue with the latest
+// title/description/status from the upstream provider and bumps
+// integration_synced_at to now(). Used by the manual "Pull latest" action
+// on the issue detail page. Hand-maintained alongside the generated file —
+// the matching .sql query is intentionally omitted to avoid regeneration
+// drift with the project's older sqlc style.
+func (q *Queries) SyncIssueFromIntegration(ctx context.Context, id pgtype.UUID, title string, description pgtype.Text, status string) (Issue, error) {
+	row := q.db.QueryRow(ctx, syncIssueFromIntegration, id, title, description, status)
+	var i Issue
+	err := row.Scan(
+		&i.ID, &i.WorkspaceID, &i.Title, &i.Description, &i.Status, &i.Priority,
+		&i.AssigneeType, &i.AssigneeID, &i.CreatorType, &i.CreatorID,
+		&i.ParentIssueID, &i.AcceptanceCriteria, &i.ContextRefs, &i.Position, &i.DueDate,
+		&i.CreatedAt, &i.UpdatedAt, &i.Number, &i.ProjectID, &i.OriginType, &i.OriginID,
+		&i.FirstExecutedAt,
+		&i.IntegrationProvider, &i.IntegrationExternalID, &i.IntegrationExternalURL,
+		&i.IntegrationRepo, &i.IntegrationSyncedAt,
+	)
+	return i, err
+}
+
