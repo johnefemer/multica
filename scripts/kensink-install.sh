@@ -5,7 +5,7 @@
 # https://agenthost.kensink.com.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash
 #
 set -euo pipefail
 

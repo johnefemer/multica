@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
-# agenthost-deploy.sh — Deploy latest kensink branch on the agenthost EC2
+# agenthost-deploy.sh — Deploy latest kensink-v2 branch on the agenthost EC2
 #
 # Called by GitHub Actions (deploy.yml) or run manually on the server:
 #   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "cd /opt/multica && bash scripts/agenthost-deploy.sh"
 #
 # What it does:
-#   1. Pulls latest changes from origin/kensink
+#   1. Pulls latest changes from origin/kensink-v2 (or $BRANCH if overridden)
 #   2. Rebuilds and restarts Docker Compose services (zero-downtime rolling)
 #   3. Waits for the backend health-check
 #   4. Prints status
