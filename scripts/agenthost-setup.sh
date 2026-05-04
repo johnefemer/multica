@@ -15,7 +15,9 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/johnefemer/multica.git"
-DEPLOY_BRANCH="kensink"
+# kensink-v2 is the active deploy line (kensink itself is held as a stable
+# snapshot since 9412b08c). Override at runtime via DEPLOY_BRANCH=… if needed.
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-kensink-v2}"
 INSTALL_DIR="/opt/multica"
 SERVICE_USER="ubuntu"
 

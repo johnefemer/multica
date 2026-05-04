@@ -115,7 +115,7 @@ The daemon connects to: `wss://agenthost.kensink.com/ws`
 ### Step 1 — Install the CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash
 ```
 
 This downloads the official Multica CLI binary and prints the setup command for Agenthost.
@@ -177,7 +177,7 @@ Step 3 · Runtime
 ```
 
 Clicking **Show steps** opens a dialog with the two commands:
-1. `curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash`
+1. `curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash`
 2. `multica setup self-host --server-url https://agenthost.kensink.com`
 
 The dialog listens for an active runtime — once `multica setup` completes and the daemon connects, the backend notifies the frontend over WebSocket and the **"Connect & continue"** button activates.
@@ -211,7 +211,7 @@ multica agent run <issue-id>
 
 ### Update the CLI
 ```bash
-curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash
 # Script detects existing install and upgrades automatically
 ```
 

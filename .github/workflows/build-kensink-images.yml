@@ -1,8 +1,9 @@
 name: Build & Push Kensink Images
 
-# Builds custom backend + frontend images from the kensink branch
-# and pushes them to GHCR. The agenthost server then pulls these
-# instead of the upstream multica-ai images.
+# Builds custom backend + frontend images from the kensink-v2 branch
+# (the active deploy line; see 9412b08c) and pushes them to GHCR.
+# The agenthost server then pulls these instead of the upstream
+# multica-ai images.
 #
 # Backend image: ghcr.io/johnefemer/multica-backend:kensink
 # Frontend image: ghcr.io/johnefemer/multica-web:kensink
