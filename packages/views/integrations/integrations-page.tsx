@@ -1200,6 +1200,7 @@ export function IntegrationsPage() {
                     wsSlug={workspace?.slug ?? ""}
                     canManage={canManage}
                     githubClientId={config?.github_client_id}
+                    slackClientId={config?.slack_client_id}
                   />
                 ))}
               </div>
