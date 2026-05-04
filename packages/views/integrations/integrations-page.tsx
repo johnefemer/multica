@@ -875,6 +875,95 @@ function GitHubManagePanel({
   );
 }
 
+// ── Slack management panel ───────────────────────────────────────────────────
+//
+// Phase 1 of the Slack integration only ships OAuth install. Channel binding,
+// slash commands, and channel notifications land in later phases (see
+// docs/slack-integration.md). Until then this panel surfaces what the install
+// captured and previews what's coming, so the Manage button isn't a dead end.
+
+function SlackManagePanel({ conn }: { conn: IntegrationConnection }) {
+  const scopes = conn.scope ? conn.scope.split(",").filter(Boolean) : [];
+  const slackAppsURL = conn.provider_account_id
+    ? `https://app.slack.com/manage/${conn.provider_account_id}/integrations/installed`
+    : "https://app.slack.com/manage";
+
+  return (
+    <div className="space-y-4">
+      {/* Account info — mirrors GitHub panel */}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+        {conn.provider_account_avatar && (
+          <img
+            src={conn.provider_account_avatar}
+            alt={conn.provider_account_name ?? ""}
+            className="size-8 rounded"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">
+            {conn.provider_account_name ?? conn.provider_account_id}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Team ID: <code className="font-mono">{conn.provider_account_id}</code>
+            {" · "}Connected {new Date(conn.connected_at).toLocaleDateString()}
+          </p>
+        </div>
+        <a
+          href={slackAppsURL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          title="Open in Slack"
+        >
+          Open in Slack <ExternalLink className="size-3" />
+        </a>
+      </div>
+
+      {/* Granted scopes */}
+      {scopes.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1.5">
+            Granted bot scopes ({scopes.length})
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {scopes.map((s) => (
+              <Badge key={s} variant="outline" className="text-[10px] font-mono">
+                {s}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Phase status */}
+      <div className="rounded-lg border p-3 space-y-2 text-xs text-muted-foreground">
+        <p className="font-medium text-foreground">What's wired up</p>
+        <ul className="space-y-1">
+          <li className="flex items-start gap-1.5">
+            <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-emerald-500" />
+            OAuth install — bot is added to the Slack workspace
+          </li>
+        </ul>
+        <p className="font-medium text-foreground pt-1">Coming next</p>
+        <ul className="space-y-1">
+          <li className="flex items-start gap-1.5">
+            <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
+            Bind Slack channels to Agenthost workspaces (1:1)
+          </li>
+          <li className="flex items-start gap-1.5">
+            <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
+            <code className="font-mono">/agenthost</code> slash commands
+          </li>
+          <li className="flex items-start gap-1.5">
+            <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
+            Two-way thread mirroring + channel notifications
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ── Integration card ─────────────────────────────────────────────────────────
 
 function IntegrationCard({
@@ -1014,6 +1103,9 @@ function IntegrationCard({
           <div className="pt-3">
             {def.key === "github" && (
               <GitHubManagePanel wsId={wsId} conn={conn!} />
+            )}
+            {def.key === "slack" && (
+              <SlackManagePanel conn={conn!} />
             )}
           </div>
         </CardContent>
