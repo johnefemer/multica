@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -172,7 +174,38 @@ func (h *Handler) CreateChatChannelBinding(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Post a greeting in the bound channel. Best-effort — a posting failure
+	// (bot not in channel, missing scope) shouldn't roll back the binding;
+	// the user can still re-bind after fixing the cause. We log loudly so
+	// the symptom is debuggable.
+	go func(token, channelID, channelName string) {
+		// Detached ctx — request ctx will be canceled by the time this runs.
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		text := slackGreetingText(channelName)
+		if _, err := slackprovider.PostMessage(bgCtx, token, channelID, text, nil); err != nil {
+			slog.Warn("slack greeting post failed",
+				"channel_id", channelID,
+				"workspace_id", uuidToString(wsID),
+				"error", err,
+			)
+		}
+	}(conn.AccessToken, req.ExternalChannelID, req.ExternalChannelName)
+
 	writeJSON(w, http.StatusCreated, bindingToResponse(binding))
+}
+
+// slackGreetingText returns the introductory message posted to a channel
+// the moment it's bound. Kept honest about the current capability surface —
+// don't promise mention/command handling that Phases 4/5 haven't shipped.
+func slackGreetingText(channelName string) string {
+	prefix := "👋 Hi from Agenthost!"
+	if channelName != "" {
+		prefix = "👋 Hi from Agenthost — #" + channelName + " is now bound."
+	}
+	return prefix + "\n\n" +
+		"This channel is connected to an Agenthost workspace. " +
+		"Channel notifications, `@agenthost` mentions, and `/agenthost` commands are rolling out in upcoming phases."
 }
 
 // DeleteChatChannelBinding removes a binding. The DELETE is scoped by
