@@ -165,6 +165,83 @@ export function PricingPageClient() {
         </div>
       </OpsSection>
 
+      <OpsSection id="hire-10x">
+        <OpsSectionHead
+          num="§02"
+          label="// HIRE_A_10x_DEV"
+          headlineParts={[
+            "PUT A ",
+            "10x DEV",
+            " ON YOUR TEAM.",
+          ]}
+          toneMap={{ 1: "accent" }}
+          sub="Pricing buys you the platform. The lift comes from how you operate it. We pair you with a 10x dev who works alongside your humans — assigning agents, codifying skills, and running the queue so velocity stops scaling with headcount."
+        />
+        <div className="grid grid-cols-[1.4fr_1fr] gap-10 border border-[var(--line2)] bg-[var(--bg2)] p-7 max-[880px]:grid-cols-1 max-[880px]:gap-6">
+          <div>
+            <div className="mb-4 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+              {"// PROGRAMME"}
+            </div>
+            <ul className="m-0 mb-6 list-none p-0 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+              {[
+                "Dedicated 10x dev embedded in your workspace",
+                "Owns the agent queue alongside your humans",
+                "Codifies wins into your skill_library — knowledge stays",
+                "Levels up your team so the role becomes self-sustaining",
+              ].map((b) => (
+                <li key={b} className="flex items-start gap-3 py-1">
+                  <span
+                    aria-hidden="true"
+                    className="mt-[6px] flex-none text-[11px] text-[var(--accent)]"
+                  >
+                    ▸
+                  </span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/10x" className={opsButtonClassName("solid")}>
+                EXPLORE_10x_PROGRAMME →
+              </Link>
+              <Link href={BOOKING_HREF} className={opsButtonClassName("ghost")}>
+                BOOK_A_SESSION
+              </Link>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-0 border border-[var(--line2)] self-start max-[480px]:grid-cols-1">
+            {[
+              { tag: "// 2x", label: "ADOPTS", tone: "warn" as const },
+              { tag: "// 5x", label: "OPERATES", tone: "accent2" as const },
+              { tag: "// 10x", label: "ELEVATES", tone: "accent" as const },
+            ].map((s) => (
+              <div
+                key={s.tag}
+                className={cn(
+                  "flex flex-col gap-1 border-r border-[var(--line2)] bg-[var(--bg)] p-4 last:border-r-0",
+                  "max-[480px]:!border-r-0 max-[480px]:border-b max-[480px]:last:border-b-0",
+                )}
+              >
+                <span
+                  className={
+                    s.tone === "accent"
+                      ? "text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]"
+                      : s.tone === "accent2"
+                        ? "text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent2)]"
+                        : "text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--warn)]"
+                  }
+                >
+                  {s.tag}
+                </span>
+                <span className="text-[length:var(--font-size-tag)] font-[number:var(--weight-bold)] tracking-[var(--tr-label)] text-[var(--txt)]">
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </OpsSection>
+
       <section
         id="book-a-session"
         className="relative border-b border-[var(--line2)] py-[var(--cta-pad-y)] max-[1020px]:py-[var(--cta-pad-y-lg)] max-[760px]:py-[var(--cta-pad-y-md)]"
