@@ -79,9 +79,9 @@ export function OpsHeader() {
   }, [drawerOpen]);
 
   const navLinks = [
-    { href: "#product", label: nav.product },
-    { href: "#workflow", label: nav.workflow },
-    { href: "#compare", label: nav.compare },
+    { href: "/#product", label: nav.product },
+    { href: "/#workflow", label: nav.workflow },
+    { href: "/#compare", label: nav.compare },
     { href: "/pricing", label: nav.pricing },
     { href: "/docs", label: nav.docs },
     { href: "/changelog", label: nav.changelog },
