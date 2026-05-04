@@ -67,6 +67,7 @@ func (h *Handler) HandleSlackEvents(w http.ResponseWriter, r *http.Request) {
 			ThreadTS  string `json:"thread_ts"`
 			TS        string `json:"ts"`
 			ChannelID string `json:"channel_id"`
+			BotID     string `json:"bot_id"`
 		} `json:"event"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -129,67 +130,31 @@ func (h *Handler) HandleSlackEvents(w http.ResponseWriter, r *http.Request) {
 			h.Queries.MarkWebhookEventProcessed(bgCtx, ev.ID, errMsg) //nolint:errcheck
 		}()
 
-		// Phase 3: only resolve workspace + identity for visibility — no
-		// actual chat mirroring or slash dispatch yet (those land in Phase 4).
-		channelID := envelope.Event.Channel
-		if channelID == "" {
-			channelID = envelope.Event.ChannelID
-		}
-		if channelID == "" {
-			slog.Debug("slack event: no channel id", "event_type", eventType)
-			return
-		}
-
-		binding, err := h.Queries.GetChatChannelBindingByChannel(bgCtx, db.GetChatChannelBindingByChannelParams{
-			Platform:          "slack",
-			ExternalChannelID: channelID,
+		// Phase 4: dispatch to chat-mirroring handlers.
+		processErr = h.dispatchSlackEvent(bgCtx, SlackEventEnvelope{
+			TeamID:  envelope.TeamID,
+			EventID: envelope.EventID,
+			Type:    envelope.Type,
+			Event: SlackInnerEvent{
+				Type:     envelope.Event.Type,
+				User:     envelope.Event.User,
+				Channel:  channelOrDefault(envelope.Event.Channel, envelope.Event.ChannelID),
+				Text:     envelope.Event.Text,
+				TS:       envelope.Event.TS,
+				ThreadTS: envelope.Event.ThreadTS,
+				BotID:    envelope.Event.BotID,
+			},
 		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				slog.Debug("slack event: channel not bound, ignoring",
-					"channel_id", channelID, "event_type", eventType)
-				return
-			}
-			processErr = fmt.Errorf("lookup binding: %w", err)
-			return
-		}
-
-		if envelope.Event.User == "" {
-			// Bot message or system event — nothing to resolve.
-			return
-		}
-
-		ws, err := h.Queries.GetWorkspace(bgCtx, binding.WorkspaceID)
-		if err != nil {
-			processErr = fmt.Errorf("lookup workspace: %w", err)
-			return
-		}
-
-		conn, err := h.Queries.GetIntegrationConnection(bgCtx, ws.ID, "slack")
-		if err != nil {
-			processErr = fmt.Errorf("lookup slack connection: %w", err)
-			return
-		}
-
-		user, err := h.ResolveSlackUser(bgCtx, ws, envelope.TeamID, envelope.Event.User, conn.AccessToken)
-		if err != nil {
-			// Identity failures are a normal outcome (email hidden,
-			// onboarding off) — log at info, not error.
-			slog.Info("slack identity resolution skipped",
-				"workspace_id", uuidToString(ws.ID),
-				"slack_user_id", envelope.Event.User,
-				"reason", err.Error(),
-			)
-			return
-		}
-
-		slog.Info("slack event resolved (Phase 3 plumbing — no further dispatch)",
-			"workspace_id", uuidToString(ws.ID),
-			"agenthost_user_id", uuidToString(user.ID),
-			"event_type", eventType,
-			"channel_id", channelID,
-		)
 	}()
+}
+
+// channelOrDefault returns the first non-empty channel id. Slack sends
+// `channel` for most event types and `channel_id` for a few legacy ones.
+func channelOrDefault(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }
 
 // HandleSlackCommands handles a Slack slash command.
@@ -275,23 +240,32 @@ func (h *Handler) HandleSlackInteractivity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var meta struct {
-		Type string `json:"type"`
-		User struct {
-			ID string `json:"id"`
-		} `json:"user"`
-		Team struct {
-			ID string `json:"id"`
-		} `json:"team"`
+	parsed, err := parseSlackInteractivityPayload(payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid payload JSON")
+		return
 	}
-	_ = json.Unmarshal([]byte(payload), &meta)
 
-	slog.Info("slack interactivity received (Phase 3 — placeholder)",
-		"type", meta.Type, "user_id", meta.User.ID, "team_id", meta.Team.ID,
-	)
-
-	// Empty 200 ack — Phase 4/5 will dispatch on type.
+	// 200 ack within Slack's 3s window. Real work happens in a goroutine
+	// — picker selection eventually posts a threaded "Working on it…" via
+	// chat.postMessage, so the user sees the result asynchronously.
 	w.WriteHeader(http.StatusOK)
+
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		switch parsed.Type {
+		case "block_actions":
+			if err := h.HandleSlackPickerSelection(bgCtx, parsed); err != nil {
+				slog.Error("slack interactivity dispatch failed",
+					"type", parsed.Type, "user_id", parsed.User.ID, "error", err)
+			}
+		default:
+			slog.Debug("slack interactivity ignored",
+				"type", parsed.Type, "user_id", parsed.User.ID)
+		}
+	}()
 }
 
 // readSlackBody reads + buffers the request body so signature verification

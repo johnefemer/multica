@@ -26,6 +26,51 @@ type PostMessageResult struct {
 	TS      string `json:"ts"`
 }
 
+// PostMessageInThread is a thin wrapper around PostMessage that always sets
+// thread_ts so the post lands as a threaded reply.
+func PostMessageInThread(ctx context.Context, token, channelID, threadTS, text string) error {
+	_, err := PostMessage(ctx, token, channelID, text, &PostMessageOptions{ThreadTS: threadTS})
+	return err
+}
+
+// PostEphemeral sends a message visible only to one user via chat.postEphemeral.
+// Used for the agent picker and friendly error feedback in bound channels.
+func PostEphemeral(ctx context.Context, token, channelID, slackUserID, text string, blocks []map[string]any) error {
+	body := map[string]any{
+		"channel": channelID,
+		"user":    slackUserID,
+		"text":    text,
+	}
+	if len(blocks) > 0 {
+		body["blocks"] = blocks
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("slack: marshal postEphemeral body: %w", err)
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost,
+		apiBase+"/chat.postEphemeral", strings.NewReader(string(raw)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("slack: chat.postEphemeral failed: %w", err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	var result struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return fmt.Errorf("slack: decode postEphemeral response: %w", err)
+	}
+	if !result.OK {
+		return fmt.Errorf("slack: chat.postEphemeral: %s", result.Error)
+	}
+	return nil
+}
+
 // PostMessage sends a message to a channel via chat.postMessage.
 //
 // Requires the bot token to have `chat:write` (granted by default install).

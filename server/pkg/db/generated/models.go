@@ -180,26 +180,43 @@ type ChatUserLink struct {
 }
 
 type ChatMessage struct {
-	ID            pgtype.UUID        `json:"id"`
-	ChatSessionID pgtype.UUID        `json:"chat_session_id"`
-	Role          string             `json:"role"`
-	Content       string             `json:"content"`
-	TaskID        pgtype.UUID        `json:"task_id"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ID                pgtype.UUID        `json:"id"`
+	ChatSessionID     pgtype.UUID        `json:"chat_session_id"`
+	Role              string             `json:"role"`
+	Content           string             `json:"content"`
+	TaskID            pgtype.UUID        `json:"task_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ExternalMessageID pgtype.Text        `json:"external_message_id"`
 }
 
 type ChatSession struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	AgentID     pgtype.UUID        `json:"agent_id"`
-	CreatorID   pgtype.UUID        `json:"creator_id"`
-	Title       string             `json:"title"`
-	SessionID   pgtype.Text        `json:"session_id"`
-	WorkDir     pgtype.Text        `json:"work_dir"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	UnreadSince pgtype.Timestamptz `json:"unread_since"`
+	ID                pgtype.UUID        `json:"id"`
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	AgentID           pgtype.UUID        `json:"agent_id"`
+	CreatorID         pgtype.UUID        `json:"creator_id"`
+	Title             string             `json:"title"`
+	SessionID         pgtype.Text        `json:"session_id"`
+	WorkDir           pgtype.Text        `json:"work_dir"`
+	Status            string             `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UnreadSince       pgtype.Timestamptz `json:"unread_since"`
+	Source            string             `json:"source"`
+	ExternalTeamID    pgtype.Text        `json:"external_team_id"`
+	ExternalChannelID pgtype.Text        `json:"external_channel_id"`
+	ExternalThreadID  pgtype.Text        `json:"external_thread_id"`
+}
+
+type SlackPendingChatPick struct {
+	ID                pgtype.UUID        `json:"id"`
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	CreatorID         pgtype.UUID        `json:"creator_id"`
+	ExternalTeamID    string             `json:"external_team_id"`
+	ExternalChannelID string             `json:"external_channel_id"`
+	ExternalThreadID  string             `json:"external_thread_id"`
+	InitialText       string             `json:"initial_text"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type Comment struct {
