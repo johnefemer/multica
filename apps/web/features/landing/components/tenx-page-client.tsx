@@ -9,8 +9,10 @@ import {
   opsButtonClassName,
 } from "./ops/ops-primitives";
 
-const BOOKING_HREF =
-  "mailto:team@agenthost.kensink.com?subject=Book%20a%20session%20%E2%80%94%20become%20a%2010x%20dev";
+const CONTACT_EMAIL = "agenthost@kensink.com";
+const BOOKING_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+  "Book a session — become a 10x dev",
+)}`;
 
 type Pillar = {
   id: string;
@@ -386,7 +388,7 @@ export function TenXPageClient() {
                 { k: "// AUDIENCE", v: "engineers, eng leads, CTOs" },
                 { k: "// OUTCOME", v: "live workspace + plan" },
                 { k: "// COST", v: "free · no card" },
-                { k: "// CONTACT", v: "team@agenthost.kensink.com" },
+                { k: "// CONTACT", v: CONTACT_EMAIL },
               ].map((row) => (
                 <div
                   key={row.k}
