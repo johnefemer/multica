@@ -25,7 +25,7 @@ import {
   type IssueTableRowCache,
 } from "./cache-coordinator";
 import { issueChangedDims } from "./surface/membership";
-import { addIssueToBuckets } from "./cache-helpers";
+import { addIssueToBuckets, patchIssueInBuckets } from "./cache-helpers";
 import {
   cleanupDeletedIssueCaches,
   collectDeletedIssueCacheMetadata,
