@@ -129,7 +129,16 @@ function AuthShell({ children }: { children: ReactNode }) {
         }}
       />
       <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-[#26303a] px-6 py-4 sm:px-10">
-        <div className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em]">
+        {/* Plain <a> rather than next/link — packages/views can't import
+            framework-specific routers, and a hard navigation to "/" is the
+            right behavior for both web (lands on the marketing home) and
+            desktop (the in-app router resolves "/" to the workspace
+            chooser). */}
+        <a
+          href="/"
+          aria-label="Agenthost — back to home"
+          className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em] transition-opacity hover:opacity-80"
+        >
           <span
             aria-hidden="true"
             className="block h-[10px] w-[10px] animate-pulse bg-[#7cf29c]"
@@ -139,7 +148,7 @@ function AuthShell({ children }: { children: ReactNode }) {
           <span className="ml-1 hidden text-[10px] font-normal tracking-[0.16em] text-[#6b7780] sm:inline">
             {"// KENSINK_LABS"}
           </span>
-        </div>
+        </a>
         <span className="text-[10px] tracking-[0.12em] text-[#6b7780]">
           <span className="text-[#7cf29c]">●</span> ONLINE
         </span>

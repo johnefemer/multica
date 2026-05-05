@@ -117,6 +117,81 @@ func buildInvitationParams(from, to, inviterName, workspaceName, inviteURL strin
 	}
 }
 
+// ContactInquiry is the structured payload assembled by the public /api/contact
+// handler before forwarding to the founder inbox. All fields are user-controlled
+// and must be escaped on the way into the HTML body.
+type ContactInquiry struct {
+	Name      string
+	Email     string
+	Company   string
+	Topic     string
+	Message   string
+	IPAddress string
+	UserAgent string
+}
+
+// SendContactForm forwards a public-form inquiry to the configured founder
+// inbox (CONTACT_INBOX env var, defaults to agenthost@kensink.com). The
+// `Reply-To` header is set to the submitter's email so a single click replies
+// to them, not to our `From` address. Subject carries the topic + name; body
+// is plain HTML with all user-controlled fields HTML-escaped to prevent the
+// inbox from rendering injected markup.
+func (s *EmailService) SendContactForm(inquiry ContactInquiry) error {
+	to := strings.TrimSpace(os.Getenv("CONTACT_INBOX"))
+	if to == "" {
+		to = "agenthost@kensink.com"
+	}
+
+	if s.client == nil {
+		fmt.Printf("[DEV] Contact form to %s: [%s] %s <%s> — %.80s…\n",
+			to, inquiry.Topic, inquiry.Name, inquiry.Email, inquiry.Message)
+		return nil
+	}
+
+	subjectName := sanitizeSubjectField(inquiry.Name)
+	subjectTopic := sanitizeSubjectField(inquiry.Topic)
+	subject := fmt.Sprintf("[%s] %s — Agenthost contact form", subjectTopic, subjectName)
+
+	safeName := html.EscapeString(inquiry.Name)
+	safeEmail := html.EscapeString(inquiry.Email)
+	safeCompany := html.EscapeString(inquiry.Company)
+	safeTopic := html.EscapeString(inquiry.Topic)
+	// Preserve newlines as <br/> for readability; escape first so user-supplied
+	// markup is rendered as literal text.
+	safeMessage := strings.ReplaceAll(html.EscapeString(inquiry.Message), "\n", "<br>")
+	safeIP := html.EscapeString(inquiry.IPAddress)
+	safeUA := html.EscapeString(inquiry.UserAgent)
+
+	companyRow := ""
+	if strings.TrimSpace(inquiry.Company) != "" {
+		companyRow = fmt.Sprintf(`<tr><td style="padding: 4px 12px 4px 0; color: #666;">Company</td><td style="padding: 4px 0;">%s</td></tr>`, safeCompany)
+	}
+
+	params := &resend.SendEmailRequest{
+		From:    s.fromEmail,
+		To:      []string{to},
+		ReplyTo: inquiry.Email,
+		Subject: subject,
+		Html: fmt.Sprintf(
+			`<div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+				<h2 style="margin: 0 0 16px;">New contact form submission</h2>
+				<table style="border-collapse: collapse; font-size: 14px; margin-bottom: 18px;">
+					<tr><td style="padding: 4px 12px 4px 0; color: #666;">Name</td><td style="padding: 4px 0;">%s</td></tr>
+					<tr><td style="padding: 4px 12px 4px 0; color: #666;">Email</td><td style="padding: 4px 0;"><a href="mailto:%s">%s</a></td></tr>
+					%s
+					<tr><td style="padding: 4px 12px 4px 0; color: #666;">Topic</td><td style="padding: 4px 0;">%s</td></tr>
+				</table>
+				<div style="border-left: 3px solid #7cf29c; padding: 12px 16px; background: #f6fff9; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">%s</div>
+				<p style="color: #999; font-size: 12px; margin-top: 24px;">Sent via <a href="https://agenthost.kensink.com/contact" style="color: #999;">agenthost.kensink.com/contact</a> · IP %s · UA %s</p>
+			</div>`,
+			safeName, safeEmail, safeEmail, companyRow, safeTopic, safeMessage, safeIP, safeUA,
+		),
+	}
+
+	_, err := s.client.Emails.Send(params)
+	return err
+}
+
 // sanitizeSubjectField prepares user-controlled text for the email Subject line.
 // Subject is not HTML-rendered, so HTML-escaping would leak literal entities
 // (e.g. &lt;script&gt;) into the recipient's inbox. Instead strip control

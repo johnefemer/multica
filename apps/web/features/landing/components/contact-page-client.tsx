@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Check, Loader2, Mail } from "lucide-react";
+import { cn } from "@multica/ui/lib/utils";
 import { OpsPageShell } from "./ops/ops-page-shell";
 import {
   OpsContainer,
@@ -12,44 +13,47 @@ import {
 } from "./ops/ops-primitives";
 
 /**
- * /contact — direct lines and a structured intake form.
+ * /contact — public inquiry surface.
  *
- * Form submission is mailto:-based (no backend dependency): on submit
- * we construct an `agenthost@kensink.com` mailto URL with the topic
- * encoded into the subject and the form fields rendered in the body.
- * The user's mail client opens with a pre-filled draft. This works
- * everywhere immediately; if/when we add a server-side mailer for the
- * landing surface we can swap to a real POST without touching the UI.
+ * Form submissions POST to /api/contact (Resend-backed, IP-rate-limited,
+ * honeypot-protected on the server). All visible email addresses use the
+ * <ProtectedEmail> component, which splits user / domain across separate
+ * text nodes and exposes a click-to-mailto handler — simple regex crawlers
+ * scraping the rendered HTML for `[\w.]+@[\w.]+` won't reassemble them.
  */
 
-const PRIMARY_INBOX = "agenthost@kensink.com";
+const ENDPOINT = "/api/contact";
+
+type EmailAddress = { user: string; domain: string };
+
+const PRIMARY_INBOX: EmailAddress = { user: "agenthost", domain: "kensink.com" };
 
 const DIRECT_LINES: {
-  email: string;
+  email: EmailAddress;
   label: string;
   purpose: string;
   notes: string;
 }[] = [
   {
-    email: "support@kensink.com",
+    email: { user: "support", domain: "kensink.com" },
     label: "// SUPPORT",
     purpose: "Product help, bugs, account issues",
     notes: "Median response · 8 business hours · Mon–Fri",
   },
   {
-    email: "triage@kensink.com",
+    email: { user: "triage", domain: "kensink.com" },
     label: "// TRIAGE",
     purpose: "Incidents, P0 outages, urgent regressions",
-    notes: "On-call rotation · 24/7 best-effort during beta",
+    notes: "On-call rotation · best-effort during beta",
   },
   {
-    email: "legal@kensink.com",
+    email: { user: "legal", domain: "kensink.com" },
     label: "// LEGAL",
     purpose: "Compliance, DPA, contracts, security review",
     notes: "Median response · 2 business days",
   },
   {
-    email: "partners@kensink.com",
+    email: { user: "partners", domain: "kensink.com" },
     label: "// PARTNERS",
     purpose: "Integrations, distribution, GTM partnerships",
     notes: "Founder reads every thread · Mon–Fri",
@@ -72,6 +76,7 @@ const SUPPORT_LAYERS: {
   name: string;
   desc: string;
   cta?: { label: string; href: string };
+  badge?: string;
 }[] = [
   {
     num: "01",
@@ -82,8 +87,8 @@ const SUPPORT_LAYERS: {
   {
     num: "02",
     name: "STATUS_PAGE",
-    desc: "Live system status for the control plane and runtime registries. Subscribe for incident updates by email.",
-    cta: { label: "OPEN_STATUS →", href: "/status" },
+    desc: "Live system status for the control plane and runtime registries — and an email subscription for incident updates.",
+    badge: "// COMING_SOON",
   },
   {
     num: "03",
@@ -93,8 +98,7 @@ const SUPPORT_LAYERS: {
   {
     num: "04",
     name: "FOUNDER_DIRECT",
-    desc: "Use the form below or write to agenthost@kensink.com. Every message lands in a founder-watched inbox; we read every one.",
-    cta: { label: `MAILTO_${PRIMARY_INBOX}`, href: `mailto:${PRIMARY_INBOX}` },
+    desc: "Use the form below — it lands directly in our shared founder inbox, watched by humans, no triage queue in between.",
   },
 ];
 
@@ -107,10 +111,6 @@ export function ContactPageClient() {
           <span>CONTACT</span>
           <span className="text-[var(--dim2)]">/</span>
           <span className="tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-            DIRECT_LINES
-          </span>
-          <span className="text-[var(--dim2)]">/</span>
-          <span className="tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
             FOUNDER_INBOX
           </span>
         </div>
@@ -118,29 +118,28 @@ export function ContactPageClient() {
         <div className="grid grid-cols-[1.4fr_minmax(0,1fr)] gap-12 max-[1180px]:grid-cols-1 max-[1180px]:gap-10">
           <div>
             <h1 className="m-0 mb-6 sm:mb-8 [overflow-wrap:anywhere] text-[length:var(--font-size-hero-lg)] font-[number:var(--weight-bold)] uppercase leading-[0.98] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1280px]:text-[length:var(--font-size-hero-md)] max-[760px]:text-[length:var(--font-size-hero-sm)]">
-              <span className="text-[var(--accent)]">DIRECT LINES.</span>
+              <span className="text-[var(--accent)]">SAY HELLO.</span>
               <br />
-              NO TICKET QUEUES.
+              WE READ EVERY EMAIL.
             </h1>
             <p className="m-0 mb-9 max-w-[60ch] text-[length:var(--font-size-lede)] leading-[var(--lh-loose)] text-[var(--txt2)]">
-              Four named inboxes — pick the one that fits, or use the form
-              below to land in our shared founder inbox.{" "}
+              Pick one of the named inboxes below or use the form to reach the
+              shared founder inbox.{" "}
               <b className="font-[number:var(--weight-medium)] text-[var(--txt)]">
-                We answer every thread.
+                Real humans on the other end
               </b>{" "}
-              Median first reply on weekdays:{" "}
-              <span className="text-[var(--accent)]">under 4 hours</span>.
+              — no auto-replies, no ticket numbers, no chatbots.
             </p>
             <div className="mb-2 flex flex-wrap items-center gap-[10px]">
               <Link href="#form" className={opsButtonClassName("solid")}>
                 WRITE TO US ↓
               </Link>
-              <Link
-                href={`mailto:${PRIMARY_INBOX}`}
+              <ProtectedEmailLink
+                email={PRIMARY_INBOX}
                 className={opsButtonClassName("ghost")}
               >
-                {`MAILTO_${PRIMARY_INBOX.toUpperCase()}`}
-              </Link>
+                MAILTO_FOUNDER_INBOX
+              </ProtectedEmailLink>
             </div>
           </div>
 
@@ -150,23 +149,21 @@ export function ContactPageClient() {
                 {"// CONTACT_AT_A_GLANCE"}
               </div>
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {[
-                  { k: "PRIMARY", v: PRIMARY_INBOX },
-                  { k: "RESPONSE", v: "<4h weekdays · best-effort weekends" },
-                  { k: "TIMEZONE", v: "UTC+8 · CN office hours" },
-                  { k: "INCIDENTS", v: "triage@kensink.com · 24/7" },
-                  { k: "FORMAT", v: "plain text · no portals" },
-                ].map((row) => (
-                  <li
-                    key={row.k}
-                    className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[var(--line)] pb-2 last:border-b-0 last:pb-0 text-[length:var(--font-size-tag)]"
-                  >
-                    <span className="text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-                      {`// ${row.k}`}
-                    </span>
-                    <span className="text-[var(--txt)]">{row.v}</span>
-                  </li>
-                ))}
+                <GlanceRow label="PRIMARY">
+                  <ProtectedEmail email={PRIMARY_INBOX} />
+                </GlanceRow>
+                <GlanceRow label="RESPONSE">
+                  &lt;4h weekdays · best-effort weekends
+                </GlanceRow>
+                <GlanceRow label="HOURS">
+                  Mon–Fri · 9am–6pm ET (US Eastern)
+                </GlanceRow>
+                <GlanceRow label="INCIDENTS">
+                  <ProtectedEmail
+                    email={{ user: "triage", domain: "kensink.com" }}
+                  />
+                </GlanceRow>
+                <GlanceRow label="FORMAT">plain text · no portals</GlanceRow>
               </ul>
             </div>
           </div>
@@ -178,15 +175,15 @@ export function ContactPageClient() {
         <OpsSectionHead
           num="§01"
           label="// DIRECT_EMAILS"
-          headlineParts={["FOUR NAMED INBOXES. ", "ONE PER PURPOSE."]}
+          headlineParts={["FOUR DIRECT LINES. ", "FOUR HUMANS."]}
           toneMap={{ 1: "accent" }}
           sub="Each address routes to a small, watched team. Choose the right one and you skip a triage hop."
         />
         <div className="grid grid-cols-2 gap-0 border border-[var(--line2)] max-[880px]:grid-cols-1">
           {DIRECT_LINES.map((line, i) => (
-            <a
-              key={line.email}
-              href={`mailto:${line.email}`}
+            <ProtectedEmailLink
+              key={`${line.email.user}-${line.email.domain}`}
+              email={line.email}
               className={`group relative flex flex-col gap-3 bg-[var(--bg2)] p-7 transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent)_4%,var(--bg2))] ${i % 2 === 0 ? "border-r border-[var(--line2)] max-[880px]:border-r-0" : ""} ${i < DIRECT_LINES.length - 2 ? "border-b border-[var(--line2)]" : ""} max-[880px]:border-b max-[880px]:last:border-b-0`}
             >
               <div className="flex items-baseline justify-between">
@@ -195,16 +192,16 @@ export function ContactPageClient() {
                 </span>
                 <Mail className="h-3.5 w-3.5 text-[var(--dim)] transition-colors group-hover:text-[var(--accent)]" />
               </div>
-              <code className="font-[family-name:var(--font-mono-display)] text-[length:var(--font-size-h5)] font-[number:var(--weight-medium)] tracking-[0.02em] text-[var(--txt)] transition-colors group-hover:text-[var(--accent)]">
-                {line.email}
-              </code>
+              <span className="font-[family-name:var(--font-mono-display)] text-[length:var(--font-size-h5)] font-[number:var(--weight-medium)] tracking-[0.02em] text-[var(--txt)] transition-colors group-hover:text-[var(--accent)]">
+                <ProtectedEmail email={line.email} />
+              </span>
               <p className="m-0 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
                 {line.purpose}
               </p>
               <div className="mt-auto pt-2 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
                 {`// ${line.notes}`}
               </div>
-            </a>
+            </ProtectedEmailLink>
           ))}
         </div>
       </OpsSection>
@@ -228,9 +225,16 @@ export function ContactPageClient() {
                   : ""
               } ${i < 2 ? "max-[1020px]:border-b" : ""} max-[640px]:border-b max-[640px]:last:border-b-0`}
             >
-              <span className="text-[length:var(--font-size-h3)] font-[number:var(--weight-bold)] leading-none text-[var(--accent)]">
-                {layer.num}
-              </span>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[length:var(--font-size-h3)] font-[number:var(--weight-bold)] leading-none text-[var(--accent)]">
+                  {layer.num}
+                </span>
+                {layer.badge && (
+                  <span className="border border-[var(--dim)] px-1.5 py-0.5 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+                    {layer.badge}
+                  </span>
+                )}
+              </div>
               <span className="text-[length:var(--font-size-h5)] font-[number:var(--weight-bold)] uppercase tracking-[var(--tr-headline)] text-[var(--txt)]">
                 {layer.name}
               </span>
@@ -255,9 +259,9 @@ export function ContactPageClient() {
         <OpsSectionHead
           num="§03"
           label="// FOUNDER_INBOX"
-          headlineParts={["WRITE TO ", "FOUNDERS."]}
-          toneMap={{ 1: "accent" }}
-          sub={`Form submissions land at ${PRIMARY_INBOX} as a structured email. Your default mail client opens with a pre-filled draft — review, edit, send.`}
+          headlineParts={["WRITE TO US."]}
+          toneMap={{}}
+          sub="Replies might take a beat — every email gets read by a real human first so the response actually fits your context. No auto-reply, no triage queue."
         />
         <div className="grid grid-cols-[1fr_320px] gap-10 max-[1020px]:grid-cols-1">
           <ContactForm />
@@ -269,20 +273,20 @@ export function ContactPageClient() {
               <ol className="m-0 flex list-none flex-col gap-2.5 p-0 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt2)]">
                 <li className="flex gap-2">
                   <span className="text-[var(--accent)]">01</span>
-                  <span>Fill in the fields below.</span>
+                  <span>Fill in the fields and submit.</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-[var(--accent)]">02</span>
                   <span>
-                    Submit opens your email client with a pre-filled draft to{" "}
-                    <code className="text-[var(--accent)]">{PRIMARY_INBOX}</code>.
+                    Your message lands in our shared founder inbox within
+                    seconds.
                   </span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-[var(--accent)]">03</span>
                   <span>
-                    Review, edit, send. We reply from a real human address —
-                    no <code>noreply@</code> addresses, ever.
+                    A human reads it and replies from a real address — no{" "}
+                    <code>noreply@</code>, ever.
                   </span>
                 </li>
               </ol>
@@ -291,11 +295,44 @@ export function ContactPageClient() {
               <div className="mb-2 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
                 {"// PRIVACY"}
               </div>
-              <p className="m-0 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt2)]">
-                The form does not POST to a server — it composes a mailto URL
-                in your browser. Your message goes through your own email
-                provider, not ours.
-              </p>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+                <li className="flex items-start gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="mt-px flex-none text-[11px] text-[var(--accent)]"
+                  >
+                    ▸
+                  </span>
+                  <span>
+                    We don&apos;t share your email or any submitted data with
+                    third parties.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="mt-px flex-none text-[11px] text-[var(--accent)]"
+                  >
+                    ▸
+                  </span>
+                  <span>
+                    We use what you send only to reply and to keep a record of
+                    the thread.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="mt-px flex-none text-[11px] text-[var(--accent)]"
+                  >
+                    ▸
+                  </span>
+                  <span>
+                    No analytics pixels, no ad networks, no marketing-list
+                    enrollment.
+                  </span>
+                </li>
+              </ul>
             </div>
           </aside>
         </div>
@@ -322,12 +359,12 @@ export function ContactPageClient() {
                 a thread you can keep.
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  href={`mailto:${PRIMARY_INBOX}`}
+                <ProtectedEmailLink
+                  email={PRIMARY_INBOX}
                   className={opsButtonClassName("solid")}
                 >
-                  {`OPEN_${PRIMARY_INBOX}`}
-                </Link>
+                  OPEN_FOUNDER_INBOX
+                </ProtectedEmailLink>
                 <Link href="/docs" className={opsButtonClassName("outline")}>
                   READ_THE_DOCS
                 </Link>
@@ -337,27 +374,26 @@ export function ContactPageClient() {
               </div>
             </div>
             <div className="flex flex-col border border-[var(--line2)] bg-[var(--bg2)]">
-              {[
-                { k: "// PRIMARY", v: PRIMARY_INBOX },
-                { k: "// SUPPORT", v: "support@kensink.com" },
-                { k: "// TRIAGE", v: "triage@kensink.com" },
-                { k: "// LEGAL", v: "legal@kensink.com" },
-                { k: "// PARTNERS", v: "partners@kensink.com" },
-                { k: "// HOURS", v: "Mon–Fri · UTC+8" },
-              ].map((row) => (
-                <a
-                  key={row.k}
-                  href={
-                    row.v.includes("@") ? `mailto:${row.v}` : undefined
-                  }
-                  className="flex justify-between gap-3 border-b border-[var(--line)] px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] transition-colors last:border-b-0 hover:text-[var(--accent)]"
+              {DIRECT_LINES.map((line) => (
+                <div
+                  key={`cta-${line.email.user}`}
+                  className="flex justify-between gap-3 border-b border-[var(--line)] px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] last:border-b-0"
                 >
-                  <span className="flex-none">{row.k}</span>
-                  <b className="truncate font-[number:var(--weight-medium)] text-[var(--txt)] hover:text-[var(--accent)]">
-                    {row.v}
-                  </b>
-                </a>
+                  <span className="flex-none">{line.label}</span>
+                  <ProtectedEmailLink
+                    email={line.email}
+                    className="truncate font-[number:var(--weight-medium)] text-[var(--txt)] transition-colors hover:text-[var(--accent)]"
+                  >
+                    <ProtectedEmail email={line.email} />
+                  </ProtectedEmailLink>
+                </div>
               ))}
+              <div className="flex justify-between gap-3 px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)]">
+                <span className="flex-none">{"// HOURS"}</span>
+                <b className="truncate font-[number:var(--weight-medium)] text-[var(--txt)]">
+                  Mon–Fri · 9am–6pm ET
+                </b>
+              </div>
             </div>
           </div>
         </OpsContainer>
@@ -366,11 +402,93 @@ export function ContactPageClient() {
   );
 }
 
+function GlanceRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[var(--line)] pb-2 last:border-b-0 last:pb-0 text-[length:var(--font-size-tag)]">
+      <span className="text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+        {`// ${label}`}
+      </span>
+      <span className="text-[var(--txt)]">{children}</span>
+    </li>
+  );
+}
+
 /**
- * Mailto-based contact form. Submits by composing a mailto URL with the
- * topic in the subject and the form fields rendered as a plaintext
- * body. The user's mail client opens with a pre-filled draft. No
- * server roundtrip; no captcha; no third-party form service.
+ * Renders an email address split across separate text nodes so naive
+ * `[\w.]+@[\w.]+` regex crawlers reading the rendered HTML don't reassemble
+ * it. The `@` glyph is emitted via a Unicode escape; the `user` and `domain`
+ * arrive as separate sibling spans. `aria-label` carries the readable form
+ * for screen readers since the visible glyph isn't selectable as one
+ * contiguous token.
+ *
+ * Visually identical to plain `user@domain` text.
+ */
+function ProtectedEmail({
+  email,
+  className,
+}: {
+  email: EmailAddress;
+  className?: string;
+}) {
+  return (
+    <span
+      className={className}
+      aria-label={`${email.user} at ${email.domain}`}
+    >
+      <span>{email.user}</span>
+      <span aria-hidden="true">{"@"}</span>
+      <span>{email.domain}</span>
+    </span>
+  );
+}
+
+/**
+ * Click-to-mailto wrapper. Click composes the `mailto:` URL at runtime —
+ * the `href` attribute is intentionally `#` so the address never appears
+ * as a string in the static HTML for crawlers to harvest.
+ */
+function ProtectedEmailLink({
+  email,
+  className,
+  children,
+}: {
+  email: EmailAddress;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const addr = `${email.user}@${email.domain}`;
+    window.location.href = `mailto:${addr}`;
+  };
+  return (
+    <a
+      href="#"
+      onClick={onClick}
+      className={className}
+      aria-label={`Email ${email.user} at ${email.domain}`}
+    >
+      {children}
+    </a>
+  );
+}
+
+type SubmitStatus =
+  | { kind: "idle" }
+  | { kind: "submitting" }
+  | { kind: "success" }
+  | { kind: "error"; message: string };
+
+/**
+ * Form submits to /api/contact (Resend-backed, IP rate-limited, honeypot-
+ * protected on the server). The `hp` field is hidden from sighted users;
+ * bots auto-filling every field will populate it and get a silent 200.
  */
 function ContactForm() {
   const [name, setName] = useState("");
@@ -378,34 +496,68 @@ function ContactForm() {
   const [company, setCompany] = useState("");
   const [topic, setTopic] = useState<Topic>("Product question");
   const [message, setMessage] = useState("");
-  const [opened, setOpened] = useState(false);
+  const [hp, setHp] = useState(""); // honeypot
+  const [status, setStatus] = useState<SubmitStatus>({ kind: "idle" });
 
   const isReady =
-    name.trim() !== "" && email.trim() !== "" && message.trim() !== "";
+    name.trim().length >= 2 &&
+    email.trim() !== "" &&
+    message.trim().length >= 10 &&
+    status.kind !== "submitting";
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isReady) return;
-    const subject = `[${topic}] ${name} — Agenthost contact form`;
-    const body = [
-      `From: ${name} <${email}>`,
-      company ? `Company: ${company}` : null,
-      `Topic: ${topic}`,
-      "",
-      message,
-      "",
-      "—",
-      "Sent via the Agenthost contact form (https://agenthost.kensink.com/contact)",
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const url = `mailto:${PRIMARY_INBOX}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = url;
-    setOpened(true);
+    setStatus({ kind: "submitting" });
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          company: company.trim(),
+          topic,
+          message: message.trim(),
+          hp,
+        }),
+      });
+      if (res.status === 429) {
+        setStatus({
+          kind: "error",
+          message:
+            "You've sent a few in a row — please give it an hour and try again.",
+        });
+        return;
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setStatus({
+          kind: "error",
+          message:
+            data.error ??
+            "Something went wrong sending your message. Please try again.",
+        });
+        return;
+      }
+      setStatus({ kind: "success" });
+      setName("");
+      setEmail("");
+      setCompany("");
+      setTopic("Product question");
+      setMessage("");
+    } catch {
+      setStatus({
+        kind: "error",
+        message: "Network error — your message wasn't sent. Please try again.",
+      });
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
       <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
         <FieldText
           id="contact-name"
@@ -471,45 +623,69 @@ function ContactForm() {
           className="resize-y border border-[var(--line2)] bg-[var(--bg2)] px-3 py-3 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt)] placeholder:text-[var(--dim)] focus:border-[var(--accent)] focus:outline-none"
         />
       </div>
+      {/*
+        Honeypot — visually hidden from sighted users, ignored by screen
+        readers via aria-hidden + tabIndex=-1. Real users never type into
+        it; bots that auto-fill every field do, and the server silently
+        rejects those submissions.
+      */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+      >
+        <label htmlFor="contact-hp">Leave this field empty</label>
+        <input
+          id="contact-hp"
+          name="hp"
+          type="text"
+          value={hp}
+          onChange={(e) => setHp(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line2)] pt-5">
         <span className="text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-          {`// LANDS_AT ${PRIMARY_INBOX}`}
+          {"// LANDS_IN_SHARED_FOUNDER_INBOX"}
         </span>
         <button
           type="submit"
           disabled={!isReady}
-          className={`inline-flex items-center justify-center gap-2 border px-5 py-3 text-[length:var(--font-size-label)] font-[number:var(--weight-medium)] uppercase tracking-[var(--tr-tag)] transition-colors duration-[var(--duration-fast)] ${
+          className={cn(
+            "inline-flex items-center justify-center gap-2 border px-5 py-3 text-[length:var(--font-size-label)] font-[number:var(--weight-medium)] uppercase tracking-[var(--tr-tag)] transition-colors duration-[var(--duration-fast)]",
             isReady
               ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg)] hover:bg-[var(--accent-hover)]"
-              : "cursor-not-allowed border-[var(--line2)] bg-[var(--line)] text-[var(--dim)]"
-          }`}
-        >
-          {opened ? (
-            <>
-              <Check className="h-3.5 w-3.5" />
-              MAIL_CLIENT_OPENED
-            </>
-          ) : (
-            <>
-              <ArrowRight className="h-3.5 w-3.5" />
-              OPEN MAIL DRAFT
-            </>
+              : "cursor-not-allowed border-[var(--line2)] bg-[var(--line)] text-[var(--dim)]",
           )}
+        >
+          {status.kind === "submitting" && (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          )}
+          {status.kind === "success" && <Check className="h-3.5 w-3.5" />}
+          {status.kind === "idle" && <ArrowRight className="h-3.5 w-3.5" />}
+          {status.kind === "error" && <ArrowRight className="h-3.5 w-3.5" />}
+          {status.kind === "submitting"
+            ? "SENDING…"
+            : status.kind === "success"
+              ? "SENT — WE'LL REPLY SOON"
+              : "SEND MESSAGE"}
         </button>
       </div>
-      {opened && (
-        <p className="text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt2)]">
-          Your mail client opened with a pre-filled draft. Review, edit, and
-          send. If nothing happened, your browser may have blocked the
-          handler — write to{" "}
-          <a
-            href={`mailto:${PRIMARY_INBOX}`}
-            className="text-[var(--accent)] underline underline-offset-2"
-          >
-            {PRIMARY_INBOX}
-          </a>{" "}
-          directly.{" "}
-          <Loader2 className="ml-1 inline h-3 w-3" />
+      {status.kind === "success" && (
+        <p className="border-l-2 border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg2))] px-3 py-2 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt)]">
+          Thanks — your message landed. A human will reply within a few
+          business hours during the week.
+        </p>
+      )}
+      {status.kind === "error" && (
+        <p className="border-l-2 border-[var(--pop)] bg-[color-mix(in_srgb,var(--pop)_5%,var(--bg2))] px-3 py-2 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt)]">
+          {status.message}
         </p>
       )}
     </form>

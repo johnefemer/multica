@@ -13,6 +13,7 @@ import {
 } from "@multica/core/paths";
 import { api } from "@multica/core/api";
 import type { Workspace } from "@multica/core/types";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { setLoggedInCookie } from "@/features/auth/auth-cookie";
 import { LoginPage, validateCliCallback } from "@multica/views/auth";
@@ -48,14 +49,18 @@ function DesktopHandoffShell({
         }}
       />
       <div className="relative z-10 flex w-full max-w-[480px] flex-col items-center gap-5 border border-[#26303a] bg-[#0f1318] px-8 py-10">
-        <div className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em]">
+        <Link
+          href="/"
+          aria-label="Agenthost — back to home"
+          className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em] transition-opacity hover:opacity-80"
+        >
           <span
             aria-hidden="true"
             className="block h-[10px] w-[10px] animate-pulse bg-[#7cf29c]"
             style={{ boxShadow: "0 0 12px #7cf29c" }}
           />
           <span>AGENTHOST</span>
-        </div>
+        </Link>
         <h1 className="m-0 text-[28px] font-semibold uppercase leading-[1] tracking-[-0.02em] text-[#d4dde4]">
           {title}
         </h1>
