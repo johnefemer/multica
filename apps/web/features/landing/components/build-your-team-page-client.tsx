@@ -9,14 +9,11 @@ import {
   OpsSectionHead,
   opsButtonClassName,
 } from "./ops/ops-primitives";
-import {
-  MAX_TEAMMATE_EMAILS,
-  type CaptureRequestBody,
-  type CaptureResponse,
-  type GeneratedPlan,
-  type PlannerChatMessage,
-  type RecommendedTier,
-  type StreamEvent,
+import type {
+  GeneratedPlan,
+  PlannerChatMessage,
+  RecommendedTier,
+  StreamEvent,
 } from "@/lib/landing/team-planner/types";
 
 const CONTACT_EMAIL = "agenthost@kensink.com";
@@ -25,25 +22,37 @@ const HELP_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
 )}`;
 
 // =============================================================================
-// /build-your-team — chat planner + email capture
+// /build-your-team — chat planner with conversational email capture
 //
-// 1. Chat streams from POST /api/landing/team-planner/chat (PR 2). The
-//    planner runs as Claude Opus 4.7 with adaptive thinking; when it
-//    decides the interview is done it emits a `plan_ready` event with a
-//    structured plan via the `generate_plan` tool.
-// 2. On `plan_ready` the gist + tier card + email-capture form unhide.
-// 3. Submitting the form POSTs to /api/landing/team-planner/capture (PR 3),
-//    which inserts a planning_lead row, generates a 10-char hash, and
-//    fires Resend emails to the primary + up to 3 teammates. The success
-//    state surfaces the hotlink (/plan/<hash>) — that page lands in PR 4.
+// Single chat conversation drives the whole flow:
+//   1. Agent runs the 6-question interview.
+//   2. Agent calls `generate_plan` (server emits `plan_ready` → page shows
+//      the gist + recommended-tier card).
+//   3. Agent continues IN THE CHAT: asks for name → email → teammates.
+//   4. Agent calls `submit_capture` (server emits `capture_started`,
+//      executes the capture, emits `capture_completed` with the hotlink).
+//   5. Agent's final turn confirms delivery with the inline plan URL.
+//
+// There is no separate email-capture form section — the chat is the form.
+//
+// UI states:
+//   - Pre-conversation (only the seeded greeting): chat is inline in
+//     the page, hero + CTA visible.
+//   - Conversation active: chat enters "focus mode" — fixed full-viewport
+//     overlay with backdrop, body scroll locked, mobile-edge-to-edge.
+//     Stays in focus mode through plan generation AND email collection.
+//   - After capture_completed: focus mode auto-dismisses; the gist + tier
+//     card section becomes visible inline; user can keep reading.
 // =============================================================================
 
 type Phase =
-  | "interview"          // chat active, accepting user input
-  | "streaming"          // request in flight, agent text streaming
-  | "generating_plan"    // tool call started, plan being assembled
-  | "plan_ready"         // plan delivered, chat locked, gist visible
-  | "error";             // transport / API error
+  | "interview"        // user can type, awaiting their next message
+  | "streaming"        // request in flight, agent text streaming
+  | "generating_plan"  // generate_plan tool call in progress
+  | "plan_drafted"     // plan returned; chat continues for email collection
+  | "capture_pending"  // submit_capture tool call in progress
+  | "delivered"        // capture done, hotlink known; chat input locked
+  | "error";
 
 type ChatRole = "agent" | "user";
 interface ChatMessage {
@@ -52,8 +61,6 @@ interface ChatMessage {
   text: string;
 }
 
-// The seeded greeting is UI-only — Anthropic requires the first API
-// message to be `user`, so we slice this off when posting to the route.
 const SEEDED_MESSAGES: ChatMessage[] = [
   {
     id: "m1",
@@ -99,46 +106,63 @@ const TIER_DISPLAY: Record<
   },
 };
 
-const PLAN_COVERAGE: string[] = [
-  "Architecture sketch tailored to your stack and deploy target",
-  "CI/CD posture — what to set up first, what can wait",
-  "Concrete human ↔ agent balance (e.g. 1 senior eng + 2 coding agents)",
-  "Phase 0 setup checklist — your first week of work",
-  "6-week roadmap broken into 3 shippable phases",
-];
-
-interface TeammateEmail {
-  id: string;
-  value: string;
-}
-function newRow(): TeammateEmail {
-  return { id: Math.random().toString(36).slice(2, 9), value: "" };
+interface CaptureSuccess {
+  hash: string;
+  plan_url: string;
+  recipients_emailed: number;
 }
 
 export function BuildYourTeamPageClient() {
-  // --- Chat state -----------------------------------------------------------
   const [messages, setMessages] = useState<ChatMessage[]>(SEEDED_MESSAGES);
   const [input, setInput] = useState("");
   const [phase, setPhase] = useState<Phase>("interview");
   const [plan, setPlan] = useState<GeneratedPlan | null>(null);
+  const [capture, setCapture] = useState<CaptureSuccess | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const gistRef = useRef<HTMLDivElement | null>(null);
+
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const gistRef = useRef<HTMLDivElement | null>(null);
 
-  const isStreaming = phase === "streaming" || phase === "generating_plan";
-  const inputLocked = isStreaming || phase === "plan_ready";
+  // Focus mode kicks in once the user has sent any message and stays on
+  // through the entire interview + email-collection flow. Auto-dismisses
+  // when the agent confirms delivery (or on terminal error).
+  const isFocused =
+    messages.length > 1 && phase !== "delivered" && phase !== "error";
 
+  const isStreaming =
+    phase === "streaming" ||
+    phase === "generating_plan" ||
+    phase === "capture_pending";
+
+  const inputLocked = isStreaming || phase === "delivered";
+
+  // Lock body scroll when focus mode is on so the page underneath
+  // doesn't move while the user is in the chat.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!isFocused) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isFocused]);
+
+  // Scroll the messages container ONLY — never the page. The earlier
+  // scrollIntoView call would walk up to the nearest scrollable
+  // ancestor (the window) and jump the whole page on every send.
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, phase]);
 
+  // After delivered (focus mode dismisses), bring the gist into view.
   useEffect(() => {
-    if (phase === "plan_ready") {
-      // Give the gist section a beat to render, then bring it into view.
+    if (phase === "delivered") {
       const id = window.setTimeout(() => {
         gistRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 150);
+      }, 200);
       return () => window.clearTimeout(id);
     }
   }, [phase]);
@@ -147,8 +171,8 @@ export function BuildYourTeamPageClient() {
     setPhase("streaming");
     setErrorMessage(null);
 
-    // Skip the seeded greeting (it's UI-only; the API needs the first
-    // message to be `user`).
+    // Skip the seeded greeting — Anthropic requires the first API
+    // message to be `user`, and the greeting is purely UI.
     const apiMessages: PlannerChatMessage[] = history.slice(1).map((m) => ({
       role: m.role,
       text: m.text,
@@ -156,8 +180,6 @@ export function BuildYourTeamPageClient() {
 
     const lastMsg = apiMessages.at(-1);
     if (!lastMsg || lastMsg.role !== "user") {
-      // Defensive: should never happen, but don't kick off a request that
-      // the server will reject.
       setPhase("interview");
       return;
     }
@@ -165,8 +187,8 @@ export function BuildYourTeamPageClient() {
     const agentId = `a-${Date.now()}`;
     let accumulated = "";
     let agentMessageAppended = false;
-    let sawPlanReady = false;
     let sawError = false;
+    let nextPhase: Phase | null = null;
 
     try {
       const res = await fetch("/api/landing/team-planner/chat", {
@@ -225,24 +247,23 @@ export function BuildYourTeamPageClient() {
               );
             }
           } else if (event.type === "tool_call_started") {
-            setPhase("generating_plan");
-          } else if (event.type === "plan_ready") {
-            sawPlanReady = true;
-            setPlan(event.plan);
-            // If the agent never produced a text turn before the tool call,
-            // append a brief closing line so the chat doesn't end on the
-            // user's message.
-            if (!agentMessageAppended) {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `a-${Date.now()}-closing`,
-                  role: "agent",
-                  text:
-                    "Plan ready — drop your email below to receive the full version.",
-                },
-              ]);
+            if (event.name === "generate_plan") {
+              setPhase("generating_plan");
+            } else if (event.name === "submit_capture") {
+              setPhase("capture_pending");
             }
+          } else if (event.type === "plan_ready") {
+            setPlan(event.plan);
+            nextPhase = "plan_drafted";
+          } else if (event.type === "capture_completed") {
+            setCapture({
+              hash: event.hash,
+              plan_url: event.plan_url,
+              recipients_emailed: event.recipients_emailed,
+            });
+            nextPhase = "delivered";
+          } else if (event.type === "capture_started") {
+            setPhase("capture_pending");
           } else if (event.type === "error") {
             sawError = true;
             setErrorMessage(event.message);
@@ -252,17 +273,25 @@ export function BuildYourTeamPageClient() {
     } catch (err) {
       sawError = true;
       setErrorMessage(
-        err instanceof Error ? err.message : "Network error talking to the planner.",
+        err instanceof Error
+          ? err.message
+          : "Network error talking to the planner.",
       );
     }
 
-    if (sawPlanReady) {
-      setPhase("plan_ready");
-    } else if (sawError) {
+    if (sawError) {
       setPhase("error");
+    } else if (nextPhase === "delivered") {
+      setPhase("delivered");
+    } else if (nextPhase === "plan_drafted") {
+      // Plan was drafted earlier in the same response, but the response
+      // ended without a capture_completed (capture not yet collected).
+      // Open the chat for the next user reply.
+      setPhase("plan_drafted");
+      window.setTimeout(() => inputRef.current?.focus(), 50);
     } else {
+      // Plain interview turn ended; back to waiting for user input.
       setPhase("interview");
-      // Bring focus back so the user can continue answering.
       window.setTimeout(() => inputRef.current?.focus(), 50);
     }
   }
@@ -285,94 +314,17 @@ export function BuildYourTeamPageClient() {
 
   function handleRetryAfterError() {
     if (phase !== "error") return;
-    // Drop the failing user turn so the next attempt can be made cleanly.
-    setMessages((prev) => {
-      // If the last message is from the user, leave it; the user might
-      // want to edit and resend. We just clear the error state so they
-      // can press send again.
-      return prev;
-    });
     setErrorMessage(null);
-    setPhase("interview");
+    // Drop back to whichever phase we were in before the error so the user
+    // can resend. If a plan was drafted, return to plan_drafted; else
+    // interview.
+    setPhase(plan ? "plan_drafted" : "interview");
     window.setTimeout(() => inputRef.current?.focus(), 50);
-  }
-
-  // --- Email capture state --------------------------------------------------
-  const [primaryEmail, setPrimaryEmail] = useState("");
-  const [primaryName, setPrimaryName] = useState("");
-  const [teammates, setTeammates] = useState<TeammateEmail[]>([]);
-  type SubmitState =
-    | { kind: "idle" }
-    | { kind: "submitting" }
-    | { kind: "submitted"; planUrl: string; recipientCount: number }
-    | { kind: "error"; message: string };
-  const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
-
-  function handleAddTeammate() {
-    if (teammates.length >= MAX_TEAMMATE_EMAILS) return;
-    setTeammates((prev) => [...prev, newRow()]);
-  }
-  function handleRemoveTeammate(id: string) {
-    setTeammates((prev) => prev.filter((t) => t.id !== id));
-  }
-  function handleTeammateChange(id: string, value: string) {
-    setTeammates((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, value } : t)),
-    );
-  }
-  async function handleEmailSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (submitState.kind === "submitting" || submitState.kind === "submitted") {
-      return;
-    }
-    if (!plan) return; // shouldn't happen; the form is gated on plan_ready
-    setSubmitState({ kind: "submitting" });
-
-    const cc = teammates
-      .map((t) => t.value.trim())
-      .filter((v) => v.length > 0);
-
-    const body: CaptureRequestBody = {
-      primary_name: primaryName.trim(),
-      primary_email: primaryEmail.trim(),
-      cc_emails: cc,
-      plan,
-      conversation: messages.map((m) => ({ role: m.role, text: m.text })),
-    };
-
-    try {
-      const res = await fetch("/api/landing/team-planner/capture", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = (await res.json()) as CaptureResponse;
-      if (!res.ok || !data.ok) {
-        const message = !data.ok
-          ? data.error
-          : "Couldn't send the plan. Please try again.";
-        setSubmitState({ kind: "error", message });
-        return;
-      }
-      setSubmitState({
-        kind: "submitted",
-        planUrl: data.plan_url,
-        recipientCount: data.recipients_emailed,
-      });
-    } catch (err) {
-      setSubmitState({
-        kind: "error",
-        message:
-          err instanceof Error
-            ? err.message
-            : "Network error sending the plan.",
-      });
-    }
   }
 
   const userTurnCount = messages.filter((m) => m.role === "user").length;
   const tier = plan ? TIER_DISPLAY[plan.recommended_tier] : null;
-  const gistBullets = plan?.gist_bullets ?? PLAN_COVERAGE;
+  const inlineChatVisible = !isFocused;
 
   return (
     <OpsPageShell>
@@ -397,9 +349,9 @@ export function BuildYourTeamPageClient() {
                 AI development plan
               </span>{" "}
               specific to your project — architecture, CI/CD, Phase 0 setup,
-              roadmap, and the matching Agenthost tier. You drop your email
-              (and up to 3 teammates&apos;) and a private link to the full plan
-              lands in your inbox.
+              roadmap, and the matching Agenthost tier. Drop your email
+              (and up to 3 teammates&apos;) right in the chat and a private
+              link to the full plan lands in your inbox.
             </p>
           </div>
           <div className="flex flex-col border border-[var(--line2)] bg-[var(--bg2)]">
@@ -424,110 +376,37 @@ export function BuildYourTeamPageClient() {
         </div>
       </OpsSection>
 
-      {/* §01 — PLANNER (chat) ------------------------------------------- */}
-      <OpsSection id="planner">
-        <OpsSectionHead
-          num="§01"
-          label="// PLANNER"
-          headlineParts={["TELL THE ", "PLANNER", " ABOUT YOUR PROJECT."]}
-          toneMap={{ 1: "accent" }}
-          sub="Type below. The planner asks one question at a time — it adapts based on your answers and won't waste your time on what you've already covered."
-        />
-        <div className="border border-[var(--line2)] bg-[var(--bg2)]">
-          {/* Chat header strip */}
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--line2)] px-[18px] py-[12px]">
-            <div className="flex items-center gap-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-              <span className="text-[var(--accent)]">
-                {"// AGENTHOST_PLANNER"}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className={
-                    phase === "error"
-                      ? "h-[7px] w-[7px] rounded-full bg-[var(--warn)]"
-                      : "h-[7px] w-[7px] rounded-full bg-[var(--accent)]"
-                  }
-                />
-                {phase === "error" ? "OFFLINE" : "ONLINE"}
-              </span>
-            </div>
-            <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
-              {userTurnCount} / ~6
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div
-            aria-live="polite"
-            className="flex max-h-[480px] min-h-[360px] flex-col gap-4 overflow-y-auto px-[18px] py-6"
-          >
-            {messages.map((m) => (
-              <ChatBubble key={m.id} role={m.role} text={m.text} />
-            ))}
-            {isStreaming ? (
-              <TypingIndicator
-                label={
-                  phase === "generating_plan"
-                    ? "BUILDING YOUR PLAN"
-                    : "PLANNER"
-                }
-              />
-            ) : null}
-            {phase === "error" && errorMessage ? (
-              <ErrorBubble
-                message={errorMessage}
-                onRetry={handleRetryAfterError}
-              />
-            ) : null}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <form
+      {/* §01 — INLINE CHAT (initial state, before the user sends anything) */}
+      {inlineChatVisible && phase !== "delivered" ? (
+        <OpsSection id="planner">
+          <OpsSectionHead
+            num="§01"
+            label="// PLANNER"
+            headlineParts={["TELL THE ", "PLANNER", " ABOUT YOUR PROJECT."]}
+            toneMap={{ 1: "accent" }}
+            sub="Type below. The planner asks one question at a time — it adapts based on your answers and won't waste your time on what you've already covered."
+          />
+          <ChatPanel
+            mode="inline"
+            messages={messages}
+            input={input}
+            setInput={setInput}
+            phase={phase}
+            isStreaming={isStreaming}
+            inputLocked={inputLocked}
+            errorMessage={errorMessage}
+            userTurnCount={userTurnCount}
+            messagesContainerRef={messagesContainerRef}
+            inputRef={inputRef}
             onSubmit={handleSendMessage}
-            className="border-t border-[var(--line2)] px-[18px] py-3"
-          >
-            <div className="flex items-end gap-3">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(e);
-                  }
-                }}
-                rows={2}
-                placeholder={
-                  phase === "plan_ready"
-                    ? "Plan delivered — scroll down to email it"
-                    : "Describe what you're building…"
-                }
-                className="block min-h-[64px] w-full resize-none border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-[length:var(--font-size-base)] leading-[var(--lh-normal)] text-[var(--txt)] placeholder:text-[var(--dim)] focus:border-[var(--accent)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={inputLocked}
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || inputLocked}
-                className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
-              >
-                {isStreaming ? "…" : "SEND →"}
-              </button>
-            </div>
-            <div className="mt-2 text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
-              Enter to send · Shift+Enter for newline · The planner will not
-              answer unrelated questions.
-            </div>
-          </form>
-        </div>
-      </OpsSection>
+            onRetry={handleRetryAfterError}
+          />
+        </OpsSection>
+      ) : null}
 
-      {/* §02 — GIST + RECOMMENDED TIER (visible after plan_ready) ------- */}
-      {phase === "plan_ready" && plan && tier ? (
-        <OpsSection id="gist" containerClassName="" >
+      {/* §02 — GIST + RECOMMENDED TIER (visible once delivered) --------- */}
+      {phase === "delivered" && plan && tier ? (
+        <OpsSection id="gist">
           <div ref={gistRef} className="contents">
             <OpsSectionHead
               num="§02"
@@ -535,19 +414,18 @@ export function BuildYourTeamPageClient() {
               headlineParts={[
                 "YOUR PLAN ",
                 "IN BRIEF.",
-                " FULL VERSION BY EMAIL.",
+                " EMAIL IS ON ITS WAY.",
               ]}
               toneMap={{ 1: "accent" }}
               sub={plan.plan_summary}
             />
             <div className="grid grid-cols-[1.4fr_1fr] gap-10 max-[880px]:grid-cols-1">
-              {/* Left: gist bullets */}
               <div className="border border-[var(--line2)] bg-[var(--bg2)] p-7">
                 <div className="mb-4 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
                   {"// PLAN_HIGHLIGHTS"}
                 </div>
                 <ul className="m-0 list-none p-0 text-[length:var(--font-size-base)] text-[var(--txt2)]">
-                  {gistBullets.map((b, i) => (
+                  {plan.gist_bullets.map((b, i) => (
                     <li
                       key={`${i}-${b.slice(0, 16)}`}
                       className="flex items-start gap-3 border-b border-[var(--line)] py-3 leading-[var(--lh-loose)] last:border-b-0"
@@ -562,13 +440,25 @@ export function BuildYourTeamPageClient() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-5 text-[length:var(--font-size-tag)] text-[var(--dim)]">
-                  Full plan covers: {PLAN_COVERAGE.length} sections including
-                  architecture, CI/CD, phase 0, and a 6-week roadmap.
-                </div>
+                {capture ? (
+                  <div className="mt-6 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg))] p-5">
+                    <div className="mb-2 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+                      {`// SENT · ${capture.recipients_emailed} ${capture.recipients_emailed === 1 ? "RECIPIENT" : "RECIPIENTS"}`}
+                    </div>
+                    <p className="m-0 mb-2 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt)]">
+                      Your private plan link — bookmark it if you want it
+                      handy:
+                    </p>
+                    <a
+                      href={capture.plan_url}
+                      className="break-all text-[length:var(--font-size-tag)] text-[var(--accent)] underline-offset-2 hover:underline"
+                    >
+                      {capture.plan_url}
+                    </a>
+                  </div>
+                ) : null}
               </div>
 
-              {/* Right: recommended tier card */}
               <article className="flex flex-col border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg2))] p-7">
                 <div className="mb-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
                   {tier.badge}
@@ -601,146 +491,6 @@ export function BuildYourTeamPageClient() {
               </article>
             </div>
           </div>
-        </OpsSection>
-      ) : null}
-
-      {/* §03 — EMAIL CAPTURE (visible after plan_ready) ----------------- */}
-      {phase === "plan_ready" && plan ? (
-        <OpsSection id="email-capture">
-          <OpsSectionHead
-            num="§03"
-            label="// EMAIL_THE_PLAN"
-            headlineParts={["GET YOUR ", "FULL PLAN.", " BRING TEAMMATES."]}
-            toneMap={{ 1: "accent" }}
-            sub="Drop your email and we'll send a private link to the full plan. Add up to 3 teammates and they'll get the same link in the same thread."
-          />
-          <form
-            onSubmit={handleEmailSubmit}
-            className="border border-[var(--line2)] bg-[var(--bg2)] p-7"
-          >
-            <div className="grid grid-cols-2 gap-5 max-[760px]:grid-cols-1">
-              <FormField
-                label="// YOUR_NAME"
-                type="text"
-                required
-                placeholder="Mei"
-                value={primaryName}
-                onChange={setPrimaryName}
-                autoComplete="given-name"
-              />
-              <FormField
-                label="// YOUR_EMAIL"
-                type="email"
-                required
-                placeholder="mei@studio.com"
-                value={primaryEmail}
-                onChange={setPrimaryEmail}
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="mt-6 border-t border-[var(--line)] pt-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-                  {`// TEAMMATES_OPTIONAL · ${teammates.length} / ${MAX_TEAMMATE_EMAILS}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleAddTeammate}
-                  disabled={teammates.length >= MAX_TEAMMATE_EMAILS}
-                  className={`${opsButtonClassName("ghost")} disabled:cursor-not-allowed disabled:opacity-40`}
-                >
-                  + ADD
-                </button>
-              </div>
-              {teammates.length === 0 ? (
-                <p className="m-0 text-[length:var(--font-size-tag)] text-[var(--dim)]">
-                  Solo for now. Add up to {MAX_TEAMMATE_EMAILS} teammates to share
-                  the plan with co-founders or technical leads.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {teammates.map((t, i) => (
-                    <div key={t.id} className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <FormField
-                          label={`// TEAMMATE_${String(i + 1).padStart(2, "0")}`}
-                          type="email"
-                          placeholder={`teammate-${i + 1}@studio.com`}
-                          value={t.value}
-                          onChange={(v) => handleTeammateChange(t.id, v)}
-                          autoComplete="off"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTeammate(t.id)}
-                        className={opsButtonClassName("ghost")}
-                        aria-label={`Remove teammate ${i + 1}`}
-                      >
-                        REMOVE
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-5">
-              <p className="m-0 max-w-[42ch] text-[length:var(--font-size-tag)] text-[var(--dim)]">
-                We send one email per recipient with the same private link. No
-                marketing list. No signup required.
-              </p>
-              <button
-                type="submit"
-                disabled={
-                  submitState.kind === "submitting" ||
-                  submitState.kind === "submitted" ||
-                  !primaryEmail.trim() ||
-                  !primaryName.trim()
-                }
-                className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
-              >
-                {submitState.kind === "idle" ? "EMAIL ME THE PLAN →" : null}
-                {submitState.kind === "submitting" ? "SENDING…" : null}
-                {submitState.kind === "submitted"
-                  ? "SENT — CHECK YOUR INBOX"
-                  : null}
-                {submitState.kind === "error" ? "TRY AGAIN →" : null}
-              </button>
-            </div>
-
-            {submitState.kind === "submitted" ? (
-              <div className="mt-5 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg))] p-5">
-                <div className="mb-2 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
-                  {`// SENT · ${submitState.recipientCount} ${submitState.recipientCount === 1 ? "RECIPIENT" : "RECIPIENTS"}`}
-                </div>
-                <p className="m-0 mb-3 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt)]">
-                  Check your inbox — the plan and a private link have landed
-                  for you{teammates.length > 0 ? " and your teammates" : ""}.
-                  The link below opens the same page; bookmark it if you want
-                  it handy.
-                </p>
-                <a
-                  href={submitState.planUrl}
-                  className="break-all text-[length:var(--font-size-tag)] text-[var(--accent)] underline-offset-2 hover:underline"
-                >
-                  {submitState.planUrl}
-                </a>
-              </div>
-            ) : null}
-
-            {submitState.kind === "error" ? (
-              <div className="mt-5 border border-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--bg))] p-5">
-                <div className="mb-2 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--warn)]">
-                  {"// SEND_FAILED"}
-                </div>
-                <p className="m-0 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
-                  {submitState.message}
-                </p>
-              </div>
-            ) : null}
-          </form>
         </OpsSection>
       ) : null}
 
@@ -798,6 +548,35 @@ export function BuildYourTeamPageClient() {
           </div>
         </OpsContainer>
       </section>
+
+      {/* FOCUS-MODE OVERLAY ------------------------------------------------ */}
+      {/* Rendered last so it stacks above the page. Fixed positioned, so   */}
+      {/* doesn't disturb document flow.                                     */}
+      {isFocused ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] p-6 backdrop-blur-md max-[760px]:p-0"
+          role="dialog"
+          aria-label="Agenthost planner conversation"
+        >
+          <div className="flex h-full max-h-[100dvh] w-full max-w-[860px] flex-col border border-[var(--line2)] bg-[var(--bg2)] max-[760px]:border-0">
+            <ChatPanel
+              mode="focused"
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              phase={phase}
+              isStreaming={isStreaming}
+              inputLocked={inputLocked}
+              errorMessage={errorMessage}
+              userTurnCount={userTurnCount}
+              messagesContainerRef={messagesContainerRef}
+              inputRef={inputRef}
+              onSubmit={handleSendMessage}
+              onRetry={handleRetryAfterError}
+            />
+          </div>
+        </div>
+      ) : null}
     </OpsPageShell>
   );
 }
@@ -805,6 +584,144 @@ export function BuildYourTeamPageClient() {
 // =============================================================================
 // Subcomponents
 // =============================================================================
+
+interface ChatPanelProps {
+  mode: "inline" | "focused";
+  messages: ChatMessage[];
+  input: string;
+  setInput: (v: string) => void;
+  phase: Phase;
+  isStreaming: boolean;
+  inputLocked: boolean;
+  errorMessage: string | null;
+  userTurnCount: number;
+  messagesContainerRef: React.RefObject<HTMLDivElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  onSubmit: (e: FormEvent) => void;
+  onRetry: () => void;
+}
+
+function ChatPanel(props: ChatPanelProps) {
+  const {
+    mode,
+    messages,
+    input,
+    setInput,
+    phase,
+    isStreaming,
+    inputLocked,
+    errorMessage,
+    userTurnCount,
+    messagesContainerRef,
+    inputRef,
+    onSubmit,
+    onRetry,
+  } = props;
+
+  const indicatorLabel =
+    phase === "generating_plan"
+      ? "BUILDING YOUR PLAN"
+      : phase === "capture_pending"
+        ? "SENDING THE EMAIL"
+        : "PLANNER";
+
+  const placeholder =
+    phase === "delivered"
+      ? "Plan delivered — check your inbox"
+      : phase === "plan_drafted"
+        ? "Reply to keep going (name, email, teammates)…"
+        : "Describe what you're building…";
+
+  const wrapperClasses =
+    mode === "focused"
+      ? "flex h-full flex-col"
+      : "flex flex-col border border-[var(--line2)] bg-[var(--bg2)]";
+
+  // Heights differ between modes: focused fills the viewport; inline caps
+  // at a comfortable reading height with internal scroll.
+  const messagesAreaClasses =
+    mode === "focused"
+      ? "flex flex-1 flex-col gap-4 overflow-y-auto px-[18px] py-6 max-[760px]:px-4"
+      : "flex max-h-[480px] min-h-[360px] flex-col gap-4 overflow-y-auto px-[18px] py-6";
+
+  return (
+    <div className={wrapperClasses}>
+      {/* Header strip */}
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--line2)] px-[18px] py-[12px]">
+        <div className="flex min-w-0 items-center gap-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+          <span className="truncate text-[var(--accent)]">
+            {"// AGENTHOST_PLANNER"}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span className="flex flex-none items-center gap-2">
+            <span
+              aria-hidden="true"
+              className={
+                phase === "error"
+                  ? "h-[7px] w-[7px] rounded-full bg-[var(--warn)]"
+                  : "h-[7px] w-[7px] rounded-full bg-[var(--accent)]"
+              }
+            />
+            {phase === "error" ? "OFFLINE" : "ONLINE"}
+          </span>
+        </div>
+        <div className="flex flex-none items-center gap-3 text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
+          {phase === "delivered" ? "DELIVERED" : `${userTurnCount} / ~6+`}
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div
+        ref={messagesContainerRef}
+        aria-live="polite"
+        className={messagesAreaClasses}
+      >
+        {messages.map((m) => (
+          <ChatBubble key={m.id} role={m.role} text={m.text} />
+        ))}
+        {isStreaming ? <TypingIndicator label={indicatorLabel} /> : null}
+        {phase === "error" && errorMessage ? (
+          <ErrorBubble message={errorMessage} onRetry={onRetry} />
+        ) : null}
+      </div>
+
+      {/* Input */}
+      <form
+        onSubmit={onSubmit}
+        className="border-t border-[var(--line2)] px-[18px] py-3"
+      >
+        <div className="flex items-end gap-3">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSubmit(e);
+              }
+            }}
+            rows={2}
+            placeholder={placeholder}
+            className="block min-h-[64px] w-full resize-none border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-[length:var(--font-size-base)] leading-[var(--lh-normal)] text-[var(--txt)] placeholder:text-[var(--dim)] focus:border-[var(--accent)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={inputLocked}
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || inputLocked}
+            className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            {isStreaming ? "…" : "SEND →"}
+          </button>
+        </div>
+        <div className="mt-2 text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
+          Enter to send · Shift+Enter for newline · The planner will not
+          answer unrelated questions.
+        </div>
+      </form>
+    </div>
+  );
+}
 
 function ChatBubble({ role, text }: { role: ChatRole; text: string }) {
   const isAgent = role === "agent";
@@ -880,45 +797,5 @@ function ErrorBubble({
         </button>
       </div>
     </div>
-  );
-}
-
-function FormField({
-  label,
-  type,
-  required,
-  placeholder,
-  value,
-  onChange,
-  autoComplete,
-}: {
-  label: string;
-  type: "text" | "email";
-  required?: boolean;
-  placeholder?: string;
-  value: string;
-  onChange: (v: string) => void;
-  autoComplete?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-        {label}
-        {required ? (
-          <span aria-hidden="true" className="ml-1 text-[var(--accent)]">
-            *
-          </span>
-        ) : null}
-      </span>
-      <input
-        type={type}
-        required={required}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
-        className="block w-full border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-[length:var(--font-size-base)] leading-[var(--lh-normal)] text-[var(--txt)] placeholder:text-[var(--dim)] focus:border-[var(--accent)] focus:outline-none"
-      />
-    </label>
   );
 }

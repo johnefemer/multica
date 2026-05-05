@@ -28,6 +28,13 @@ export type StreamEvent =
   | { type: "delta"; text: string }
   | { type: "tool_call_started"; name: string }
   | { type: "plan_ready"; plan: GeneratedPlan }
+  | { type: "capture_started" }
+  | {
+      type: "capture_completed";
+      hash: string;
+      plan_url: string;
+      recipients_emailed: number;
+    }
   | { type: "done" }
   | { type: "error"; message: string; status?: number };
 

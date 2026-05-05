@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import {
   MAX_TEAMMATE_EMAILS,
   type CaptureRequestBody,
@@ -8,14 +7,21 @@ import {
   type PlannerChatMessage,
   type RecommendedTier,
 } from "@/lib/landing/team-planner/types";
-import { dbQuery } from "@/lib/db";
-import { generatePlanHash } from "@/lib/landing/team-planner/hash";
-import { renderPlanEmail } from "@/lib/landing/team-planner/email-template";
+import { executeCapture } from "@/lib/landing/team-planner/capture-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Email validation — practical, not RFC-perfect.
+// =============================================================================
+// Legacy form-based capture endpoint.
+//
+// The chat planner now collects name/email/teammates conversationally and
+// fires the submit_capture tool inside POST /api/landing/team-planner/chat.
+// This route stays as a fallback / backward-compat surface — no current
+// client calls it, but we don't want a future caller to silently 404. All
+// real DB + email work lives in lib/landing/team-planner/capture-service.
+// =============================================================================
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LEN = 100;
 const MAX_EMAIL_LEN = 254;
@@ -74,7 +80,7 @@ function validateBody(body: unknown): CaptureRequestBody | null {
   if (cc_emails.length > MAX_TEAMMATE_EMAILS) return null;
   for (const e of cc_emails) {
     if (!EMAIL_RE.test(e) || e.length > MAX_EMAIL_LEN) return null;
-    if (e === primary_email) return null; // dedupe — primary already gets one
+    if (e === primary_email) return null;
   }
 
   if (!isValidPlan(b.plan)) return null;
@@ -87,61 +93,6 @@ function validateBody(body: unknown): CaptureRequestBody | null {
     plan: b.plan,
     conversation: b.conversation,
   };
-}
-
-function appUrl(): string {
-  return (
-    process.env.AGENTHOST_APP_URL ||
-    process.env.MULTICA_APP_URL ||
-    "https://agenthost.kensink.com"
-  ).replace(/\/$/, "");
-}
-
-interface PlanningLeadRow extends Record<string, unknown> {
-  id: string;
-  hash: string;
-}
-
-async function insertLead(
-  body: CaptureRequestBody,
-  attempts = 3,
-): Promise<PlanningLeadRow> {
-  let lastErr: unknown;
-  for (let i = 0; i < attempts; i++) {
-    const hash = generatePlanHash();
-    try {
-      const rows = await dbQuery<PlanningLeadRow>(
-        `INSERT INTO planning_lead
-           (hash, primary_email, primary_name, cc_emails,
-            recommended_tier, project_summary, conversation, plan_markdown)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
-         RETURNING id, hash`,
-        [
-          hash,
-          body.primary_email,
-          body.primary_name,
-          body.cc_emails,
-          body.plan.recommended_tier,
-          body.plan.plan_summary,
-          JSON.stringify(body.conversation),
-          body.plan.plan_markdown,
-        ],
-      );
-      const row = rows[0];
-      if (!row) throw new Error("planning_lead insert returned no row");
-      return row;
-    } catch (err: unknown) {
-      // 23505 = unique_violation. With 60 bits of entropy collisions are
-      // implausible; if one happens, just generate a fresh hash and retry.
-      const pgErr = err as { code?: string };
-      if (pgErr?.code === "23505" && i < attempts - 1) {
-        lastErr = err;
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw lastErr ?? new Error("hash collision retries exhausted");
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -164,77 +115,21 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json(r, { status: 503 });
   }
 
-  let lead: PlanningLeadRow;
   try {
-    lead = await insertLead(valid);
+    const result = await executeCapture(valid);
+    const ok: CaptureResponse = {
+      ok: true,
+      hash: result.hash,
+      plan_url: result.plan_url,
+      recipients_emailed: result.recipients_emailed,
+    };
+    return NextResponse.json(ok);
   } catch (err) {
-    console.error("[planner/capture] insert failed:", err);
+    console.error("[planner/capture] executeCapture failed:", err);
     const r: CaptureResponse = {
       ok: false,
       error: "could not save the plan; please try again",
     };
     return NextResponse.json(r, { status: 503 });
   }
-
-  const planUrl = `${appUrl()}/plan/${lead.hash}`;
-
-  // Send emails best-effort — the lead is already saved, so a partial email
-  // failure doesn't lose the data. The user always gets a hotlink back.
-  const recipients = [
-    {
-      email: valid.primary_email,
-      name: valid.primary_name,
-      isPrimary: true,
-    },
-    ...valid.cc_emails.map((email) => ({
-      email,
-      name: email.split("@")[0] || email,
-      isPrimary: false,
-    })),
-  ];
-
-  let emailedCount = 0;
-
-  if (process.env.RESEND_API_KEY) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const fromEmail =
-      process.env.RESEND_FROM_EMAIL || "Agenthost <noreply@kensink.com>";
-
-    for (const r of recipients) {
-      try {
-        const rendered = renderPlanEmail({
-          recipientName: r.name,
-          isPrimary: r.isPrimary,
-          primaryName: valid.primary_name,
-          hotlinkUrl: planUrl,
-          plan: valid.plan,
-        });
-        await resend.emails.send({
-          from: fromEmail,
-          to: r.email,
-          subject: rendered.subject,
-          html: rendered.html,
-          text: rendered.text,
-        });
-        emailedCount++;
-      } catch (err) {
-        console.error(
-          `[planner/capture] resend failed for ${r.email}:`,
-          err,
-        );
-      }
-    }
-  } else {
-    console.warn(
-      `[planner/capture] RESEND_API_KEY not set; skipping emails. Lead saved with hash ${lead.hash}.`,
-    );
-  }
-
-  const ok: CaptureResponse = {
-    ok: true,
-    hash: lead.hash,
-    plan_url: planUrl,
-    recipients_emailed: emailedCount,
-  };
-  return NextResponse.json(ok);
 }

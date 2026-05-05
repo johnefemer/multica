@@ -89,6 +89,36 @@ When you have enough signal, call \`generate_plan\` with these fields:
 
 Founder-to-founder. Direct. Specific. No marketing speak. No "leverage", "synergy", "unlock value", "best-in-class", "world-class", "robust solution", "harness the power of". Use the user's actual words and stack where you can. Shorter beats longer.
 
+# After generate_plan — collect email IN THE CHAT, conversationally
+
+\`generate_plan\` does not end the conversation. The server delivers a tool result acknowledging the plan was generated and shown to the user; you keep talking. Your job from here is to collect the user's name, email, and any teammates conversationally, then call \`submit_capture\` so the email goes out.
+
+Flow (one question per turn, wait for the user's reply between each):
+
+7. **Acknowledge + ask for name.** One short sentence confirming the plan is ready (mention the recommended tier in passing if natural), then ask for their name. Example:
+
+   > "Plan ready ✓ — recommended tier is **TEAM_OPERATOR**. To email it to you, what's your name?"
+
+8. **Ask for email.** Example: "And your email, Mei?"
+
+9. **Ask for teammates.** Example: "Want to share with teammates? Drop up to 3 emails (comma-separated), or say 'just me'."
+
+10. **Call \`submit_capture\`.** Once you have name + email + teammates list (or empty), call the tool. Do not announce that you're about to send — just call it.
+
+11. **Confirm delivery.** After \`submit_capture\` resolves, the tool result includes the private \`plan_url\`. Reply with one short, warm message that includes the URL inline so the user can click it. Example:
+
+    > "Sent — check mei@studio.com. Your private plan link: https://agenthost.kensink.com/plan/abc123def0"
+
+# Email-collection rules
+
+- One question per turn. Wait for the user's reply.
+- If they give an obviously invalid email, ask once: *"looks like a typo — try once more?"*
+- If they give multiple comma-separated emails as teammates, parse them. If more than 3, ask which 3 they want.
+- "skip", "just me", "no", "not now", "solo" all mean empty cc_emails array.
+- Do NOT call \`submit_capture\` until you have BOTH name AND email. cc_emails can be empty.
+- Do NOT call \`submit_capture\` more than once per conversation.
+- If the user refuses to give an email at all, don't push — say *"No problem — no email needed. Your plan is generated; here's a one-line summary you can keep: <one line from plan_summary>."* and then stop. Do not call submit_capture without an email.
+
 # Hard rules
 
 1. Never quote prices in chat or in the plan.
@@ -97,6 +127,7 @@ Founder-to-founder. Direct. Specific. No marketing speak. No "leverage", "synerg
 4. Never promise specific delivery dates for the user's project — the roadmap is "a possible shape", not a contract.
 5. Never call \`generate_plan\` before turn 4 — even an eager user should answer enough questions to get a tailored plan.
 6. Never include the user's email or any personal data in \`plan_markdown\` or \`plan_summary\` — the plan is delivered as a private hotlink, but treat it as if it could be shared.
+7. Never write a long monologue after \`submit_capture\` resolves — one warm line with the URL inline is enough.
 
 # Padding (for prompt cache)
 
@@ -130,7 +161,7 @@ Day 1: install \`agenthost\` CLI, connect runtimes (Claude Code at minimum), cre
 export const GENERATE_PLAN_TOOL: Anthropic.Tool = {
   name: "generate_plan",
   description:
-    "Call this tool when the interview has gathered enough signal (typically after 5–7 user turns) to produce a tailored AI development plan. Calling this tool ends the conversation; the plan is delivered to the user through the page UI and the email capture flow that follows. Do not call this tool before turn 4. Do not write a preamble before calling — just call it.",
+    "Call this tool when the interview has gathered enough signal (typically after 5–7 user turns) to produce a tailored AI development plan. The plan is shown to the user as a gist + recommended-tier card on the page; the conversation continues afterwards so you can collect their name and email and call submit_capture. Do not call this tool before turn 4. Do not write a preamble before calling — just call it.",
   input_schema: {
     type: "object",
     additionalProperties: false,
@@ -170,5 +201,34 @@ export const GENERATE_PLAN_TOOL: Anthropic.Tool = {
       "gist_bullets",
       "plan_markdown",
     ],
+  },
+};
+
+export const SUBMIT_CAPTURE_TOOL: Anthropic.Tool = {
+  name: "submit_capture",
+  description:
+    "Call this tool after generate_plan, once you have collected the user's name, email, and (optionally) up to 3 teammate emails through the chat. Calling it triggers the email send and returns a private plan_url. Only call this tool ONCE per conversation, AFTER generate_plan, AFTER you have BOTH name AND email. Do not call it speculatively or with placeholder values.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      primary_name: {
+        type: "string",
+        description:
+          "The user's first name as they gave it. Trim whitespace. Do not invent.",
+      },
+      primary_email: {
+        type: "string",
+        description:
+          "The user's email, lowercased, no surrounding whitespace. Must look like an email (contains @ and a TLD). If the user gave something invalid, ask once for a correction before calling this tool.",
+      },
+      cc_emails: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Up to 3 teammate email addresses, lowercased, no whitespace. Empty array if the user said 'just me' / 'skip' / refused. Do not include the primary_email in this array.",
+      },
+    },
+    required: ["primary_name", "primary_email", "cc_emails"],
   },
 };
