@@ -4,7 +4,15 @@ import Link from "next/link";
 import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
 import { cn } from "@multica/ui/lib/utils";
 import { useAuthStore } from "@multica/core/auth";
-import { XMark, xHandle, xUrl } from "./shared";
+import {
+  GitHubMark,
+  SlackMark,
+  XMark,
+  githubPageUrl,
+  slackPageUrl,
+  xHandle,
+  xUrl,
+} from "./shared";
 import { useLocale, locales, localeLabels } from "../i18n";
 
 export function LandingFooter() {
@@ -28,17 +36,37 @@ export function LandingFooter() {
             <p className="mt-4 max-w-[300px] text-[14px] leading-[1.7] text-white/50 sm:text-[15px]">
               {t.footer.tagline}
             </p>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex flex-col gap-2">
               <Link
                 href={xUrl}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`Agenthost on X (${xHandle})`}
-                className="inline-flex items-center gap-2 text-white/40 transition-colors hover:text-white"
+                className="inline-flex w-fit items-center gap-2 text-white/40 transition-colors hover:text-white"
               >
                 <XMark className="size-3.5" />
                 <span className="text-[13px] font-medium tracking-[0.02em]">
                   {xHandle}
+                </span>
+              </Link>
+              <Link
+                href={slackPageUrl}
+                aria-label="Slack integration"
+                className="inline-flex w-fit items-center gap-2 text-white/40 transition-colors hover:text-white"
+              >
+                <SlackMark className="size-3.5" />
+                <span className="text-[13px] font-medium tracking-[0.02em]">
+                  Slack integration
+                </span>
+              </Link>
+              <Link
+                href={githubPageUrl}
+                aria-label="GitHub integration"
+                className="inline-flex w-fit items-center gap-2 text-white/40 transition-colors hover:text-white"
+              >
+                <GitHubMark className="size-3.5" />
+                <span className="text-[13px] font-medium tracking-[0.02em]">
+                  GitHub integration
                 </span>
               </Link>
             </div>
