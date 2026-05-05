@@ -4081,7 +4081,7 @@ export function createEnDict(
     nav: {
       product: "PRODUCT",
       workflow: "WORKFLOW",
-      compare: "COMPARE",
+      plan: "PLAN",
       pricing: "PRICING",
       docs: "DOCS",
       changelog: "CHANGELOG",

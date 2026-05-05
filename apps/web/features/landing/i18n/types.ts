@@ -303,7 +303,7 @@ export type OpsDict = {
   nav: {
     product: string;
     workflow: string;
-    compare: string;
+    plan: string;
     pricing: string;
     docs: string;
     changelog: string;

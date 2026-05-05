@@ -78,10 +78,10 @@ export function OpsHeader() {
     };
   }, [drawerOpen]);
 
-  const navLinks = [
+  const navLinks: Array<{ href: string; label: string; badge?: string }> = [
     { href: "/#product", label: nav.product },
     { href: "/#workflow", label: nav.workflow },
-    { href: "/#compare", label: nav.compare },
+    { href: "/build-your-team", label: nav.plan, badge: "BETA" },
     { href: "/pricing", label: nav.pricing },
     { href: "/docs", label: nav.docs },
     { href: "/changelog", label: nav.changelog },
@@ -115,11 +115,16 @@ export function OpsHeader() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "relative py-[6px] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]",
+                    "relative flex items-center gap-[6px] py-[6px] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]",
                     i === 0 && "text-[var(--txt)]",
                   )}
                 >
                   {link.label}
+                  {link.badge ? (
+                    <span className="border border-[var(--accent)] px-[5px] py-[1px] text-[length:var(--font-size-nano)] font-[number:var(--weight-medium)] leading-none tracking-[var(--tr-caps)] text-[var(--accent)]">
+                      {link.badge}
+                    </span>
+                  ) : null}
                 </Link>
               ))}
             </div>
@@ -193,9 +198,19 @@ export function OpsHeader() {
                     <Link
                       href={link.href}
                       onClick={closeDrawer}
-                      className="flex items-center justify-between border-b border-[var(--line)] px-1 py-[18px] text-[length:var(--font-size-dense)] tracking-[var(--tr-label)] text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--accent)] after:text-[var(--accent)] after:content-['→']"
+                      className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-1 py-[18px] text-[length:var(--font-size-dense)] tracking-[var(--tr-label)] text-[var(--txt)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--accent)]"
                     >
-                      {link.label}
+                      <span className="flex items-center gap-2">
+                        {link.label}
+                        {link.badge ? (
+                          <span className="border border-[var(--accent)] px-[5px] py-[1px] text-[length:var(--font-size-nano)] font-[number:var(--weight-medium)] leading-none tracking-[var(--tr-caps)] text-[var(--accent)]">
+                            {link.badge}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span aria-hidden="true" className="text-[var(--accent)]">
+                        →
+                      </span>
                     </Link>
                   </li>
                 ))}
