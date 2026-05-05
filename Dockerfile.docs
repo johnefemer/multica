@@ -10,22 +10,10 @@ WORKDIR /app
 # present, plus the shared tsconfig/eslint workspaces so pnpm doesn't error
 # on missing references.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json .npmrc ./
-# Copy EVERY workspace package.json. The builder stage later does a
-# `COPY packages/` which surfaces packages/{views,core,...} and their
-# package.json files; pnpm then tries to install their deps in offline
-# mode against the store warmed here. If a workspace package is missing
-# from the deps stage, its dependencies aren't downloaded, the offline
-# install can't resolve them, and the build fails with
-# `ERR_PNPM_NO_OFFLINE_TARBALL`. So: warm the store with EVERY workspace
-# entry, even ones the docs app doesn't directly import.
-COPY apps/desktop/package.json apps/desktop/
 COPY apps/docs/package.json apps/docs/
-COPY apps/web/package.json apps/web/
-COPY packages/core/package.json packages/core/
-COPY packages/eslint-config/package.json packages/eslint-config/
-COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/ui/package.json packages/ui/
-COPY packages/views/package.json packages/views/
+COPY packages/tsconfig/package.json packages/tsconfig/
+COPY packages/eslint-config/package.json packages/eslint-config/
 
 # `apps/docs/package.json` declares `postinstall: fumadocs-mdx`, which reads
 # `apps/docs/source.config.ts` to generate the `.source/` content map. The
@@ -46,10 +34,16 @@ WORKDIR /app
 # Copy installed dependencies (preserves pnpm symlink structure)
 COPY --from=deps /app ./
 
-# Copy source
+# Copy source. ⚠ Do NOT `COPY packages/ packages/` — that surfaces
+# packages/{views,core,...} package.jsons which weren't seeded in the
+# deps stage. The next install would then try to fetch their deps
+# offline and fail with ERR_PNPM_NO_OFFLINE_TARBALL. Only copy the
+# packages the docs subgraph actually needs (matches the deps stage).
 COPY package.json turbo.json pnpm-workspace.yaml ./
 COPY apps/docs/ apps/docs/
-COPY packages/ packages/
+COPY packages/ui/ packages/ui/
+COPY packages/tsconfig/ packages/tsconfig/
+COPY packages/eslint-config/ packages/eslint-config/
 
 # Re-link after source overlay (fixes any symlinks overwritten by COPY).
 # Lifecycle scripts run here, including the docs app's `postinstall:
