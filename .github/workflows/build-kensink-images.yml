@@ -1,12 +1,13 @@
 name: Build & Push Kensink Images
 
-# Builds custom backend + frontend images from the kensink-v2 branch
-# (the active deploy line; see 9412b08c) and pushes them to GHCR.
+# Builds custom backend, frontend, and docs images from the kensink-v2
+# branch (the active deploy line; see 9412b08c) and pushes them to GHCR.
 # The agenthost server then pulls these instead of the upstream
 # multica-ai images.
 #
-# Backend image: ghcr.io/johnefemer/multica-backend:kensink
+# Backend image:  ghcr.io/johnefemer/multica-backend:kensink
 # Frontend image: ghcr.io/johnefemer/multica-web:kensink
+# Docs image:     ghcr.io/johnefemer/multica-docs:kensink
 
 on:
   push:
@@ -14,9 +15,11 @@ on:
     paths:
       - "server/**"
       - "apps/web/**"
+      - "apps/docs/**"
       - "packages/**"
       - "Dockerfile"
       - "Dockerfile.web"
+      - "Dockerfile.docs"
       - "docker-compose.selfhost*.yml"
       - ".github/workflows/build-kensink-images.yml"
   workflow_dispatch:
@@ -98,10 +101,44 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-docs:
+    name: Build docs image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kensink-v2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push docs
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.docs
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/multica-docs:kensink
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/multica-docs:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
     name: Pull new images on agenthost
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
+    needs: [build-backend, build-frontend, build-docs]
     permissions:
       contents: read
 
@@ -127,6 +164,8 @@ jobs:
               echo 'MULTICA_BACKEND_IMAGE=ghcr.io/johnefemer/multica-backend' >> .env
             grep -q 'MULTICA_WEB_IMAGE' .env || \
               echo 'MULTICA_WEB_IMAGE=ghcr.io/johnefemer/multica-web' >> .env
+            grep -q 'MULTICA_DOCS_IMAGE' .env || \
+              echo 'MULTICA_DOCS_IMAGE=ghcr.io/johnefemer/multica-docs' >> .env
             grep -q 'MULTICA_IMAGE_TAG' .env || \
               echo 'MULTICA_IMAGE_TAG=kensink' >> .env
 
@@ -134,6 +173,11 @@ jobs:
             docker compose -f docker-compose.selfhost.yml pull backend
             docker compose -f docker-compose.selfhost.yml up -d --no-deps backend
 
+            docker compose -f docker-compose.selfhost.yml pull docs
+            docker compose -f docker-compose.selfhost.yml up -d --no-deps docs
+
+            # Frontend last so its DOCS_URL proxy hits an already-running
+            # docs container on the next request.
             docker compose -f docker-compose.selfhost.yml pull frontend
             docker compose -f docker-compose.selfhost.yml up -d --no-deps frontend
 

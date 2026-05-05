@@ -4,6 +4,10 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
+  // Gate standalone tracing on STANDALONE=true so `pnpm dev` and
+  // `pnpm typecheck` skip the extra cost. The Dockerfile.docs build
+  // sets the env var; everything else gets a normal output.
+  ...(process.env.STANDALONE === "true" ? { output: "standalone" } : {}),
   reactStrictMode: true,
   basePath: "/docs",
   // Visiting http://host/ (outside basePath) would otherwise 404 — redirect

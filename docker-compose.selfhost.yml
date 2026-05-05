@@ -98,7 +98,22 @@ services:
       # Used to build absolute hotlink URLs in the delivered emails.
       AGENTHOST_APP_URL: ${AGENTHOST_APP_URL:-}
       MULTICA_APP_URL: ${MULTICA_APP_URL:-}
+      # Internal docs service URL — Next.js's /docs/* rewrite proxy in
+      # apps/web/next.config.ts uses this to forward requests to the docs
+      # container. Read at server boot, so a frontend restart is required
+      # if the URL ever changes.
+      DOCS_URL: ${DOCS_URL:-http://docs:4000}
     restart: unless-stopped
+
+  docs:
+    # Fumadocs-based docs site (apps/docs). Reachable only inside the
+    # multica_default network — the frontend container proxies /docs/*
+    # to docs:4000 via DOCS_URL. No host port is exposed.
+    image: ${MULTICA_DOCS_IMAGE:-ghcr.io/multica-ai/multica-docs}:${MULTICA_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "4000"
 
 volumes:
   pgdata:
