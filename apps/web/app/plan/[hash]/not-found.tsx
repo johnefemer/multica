@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { OpsPageShell } from "@/features/landing/components/ops/ops-page-shell";
+import { PlanPageShell } from "@/features/landing/components/plan-page-shell";
 import {
   OpsSection,
   OpsSectionHead,
@@ -10,7 +10,7 @@ const CONTACT_EMAIL = "agenthost@kensink.com";
 
 export default function PlanNotFound() {
   return (
-    <OpsPageShell>
+    <PlanPageShell>
       <OpsSection id="not-found">
         <OpsSectionHead
           num="§00"
@@ -34,6 +34,6 @@ export default function PlanNotFound() {
           </a>
         </div>
       </OpsSection>
-    </OpsPageShell>
+    </PlanPageShell>
   );
 }

@@ -6,7 +6,7 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { OpsPageShell } from "./ops/ops-page-shell";
+import { PlanPageShell } from "./plan-page-shell";
 import {
   OpsContainer,
   OpsSection,
@@ -45,7 +45,7 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
   );
 
   return (
-    <OpsPageShell>
+    <PlanPageShell>
       {/* §00 — HERO ----------------------------------------------------- */}
       <OpsSection id="hero">
         <OpsSectionHead
@@ -259,6 +259,6 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
           </div>
         </OpsContainer>
       </section>
-    </OpsPageShell>
+    </PlanPageShell>
   );
 }
