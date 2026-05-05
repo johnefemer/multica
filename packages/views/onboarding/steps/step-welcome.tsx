@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
@@ -12,22 +12,25 @@ import { StatusIcon } from "../../issues/components/status-icon";
 import { ProviderLogo } from "../../runtimes/components/provider-logo";
 
 /**
- * Step 0 — the one-shot product intro shown on every onboarding
- * entry (which-step-are-you-on is not persisted). Returning users
- * who are already onboarded never reach this screen; they're gated
- * out earlier by `!hasOnboarded`.
+ * Step 0 — one-shot product intro shown on every onboarding entry.
  *
- * Layout: two-column editorial hero on lg+, single column below.
- * Left = wordmark + serif headline + lede + CTA; right = a stack of
- * mock issue cards that show what human/agent collaboration looks
- * like on the board — the thing the user is about to create. The
- * right column is an illustration, not content: hidden below lg so
- * the headline and CTA stay the focus on narrow viewports.
+ * Layout collapses cleanly across breakpoints — the right-column live
+ * preview moves BELOW the copy on <lg rather than disappearing, so every
+ * viewport sees the product story:
  *
- * `onSkip`, when provided, renders a secondary ghost CTA that marks
- * onboarding complete server-side and sends the user straight to
- * their existing workspace. OnboardingFlow only passes it when the
- * user has ≥ 1 workspace — without that, skipping lands in limbo.
+ *   <sm  single column, 3 cards, no rotation, full-width
+ *   sm   single column, 4 cards, slight rotation reintroduced
+ *   md   single column, 4 cards
+ *   lg+  two-column editorial hero, 5 rotated cards in a stacked pile
+ *
+ * Animation is gated by IntersectionObserver (don't burn frames before
+ * the user can see it on mobile), tab visibility, mouse hover (lg+ only),
+ * and `prefers-reduced-motion` (skips straight to final state).
+ *
+ * `onSkip`, when provided, renders a demoted text-link CTA below the
+ * primary that marks onboarding complete and lands the user in their
+ * existing workspace. OnboardingFlow only passes it when the user has
+ * ≥ 1 workspace — without that, skipping lands in limbo.
  */
 export function StepWelcome({
   onNext,
@@ -36,8 +39,6 @@ export function StepWelcome({
   onNext: () => void | Promise<void>;
   onSkip?: () => void | Promise<void>;
 }) {
-  // Tracks which button is mid-flight so we can show a per-button
-  // spinner and disable both while one is in progress.
   const [pending, setPending] = useState<"next" | "skip" | null>(null);
 
   const handleNext = async () => {
@@ -61,27 +62,27 @@ export function StepWelcome({
   };
 
   return (
-    <div className="animate-onboarding-enter flex h-full min-h-[640px] flex-col lg:flex-row">
-      {/* Left — prose + CTA */}
-      <div className="flex flex-col lg:flex-1">
+    <div className="animate-onboarding-enter grid min-h-screen grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-2">
+      {/* Left — wordmark, headline, lede, roadmap, CTA */}
+      <div className="flex flex-col">
         <DragStrip />
-        <div className="flex flex-1 flex-col justify-center px-6 pb-12 sm:px-10 md:px-20 lg:px-20 xl:px-24">
-          <div className="flex w-full max-w-[540px] flex-col gap-8">
+        <div className="flex flex-1 flex-col justify-center px-5 pb-10 pt-8 sm:px-8 sm:pb-12 sm:pt-10 md:px-12 lg:px-16 xl:px-20 2xl:px-24">
+          <div className="flex w-full max-w-[560px] flex-col gap-6 sm:gap-8">
             <div className="flex items-center gap-2.5">
               <MulticaIcon className="size-5 text-foreground" noSpin />
-              <span className="font-serif text-xl font-medium tracking-tight">
+              <span className="font-serif text-lg font-medium tracking-tight sm:text-xl">
                 Welcome to Agenthost
               </span>
             </div>
 
-            <h1 className="text-balance font-serif text-5xl font-medium leading-[1.04] tracking-tight sm:text-6xl">
+            <h1 className="text-balance font-serif text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
               Your AI teammates,
-              <br />
-              in <em className="italic text-brand">one workspace.</em>
+              <br className="hidden lg:block" />
+              {" "}in <em className="italic text-brand">one workspace.</em>
             </h1>
 
-            <div className="flex flex-col gap-4">
-              <p className="text-lg leading-relaxed text-foreground/85">
+            <div className="flex flex-col gap-3.5">
+              <p className="text-base leading-relaxed text-foreground/85 sm:text-lg">
                 Assign them work like you&apos;d assign a colleague — they
                 pick it up, update status, and comment when done.
               </p>
@@ -90,11 +91,14 @@ export function StepWelcome({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <Roadmap />
+
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Button
                 size="lg"
                 onClick={handleNext}
                 disabled={pending !== null}
+                className="w-full sm:w-auto"
               >
                 {pending === "next" && (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -103,58 +107,173 @@ export function StepWelcome({
                 <ArrowRight className="h-4 w-4" />
               </Button>
               {onSkip && (
-                <Button
-                  size="lg"
-                  variant="ghost"
+                // Demoted to a text-link CTA so the visual hierarchy reads
+                // primary→secondary. py-3 keeps a 44px touch target for
+                // mobile despite the smaller visual footprint.
+                <button
+                  type="button"
                   onClick={handleSkip}
                   disabled={pending !== null}
+                  className="inline-flex items-center justify-center gap-1.5 self-center px-2 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50 sm:self-auto"
                 >
                   {pending === "skip" && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   )}
                   I&apos;ve done this before
-                </Button>
+                </button>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right — mock issue cards illustration. Hidden on < lg.
-          Flex row on lg+ with `items-stretch` (default) makes both
-          columns take the container's full height, so the muted bg
-          fills the viewport edge-to-edge. `justify-center` inside
-          centers the mock cards vertically, mirroring the left
-          column's copy-center layout. */}
-      <div className="hidden border-l bg-muted/40 lg:flex lg:flex-1 lg:flex-col lg:overflow-hidden">
-        <DragStrip />
-        <div className="flex flex-1 flex-col items-center justify-center gap-7 px-8 py-8">
-          <p className="max-w-[440px] text-balance text-center font-serif text-[15px] italic leading-snug text-muted-foreground">
+      {/* Right (lg+) / Below (<lg) — animated activity preview.
+          On <lg the column flows below the left as part of the page
+          scroll; the muted background keeps it visually distinct. */}
+      <div className="border-t bg-muted/40 lg:border-l lg:border-t-0">
+        <div className="hidden lg:block">
+          <DragStrip />
+        </div>
+        <div className="flex flex-col items-center justify-center gap-5 px-5 py-10 sm:gap-6 sm:px-8 sm:py-14 lg:h-full lg:gap-7 lg:py-8">
+          <p className="hidden max-w-[440px] text-balance text-center font-serif text-[15px] italic leading-snug text-muted-foreground lg:block">
             Every issue, every thread, every decision — shared by your team and
             agents.
           </p>
-          <WelcomeIllustration />
+          <p className="text-center font-serif text-[13px] italic uppercase tracking-wide text-muted-foreground lg:hidden">
+            See it in action
+          </p>
+          <ActivityPreview />
         </div>
       </div>
     </div>
   );
 }
 
+const ROADMAP = [
+  "Tell us about your team",
+  "Name your workspace",
+  "Connect a runtime",
+  "Create your first agent",
+  "Assign your first issue",
+] as const;
 
-/**
- * A day in a solo user's multi-agent workspace. Five activity cards
- * woven through 3 shared issues (MCA-42 appears 3×) so the reader can
- * *see* agents referencing each other's work — the product's
- * "one workspace, shared context" thesis rendered concretely.
- *
- * Cards use slight rotations + indents to feel like a hand-stacked
- * pile rather than a neat feed, which matches the editorial-hero
- * aesthetic of the left column.
- */
-function WelcomeIllustration() {
+function Roadmap() {
   return (
-    <div className="flex w-full max-w-[460px] flex-col gap-3">
-      <MockActivityCard
+    <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 sm:p-5">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Takes ~2 minutes · 5 quick steps
+      </p>
+      <ol className="flex flex-col gap-2.5">
+        {ROADMAP.map((label, i) => (
+          <li key={label} className="flex items-center gap-3 text-sm">
+            <span
+              aria-hidden
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-semibold text-foreground/70"
+            >
+              {i + 1}
+            </span>
+            <span className="text-foreground/85">{label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+// Discrete visual states of the preview stack. Advancing through them
+// tells the "human assigns → agent works → agents collaborate" arc.
+//   0  cleared (initial / between loop iterations)
+//   1  user card visible
+//   2  content-agent card visible, in_progress + pulsing
+//   3  content-agent flips to done
+//   4  research card joins
+//   5  review card joins
+//   6  coding card joins — full state, held before reset
+const PHASE_DELAYS = [600, 900, 1600, 700, 700, 700, 3500] as const;
+const TOTAL_PHASES = PHASE_DELAYS.length - 1;
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mql.matches);
+    const update = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+
+function ActivityPreview() {
+  const reducedMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [phase, setPhase] = useState<number>(0);
+  const [paused, setPaused] = useState(false);
+  const [inView, setInView] = useState(false);
+
+  // On <lg the preview is below-the-fold; we only want the loop to run
+  // when it's actually on screen so the first beats aren't missed.
+  // On lg+ the preview is in the hero — it intersects on mount.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry?.isIntersecting ?? false),
+      { threshold: 0.4 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Hidden-tab pause prevents background frame burn and keeps the loop
+  // from desyncing — when the user returns, advance from the current
+  // phase rather than catching up.
+  useEffect(() => {
+    const onVis = () => setPaused(document.visibilityState !== "visible");
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  // Phase advancer — single timeout chain so each beat owns its duration.
+  // Wraps from TOTAL_PHASES → 0 to restart, with phase 0's delay covering
+  // the cross-fade gap so cards visibly clear before re-appearing.
+  useEffect(() => {
+    if (reducedMotion) {
+      setPhase(TOTAL_PHASES);
+      return;
+    }
+    if (paused || !inView) return;
+    const delay = PHASE_DELAYS[phase] ?? 1000;
+    const id = window.setTimeout(() => {
+      setPhase((p) => (p >= TOTAL_PHASES ? 0 : p + 1));
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [phase, paused, inView, reducedMotion]);
+
+  // Mouse-only pause-on-hover (touch never fires onMouseEnter, which is
+  // the desired behavior — mobile users have no other hint that the
+  // animation can be paused, so we just let it loop).
+  const hoverHandlers = !reducedMotion
+    ? {
+        onMouseEnter: () => setPaused(true),
+        onMouseLeave: () => setPaused(false),
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex w-full max-w-[460px] flex-col gap-2.5 sm:gap-3"
+      role="img"
+      aria-label="Preview of human and agent activity in a shared workspace"
+      {...hoverHandlers}
+    >
+      <PreviewCard
+        show={phase >= 1}
         actor={{ kind: "user", name: "You", initial: "N" }}
         issueId="MCA-42"
         content={
@@ -165,8 +284,9 @@ function WelcomeIllustration() {
           </>
         }
       />
-      <MockActivityCard
-        className="-translate-x-5 -rotate-[1.2deg]"
+      <PreviewCard
+        show={phase >= 2}
+        offsetClassName="lg:-translate-x-5 lg:-rotate-[1.2deg]"
         actor={{ kind: "agent", name: "Content Agent", provider: "codex" }}
         issueId="MCA-42"
         content={
@@ -175,25 +295,34 @@ function WelcomeIllustration() {
             &ldquo;time saved&rdquo; angle…
           </>
         }
-        status="in_progress"
+        status={phase >= 3 ? "done" : "in_progress"}
+        timestamp={phase >= 3 ? "just now" : undefined}
       />
-      <MockActivityCard
-        className="translate-x-8 rotate-[1.6deg]"
+      <PreviewCard
+        show={phase >= 4}
+        offsetClassName="lg:translate-x-8 lg:rotate-[1.6deg]"
         actor={{ kind: "agent", name: "Research Agent", provider: "hermes" }}
         issueId="MCA-38"
         content="This week's user interviews summarized — 12 calls, 4 recurring themes, 3 pull-quotes."
         status="done"
         timestamp="15 min ago"
       />
-      <MockActivityCard
-        className="-translate-x-6 -rotate-[0.8deg]"
+      <PreviewCard
+        show={phase >= 5}
+        // Hidden < sm to keep the mobile preview short (3 cards) — these
+        // breakpoints are the responsive density tiers from the design.
+        hideBelow="sm"
+        offsetClassName="lg:-translate-x-6 lg:-rotate-[0.8deg]"
         actor={{ kind: "agent", name: "Review Agent", provider: "openclaw" }}
         issueId="MCA-42"
         content="Reviewed Monday's draft — left 4 notes on tone. Standing by for the new one."
         status="in_review"
       />
-      <MockActivityCard
-        className="translate-x-6 rotate-[1deg]"
+      <PreviewCard
+        show={phase >= 6}
+        // Card 5 only renders on lg+; mobile/tablet stop at 4 cards.
+        hideBelow="lg"
+        offsetClassName="lg:translate-x-6 lg:rotate-[1deg]"
         actor={{ kind: "agent", name: "Coding Agent", provider: "claude" }}
         issueId="MCA-35"
         content={
@@ -223,36 +352,45 @@ type ActivityActor =
   | { kind: "user"; name: string; initial: string }
   | { kind: "agent"; name: string; provider: ProviderName };
 
-function MockActivityCard({
+function PreviewCard({
+  show,
   actor,
   issueId,
   content,
   status,
   timestamp,
-  className,
+  offsetClassName,
+  hideBelow,
 }: {
+  show: boolean;
   actor: ActivityActor;
   issueId: string;
   content: React.ReactNode;
   status?: Extract<IssueStatus, "in_progress" | "done" | "in_review">;
   timestamp?: string;
-  className?: string;
+  offsetClassName?: string;
+  hideBelow?: "sm" | "md" | "lg";
 }) {
   return (
     <div
       className={cn(
         "rounded-lg border bg-card px-4 py-3.5 shadow-sm",
-        // Decorative hover: lift, straighten, deeper shadow. Cards aren't
-        // clickable — this is ambient polish so the illustration feels like
-        // real app UI rather than a flat screenshot.
-        "transition-all duration-200 ease-out will-change-transform",
-        "hover:-translate-y-0.5 hover:rotate-0 hover:shadow-md",
-        className,
+        "transition-all duration-500 ease-out will-change-[opacity,transform]",
+        show
+          ? "translate-y-0 opacity-100"
+          : "pointer-events-none -translate-y-1 opacity-0",
+        // Decorative hover (lg+ only). Cards aren't clickable — ambient polish.
+        "lg:hover:-translate-y-0.5 lg:hover:rotate-0 lg:hover:shadow-md",
+        offsetClassName,
+        hideBelow === "sm" && "hidden sm:block",
+        hideBelow === "md" && "hidden md:block",
+        hideBelow === "lg" && "hidden lg:block",
       )}
+      aria-hidden={!show}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <MockAvatar actor={actor} />
+          <PreviewAvatar actor={actor} />
           <span className="truncate text-sm font-medium text-foreground">
             {actor.name}
           </span>
@@ -262,7 +400,7 @@ function MockActivityCard({
         </span>
       </div>
 
-      <p className="mt-2.5 text-sm leading-snug text-foreground/85">
+      <p className="mt-2.5 break-words text-sm leading-snug text-foreground/85">
         {content}
       </p>
 
@@ -271,7 +409,7 @@ function MockActivityCard({
   );
 }
 
-function MockAvatar({ actor }: { actor: ActivityActor }) {
+function PreviewAvatar({ actor }: { actor: ActivityActor }) {
   if (actor.kind === "user") {
     return (
       <div
@@ -303,7 +441,10 @@ function StatusFooter({
   return (
     <div className="mt-3 flex items-center gap-2 text-xs">
       <span
-        className={cn("flex items-center gap-1.5 font-medium", cfg.iconColor)}
+        className={cn(
+          "flex items-center gap-1.5 font-medium transition-colors",
+          cfg.iconColor,
+        )}
       >
         <StatusIcon
           status={status}
