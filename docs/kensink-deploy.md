@@ -74,9 +74,9 @@ GitHub Container Registry. No local build is required on the server.
 
 | Container | Image | Port |
 |-----------|-------|------|
-| `multica-postgres-1` | `pgvector/pgvector:pg17` | 5432 |
-| `multica-backend-1` | `ghcr.io/multica-ai/multica-backend:latest` | 8080 |
-| `multica-frontend-1` | `ghcr.io/multica-ai/multica-web:latest` | 3000 |
+| `agenthost-postgres-1` | `pgvector/pgvector:pg17` | 5432 |
+| `agenthost-backend-1` | `ghcr.io/multica-ai/multica-backend:latest` | 8080 |
+| `agenthost-frontend-1` | `ghcr.io/multica-ai/multica-web:latest` | 3000 |
 
 ### Docker volumes (persistent data)
 
@@ -84,6 +84,8 @@ GitHub Container Registry. No local build is required on the server.
 |--------|---------|
 | `multica_pgdata` | PostgreSQL data directory |
 | `multica_backend_uploads` | File uploads (`/app/data/uploads`) |
+
+> Volume names still carry the `multica_` prefix even though the Compose project was renamed to `agenthost`. They are pinned via explicit `name:` in [docker-compose.selfhost.yml](../docker-compose.selfhost.yml) so the new `agenthost-*` containers attach to the same persistent state. See [agenthost-releasing.md § Container naming](./agenthost-releasing.md#container-naming) for the why.
 
 ---
 
@@ -256,7 +258,7 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
 
   echo ''
   echo '── Postgres health ──'
-  docker exec multica-postgres-1 pg_isready -U multica && echo 'OK' || echo 'FAIL'
+  docker exec agenthost-postgres-1 pg_isready -U multica && echo 'OK' || echo 'FAIL'
 "
 ```
 
@@ -269,11 +271,11 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 # Backend only (most useful for debugging auth/API issues)
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "docker logs multica-backend-1 --tail=50 -f"
+  "docker logs agenthost-backend-1 --tail=50 -f"
 
 # Frontend only
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "docker logs multica-frontend-1 --tail=50 -f"
+  "docker logs agenthost-frontend-1 --tail=50 -f"
 ```
 
 ---
@@ -333,7 +335,7 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
 
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  docker exec multica-postgres-1 \
+  docker exec agenthost-postgres-1 \
     pg_dump -U multica multica | gzip > ~/multica-backup-\$(date +%Y%m%d).sql.gz
 "
 # Copy backup locally
