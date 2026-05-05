@@ -9,6 +9,12 @@ import {
   OpsSectionHead,
   opsButtonClassName,
 } from "./ops/ops-primitives";
+import type {
+  GeneratedPlan,
+  PlannerChatMessage,
+  RecommendedTier,
+  StreamEvent,
+} from "@/lib/landing/team-planner/types";
 
 const CONTACT_EMAIL = "agenthost@kensink.com";
 const HELP_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
@@ -18,18 +24,20 @@ const HELP_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
 const MAX_TEAMMATE_EMAILS = 3;
 
 // =============================================================================
-// PR 1 SCAFFOLD
+// PR 2 — chat backend wired
 //
-// This is the visual structure only. The chat is wired to a local stub that
-// echoes a canned agent reply so the UX is reviewable. The gist + tier card +
-// email capture sections are always visible (they will be gated behind
-// chat completion in PR 2). The email form is a no-op submit for now.
-//
-// Wiring lands in:
-//   PR 2 — POST /api/landing/team-planner/chat (streaming Anthropic response)
-//   PR 3 — POST /api/landing/team-planner/capture (Resend + planning_lead row)
-//   PR 4 — /plan/<hash> hotlink page
+// Chat now streams from /api/landing/team-planner/chat. When the planner
+// emits a `plan_ready` event (its `generate_plan` tool call completed),
+// the gist + tier card + email-capture form unhide and the chat input
+// locks. Email capture itself is still a no-op submit; PR 3 wires it.
 // =============================================================================
+
+type Phase =
+  | "interview"          // chat active, accepting user input
+  | "streaming"          // request in flight, agent text streaming
+  | "generating_plan"    // tool call started, plan being assembled
+  | "plan_ready"         // plan delivered, chat locked, gist visible
+  | "error";             // transport / API error
 
 type ChatRole = "agent" | "user";
 interface ChatMessage {
@@ -38,6 +46,8 @@ interface ChatMessage {
   text: string;
 }
 
+// The seeded greeting is UI-only — Anthropic requires the first API
+// message to be `user`, so we slice this off when posting to the route.
 const SEEDED_MESSAGES: ChatMessage[] = [
   {
     id: "m1",
@@ -47,46 +57,49 @@ const SEEDED_MESSAGES: ChatMessage[] = [
   },
 ];
 
-// Stubbed agent reply for PR 1 only. PR 2 replaces this with a streaming
-// fetch to /api/landing/team-planner/chat.
-function stubAgentReply(userText: string): string {
-  const lower = userText.toLowerCase();
-  if (lower.length < 12) {
-    return "Got it. Can you flesh that out a bit? Even one or two sentences about the product, who it's for, and where you are today helps me ask the right next question.";
-  }
-  return "Thanks — that gives me a starting picture. (PR 2 wires the real planner; in this preview I won't drill in further.) Scroll down to see the gist + email capture below.";
-}
+const TIER_DISPLAY: Record<
+  RecommendedTier,
+  { badge: string; name: string; highlights: string[] }
+> = {
+  solo: {
+    badge: "// SOLO_FIT",
+    name: "SOLO_FOUNDER",
+    highlights: [
+      "One-time setup, pay-as-you-go",
+      "Unlimited issues, projects, agents",
+      "BYOK — your provider keys, your bill",
+      "Cancel anytime · no monthly contract",
+    ],
+  },
+  team: {
+    badge: "// FEATURED_FIT",
+    name: "TEAM_OPERATOR",
+    highlights: [
+      "Flat monthly per workspace",
+      "Unlimited AI tokens (BYOK)",
+      "Unlimited humans + agents",
+      "Sprint queue, runtimes, audit trail",
+    ],
+  },
+  frontier: {
+    badge: "// FRONTIER_FIT",
+    name: "FRONTIER_FIRM",
+    highlights: [
+      "Custom pricing, dedicated infra",
+      "AI supervisors + human escalation",
+      "Custom runtimes & private models",
+      "VPC / on-prem · SSO · audit",
+    ],
+  },
+};
 
-const GIST_BULLETS = [
+const PLAN_COVERAGE: string[] = [
   "Architecture sketch tailored to your stack and deploy target",
   "CI/CD posture — what to set up first, what can wait",
   "Concrete human ↔ agent balance (e.g. 1 senior eng + 2 coding agents)",
   "Phase 0 setup checklist — your first week of work",
   "6-week roadmap broken into 3 shippable phases",
 ];
-
-type RecommendedTier = {
-  id: "solo_founder" | "team_operator" | "frontier_firm";
-  badge: string;
-  name: string;
-  why: string;
-  highlights: string[];
-};
-
-// PR 1 stub: hard-coded TEAM_OPERATOR. PR 2 replaces this with the tier
-// the agent picks at end-of-interview.
-const STUB_TIER: RecommendedTier = {
-  id: "team_operator",
-  badge: "// FEATURED_FIT",
-  name: "TEAM_OPERATOR",
-  why: "Small founding team, ongoing product, multi-repo — flat monthly per workspace fits cleanly.",
-  highlights: [
-    "Shared agents across the team",
-    "Multi-repo registration",
-    "Workspace Context + Instructions",
-    "Inbox + Autopilot included",
-  ],
-};
 
 interface TeammateEmail {
   id: string;
@@ -100,40 +113,182 @@ export function BuildYourTeamPageClient() {
   // --- Chat state -----------------------------------------------------------
   const [messages, setMessages] = useState<ChatMessage[]>(SEEDED_MESSAGES);
   const [input, setInput] = useState("");
-  const [isAgentTyping, setIsAgentTyping] = useState(false);
+  const [phase, setPhase] = useState<Phase>("interview");
+  const [plan, setPlan] = useState<GeneratedPlan | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const gistRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const isStreaming = phase === "streaming" || phase === "generating_plan";
+  const inputLocked = isStreaming || phase === "plan_ready";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isAgentTyping]);
+  }, [messages, phase]);
+
+  useEffect(() => {
+    if (phase === "plan_ready") {
+      // Give the gist section a beat to render, then bring it into view.
+      const id = window.setTimeout(() => {
+        gistRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+      return () => window.clearTimeout(id);
+    }
+  }, [phase]);
+
+  async function streamChat(history: ChatMessage[]) {
+    setPhase("streaming");
+    setErrorMessage(null);
+
+    // Skip the seeded greeting (it's UI-only; the API needs the first
+    // message to be `user`).
+    const apiMessages: PlannerChatMessage[] = history.slice(1).map((m) => ({
+      role: m.role,
+      text: m.text,
+    }));
+
+    const lastMsg = apiMessages.at(-1);
+    if (!lastMsg || lastMsg.role !== "user") {
+      // Defensive: should never happen, but don't kick off a request that
+      // the server will reject.
+      setPhase("interview");
+      return;
+    }
+
+    const agentId = `a-${Date.now()}`;
+    let accumulated = "";
+    let agentMessageAppended = false;
+    let sawPlanReady = false;
+    let sawError = false;
+
+    try {
+      const res = await fetch("/api/landing/team-planner/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: apiMessages }),
+      });
+
+      if (!res.ok || !res.body) {
+        let serverMsg = "The planner is offline right now.";
+        try {
+          const data = (await res.json()) as { error?: string };
+          if (data?.error) serverMsg = data.error;
+        } catch {
+          /* leave default */
+        }
+        throw new Error(serverMsg);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIdx = buffer.indexOf("\n");
+        while (newlineIdx >= 0) {
+          const line = buffer.slice(0, newlineIdx).trim();
+          buffer = buffer.slice(newlineIdx + 1);
+          newlineIdx = buffer.indexOf("\n");
+          if (!line) continue;
+
+          let event: StreamEvent;
+          try {
+            event = JSON.parse(line) as StreamEvent;
+          } catch {
+            continue;
+          }
+
+          if (event.type === "delta") {
+            accumulated += event.text;
+            if (!agentMessageAppended) {
+              agentMessageAppended = true;
+              setMessages((prev) => [
+                ...prev,
+                { id: agentId, role: "agent", text: accumulated },
+              ]);
+            } else {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === agentId ? { ...m, text: accumulated } : m,
+                ),
+              );
+            }
+          } else if (event.type === "tool_call_started") {
+            setPhase("generating_plan");
+          } else if (event.type === "plan_ready") {
+            sawPlanReady = true;
+            setPlan(event.plan);
+            // If the agent never produced a text turn before the tool call,
+            // append a brief closing line so the chat doesn't end on the
+            // user's message.
+            if (!agentMessageAppended) {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `a-${Date.now()}-closing`,
+                  role: "agent",
+                  text:
+                    "Plan ready — drop your email below to receive the full version.",
+                },
+              ]);
+            }
+          } else if (event.type === "error") {
+            sawError = true;
+            setErrorMessage(event.message);
+          }
+        }
+      }
+    } catch (err) {
+      sawError = true;
+      setErrorMessage(
+        err instanceof Error ? err.message : "Network error talking to the planner.",
+      );
+    }
+
+    if (sawPlanReady) {
+      setPhase("plan_ready");
+    } else if (sawError) {
+      setPhase("error");
+    } else {
+      setPhase("interview");
+      // Bring focus back so the user can continue answering.
+      window.setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }
 
   function handleSendMessage(e: FormEvent) {
     e.preventDefault();
+    if (inputLocked) return;
     const trimmed = input.trim();
-    if (!trimmed || isAgentTyping) return;
+    if (!trimmed) return;
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: "user",
       text: trimmed,
     };
-    setMessages((prev) => [...prev, userMsg]);
+    const next = [...messages, userMsg];
+    setMessages(next);
     setInput("");
-    setIsAgentTyping(true);
-    // Local stub — PR 2 swaps this out for a streaming server call.
-    const replyAfter = 700 + Math.min(trimmed.length * 12, 1200);
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          role: "agent",
-          text: stubAgentReply(trimmed),
-        },
-      ]);
-      setIsAgentTyping(false);
-      inputRef.current?.focus();
-    }, replyAfter);
+    void streamChat(next);
+  }
+
+  function handleRetryAfterError() {
+    if (phase !== "error") return;
+    // Drop the failing user turn so the next attempt can be made cleanly.
+    setMessages((prev) => {
+      // If the last message is from the user, leave it; the user might
+      // want to edit and resend. We just clear the error state so they
+      // can press send again.
+      return prev;
+    });
+    setErrorMessage(null);
+    setPhase("interview");
+    window.setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   // --- Email capture state --------------------------------------------------
@@ -161,8 +316,12 @@ export function BuildYourTeamPageClient() {
     if (submitState !== "idle") return;
     setSubmitState("submitting");
     // PR 3 wires this to POST /api/landing/team-planner/capture.
-    setTimeout(() => setSubmitState("submitted"), 900);
+    window.setTimeout(() => setSubmitState("submitted"), 900);
   }
+
+  const userTurnCount = messages.filter((m) => m.role === "user").length;
+  const tier = plan ? TIER_DISPLAY[plan.recommended_tier] : null;
+  const gistBullets = plan?.gist_bullets ?? PLAN_COVERAGE;
 
   return (
     <OpsPageShell>
@@ -234,13 +393,17 @@ export function BuildYourTeamPageClient() {
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="h-[7px] w-[7px] rounded-full bg-[var(--accent)]"
+                  className={
+                    phase === "error"
+                      ? "h-[7px] w-[7px] rounded-full bg-[var(--warn)]"
+                      : "h-[7px] w-[7px] rounded-full bg-[var(--accent)]"
+                  }
                 />
-                ONLINE
+                {phase === "error" ? "OFFLINE" : "ONLINE"}
               </span>
             </div>
             <div className="text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
-              {messages.filter((m) => m.role === "user").length} / ~6
+              {userTurnCount} / ~6
             </div>
           </div>
 
@@ -252,7 +415,21 @@ export function BuildYourTeamPageClient() {
             {messages.map((m) => (
               <ChatBubble key={m.id} role={m.role} text={m.text} />
             ))}
-            {isAgentTyping ? <TypingIndicator /> : null}
+            {isStreaming ? (
+              <TypingIndicator
+                label={
+                  phase === "generating_plan"
+                    ? "BUILDING YOUR PLAN"
+                    : "PLANNER"
+                }
+              />
+            ) : null}
+            {phase === "error" && errorMessage ? (
+              <ErrorBubble
+                message={errorMessage}
+                onRetry={handleRetryAfterError}
+              />
+            ) : null}
             <div ref={messagesEndRef} />
           </div>
 
@@ -273,16 +450,20 @@ export function BuildYourTeamPageClient() {
                   }
                 }}
                 rows={2}
-                placeholder="Describe what you're building…"
-                className="block min-h-[64px] w-full resize-none border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-[length:var(--font-size-base)] leading-[var(--lh-normal)] text-[var(--txt)] placeholder:text-[var(--dim)] focus:border-[var(--accent)] focus:outline-none"
-                disabled={isAgentTyping}
+                placeholder={
+                  phase === "plan_ready"
+                    ? "Plan delivered — scroll down to email it"
+                    : "Describe what you're building…"
+                }
+                className="block min-h-[64px] w-full resize-none border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-[length:var(--font-size-base)] leading-[var(--lh-normal)] text-[var(--txt)] placeholder:text-[var(--dim)] focus:border-[var(--accent)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={inputLocked}
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isAgentTyping}
+                disabled={!input.trim() || inputLocked}
                 className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                SEND →
+                {isStreaming ? "…" : "SEND →"}
               </button>
             </div>
             <div className="mt-2 text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--dim)]">
@@ -293,178 +474,189 @@ export function BuildYourTeamPageClient() {
         </div>
       </OpsSection>
 
-      {/* §02 — GIST + RECOMMENDED TIER ---------------------------------- */}
-      {/* TODO PR2: gate this section behind chat-complete state. */}
-      <OpsSection id="gist">
-        <OpsSectionHead
-          num="§02"
-          label="// PLAN_PREVIEW"
-          headlineParts={[
-            "YOUR PLAN ",
-            "IN BRIEF.",
-            " FULL VERSION BY EMAIL.",
-          ]}
-          toneMap={{ 1: "accent" }}
-          sub="Once the interview wraps, this section shows a short preview and the matching Agenthost tier. The full plan — architecture, roadmap, Phase 0, the works — gets emailed to you and your teammates as a private link."
-        />
-        <div className="grid grid-cols-[1.4fr_1fr] gap-10 max-[880px]:grid-cols-1">
-          {/* Left: gist bullets */}
-          <div className="border border-[var(--line2)] bg-[var(--bg2)] p-7">
-            <div className="mb-4 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
-              {"// PLAN_COVERAGE"}
-            </div>
-            <ul className="m-0 list-none p-0 text-[length:var(--font-size-base)] text-[var(--txt2)]">
-              {GIST_BULLETS.map((b) => (
-                <li
-                  key={b}
-                  className="flex items-start gap-3 border-b border-[var(--line)] py-3 leading-[var(--lh-loose)] last:border-b-0"
+      {/* §02 — GIST + RECOMMENDED TIER (visible after plan_ready) ------- */}
+      {phase === "plan_ready" && plan && tier ? (
+        <OpsSection id="gist" containerClassName="" >
+          <div ref={gistRef} className="contents">
+            <OpsSectionHead
+              num="§02"
+              label="// PLAN_PREVIEW"
+              headlineParts={[
+                "YOUR PLAN ",
+                "IN BRIEF.",
+                " FULL VERSION BY EMAIL.",
+              ]}
+              toneMap={{ 1: "accent" }}
+              sub={plan.plan_summary}
+            />
+            <div className="grid grid-cols-[1.4fr_1fr] gap-10 max-[880px]:grid-cols-1">
+              {/* Left: gist bullets */}
+              <div className="border border-[var(--line2)] bg-[var(--bg2)] p-7">
+                <div className="mb-4 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+                  {"// PLAN_HIGHLIGHTS"}
+                </div>
+                <ul className="m-0 list-none p-0 text-[length:var(--font-size-base)] text-[var(--txt2)]">
+                  {gistBullets.map((b, i) => (
+                    <li
+                      key={`${i}-${b.slice(0, 16)}`}
+                      className="flex items-start gap-3 border-b border-[var(--line)] py-3 leading-[var(--lh-loose)] last:border-b-0"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="mt-[6px] flex-none text-[11px] text-[var(--accent)]"
+                      >
+                        ▸
+                      </span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-5 text-[length:var(--font-size-tag)] text-[var(--dim)]">
+                  Full plan covers: {PLAN_COVERAGE.length} sections including
+                  architecture, CI/CD, phase 0, and a 6-week roadmap.
+                </div>
+              </div>
+
+              {/* Right: recommended tier card */}
+              <article className="flex flex-col border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg2))] p-7">
+                <div className="mb-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+                  {tier.badge}
+                </div>
+                <div className="mb-3 text-[length:var(--font-size-h3)] font-[number:var(--weight-bold)] uppercase tracking-[var(--tr-headline)] text-[var(--txt)]">
+                  {tier.name}
+                </div>
+                <p className="m-0 mb-5 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+                  {plan.tier_why}
+                </p>
+                <ul className="m-0 mb-6 list-none border-t border-[var(--line)] p-0 pt-4 text-[length:var(--font-size-tag)] text-[var(--txt2)]">
+                  {tier.highlights.map((h) => (
+                    <li key={h} className="flex items-start gap-2 py-1">
+                      <span
+                        aria-hidden="true"
+                        className="mt-[3px] flex-none text-[11px] text-[var(--accent)]"
+                      >
+                        ▸
+                      </span>
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={`/pricing#${plan.recommended_tier}`}
+                  className={opsButtonClassName("ghost")}
                 >
-                  <span
-                    aria-hidden="true"
-                    className="mt-[6px] flex-none text-[11px] text-[var(--accent)]"
-                  >
-                    ▸
-                  </span>
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Right: recommended tier card */}
-          <article className="flex flex-col border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg2))] p-7">
-            <div className="mb-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
-              {STUB_TIER.badge}
+                  SEE_ALL_TIERS
+                </Link>
+              </article>
             </div>
-            <div className="mb-3 text-[length:var(--font-size-h3)] font-[number:var(--weight-bold)] uppercase tracking-[var(--tr-headline)] text-[var(--txt)]">
-              {STUB_TIER.name}
-            </div>
-            <p className="m-0 mb-5 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
-              {STUB_TIER.why}
-            </p>
-            <ul className="m-0 mb-6 list-none border-t border-[var(--line)] p-0 pt-4 text-[length:var(--font-size-tag)] text-[var(--txt2)]">
-              {STUB_TIER.highlights.map((h) => (
-                <li key={h} className="flex items-start gap-2 py-1">
-                  <span
-                    aria-hidden="true"
-                    className="mt-[3px] flex-none text-[11px] text-[var(--accent)]"
-                  >
-                    ▸
-                  </span>
-                  <span>{h}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/pricing" className={opsButtonClassName("ghost")}>
-              SEE_ALL_TIERS
-            </Link>
-          </article>
-        </div>
-      </OpsSection>
-
-      {/* §03 — EMAIL CAPTURE ------------------------------------------- */}
-      {/* TODO PR2: only render once chat is marked complete. */}
-      <OpsSection id="email-capture">
-        <OpsSectionHead
-          num="§03"
-          label="// EMAIL_THE_PLAN"
-          headlineParts={["GET YOUR ", "FULL PLAN.", " BRING TEAMMATES."]}
-          toneMap={{ 1: "accent" }}
-          sub="Drop your email and we'll send a private link to the full plan. Add up to 3 teammates and they'll get the same link in the same thread."
-        />
-        <form
-          onSubmit={handleEmailSubmit}
-          className="border border-[var(--line2)] bg-[var(--bg2)] p-7"
-        >
-          <div className="grid grid-cols-2 gap-5 max-[760px]:grid-cols-1">
-            <FormField
-              label="// YOUR_NAME"
-              type="text"
-              required
-              placeholder="Mei"
-              value={primaryName}
-              onChange={setPrimaryName}
-              autoComplete="given-name"
-            />
-            <FormField
-              label="// YOUR_EMAIL"
-              type="email"
-              required
-              placeholder="mei@studio.com"
-              value={primaryEmail}
-              onChange={setPrimaryEmail}
-              autoComplete="email"
-            />
           </div>
+        </OpsSection>
+      ) : null}
 
-          <div className="mt-6 border-t border-[var(--line)] pt-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <span className="text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
-                {`// TEAMMATES_OPTIONAL · ${teammates.length} / ${MAX_TEAMMATE_EMAILS}`}
-              </span>
+      {/* §03 — EMAIL CAPTURE (visible after plan_ready) ----------------- */}
+      {phase === "plan_ready" && plan ? (
+        <OpsSection id="email-capture">
+          <OpsSectionHead
+            num="§03"
+            label="// EMAIL_THE_PLAN"
+            headlineParts={["GET YOUR ", "FULL PLAN.", " BRING TEAMMATES."]}
+            toneMap={{ 1: "accent" }}
+            sub="Drop your email and we'll send a private link to the full plan. Add up to 3 teammates and they'll get the same link in the same thread."
+          />
+          <form
+            onSubmit={handleEmailSubmit}
+            className="border border-[var(--line2)] bg-[var(--bg2)] p-7"
+          >
+            <div className="grid grid-cols-2 gap-5 max-[760px]:grid-cols-1">
+              <FormField
+                label="// YOUR_NAME"
+                type="text"
+                required
+                placeholder="Mei"
+                value={primaryName}
+                onChange={setPrimaryName}
+                autoComplete="given-name"
+              />
+              <FormField
+                label="// YOUR_EMAIL"
+                type="email"
+                required
+                placeholder="mei@studio.com"
+                value={primaryEmail}
+                onChange={setPrimaryEmail}
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="mt-6 border-t border-[var(--line)] pt-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+                  {`// TEAMMATES_OPTIONAL · ${teammates.length} / ${MAX_TEAMMATE_EMAILS}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAddTeammate}
+                  disabled={teammates.length >= MAX_TEAMMATE_EMAILS}
+                  className={`${opsButtonClassName("ghost")} disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  + ADD
+                </button>
+              </div>
+              {teammates.length === 0 ? (
+                <p className="m-0 text-[length:var(--font-size-tag)] text-[var(--dim)]">
+                  Solo for now. Add up to {MAX_TEAMMATE_EMAILS} teammates to share
+                  the plan with co-founders or technical leads.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {teammates.map((t, i) => (
+                    <div key={t.id} className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <FormField
+                          label={`// TEAMMATE_${String(i + 1).padStart(2, "0")}`}
+                          type="email"
+                          placeholder={`teammate-${i + 1}@studio.com`}
+                          value={t.value}
+                          onChange={(v) => handleTeammateChange(t.id, v)}
+                          autoComplete="off"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTeammate(t.id)}
+                        className={opsButtonClassName("ghost")}
+                        aria-label={`Remove teammate ${i + 1}`}
+                      >
+                        REMOVE
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-5">
+              <p className="m-0 max-w-[42ch] text-[length:var(--font-size-tag)] text-[var(--dim)]">
+                We send one email per recipient with the same private link. No
+                marketing list. No signup required.
+              </p>
               <button
-                type="button"
-                onClick={handleAddTeammate}
-                disabled={teammates.length >= MAX_TEAMMATE_EMAILS}
-                className={`${opsButtonClassName("ghost")} disabled:cursor-not-allowed disabled:opacity-40`}
+                type="submit"
+                disabled={
+                  submitState !== "idle" ||
+                  !primaryEmail.trim() ||
+                  !primaryName.trim()
+                }
+                className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                + ADD
+                {submitState === "idle" ? "EMAIL ME THE PLAN →" : null}
+                {submitState === "submitting" ? "SENDING…" : null}
+                {submitState === "submitted" ? "SENT — CHECK YOUR INBOX" : null}
               </button>
             </div>
-            {teammates.length === 0 ? (
-              <p className="m-0 text-[length:var(--font-size-tag)] text-[var(--dim)]">
-                Solo for now. Add up to {MAX_TEAMMATE_EMAILS} teammates to share
-                the plan with co-founders or technical leads.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {teammates.map((t, i) => (
-                  <div key={t.id} className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <FormField
-                        label={`// TEAMMATE_${String(i + 1).padStart(2, "0")}`}
-                        type="email"
-                        placeholder={`teammate-${i + 1}@studio.com`}
-                        value={t.value}
-                        onChange={(v) => handleTeammateChange(t.id, v)}
-                        autoComplete="off"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTeammate(t.id)}
-                      className={opsButtonClassName("ghost")}
-                      aria-label={`Remove teammate ${i + 1}`}
-                    >
-                      REMOVE
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--line)] pt-5">
-            <p className="m-0 max-w-[42ch] text-[length:var(--font-size-tag)] text-[var(--dim)]">
-              We send one email per recipient with the same private link. No
-              marketing list. No signup required.
-            </p>
-            <button
-              type="submit"
-              disabled={
-                submitState !== "idle" ||
-                !primaryEmail.trim() ||
-                !primaryName.trim()
-              }
-              className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              {submitState === "idle" ? "EMAIL ME THE PLAN →" : null}
-              {submitState === "submitting" ? "SENDING…" : null}
-              {submitState === "submitted" ? "SENT — CHECK YOUR INBOX" : null}
-            </button>
-          </div>
-        </form>
-      </OpsSection>
+          </form>
+        </OpsSection>
+      ) : null}
 
       {/* CTA — bottom: talk to a founder ------------------------------- */}
       <section
@@ -554,12 +746,12 @@ function ChatBubble({ role, text }: { role: ChatRole; text: string }) {
   );
 }
 
-function TypingIndicator() {
+function TypingIndicator({ label }: { label: string }) {
   return (
     <div className="flex w-full justify-start">
       <div className="border border-[var(--line2)] bg-[var(--bg)] px-4 py-3">
         <div className="mb-1 text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--accent)]">
-          {"// PLANNER"}
+          {`// ${label}`}
         </div>
         <div className="flex items-center gap-[4px]">
           {[0, 1, 2].map((i) => (
@@ -574,6 +766,32 @@ function TypingIndicator() {
             {`@keyframes planner-blink { 0%, 80%, 100% { opacity: 0.25 } 40% { opacity: 1 } }`}
           </style>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ErrorBubble({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex w-full justify-start">
+      <div className="max-w-[80ch] border border-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--bg))] px-4 py-3 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt)]">
+        <div className="mb-1 text-[length:var(--font-size-micro)] tracking-[var(--tr-micro)] text-[var(--warn)]">
+          {"// PLANNER_ERROR"}
+        </div>
+        <div className="whitespace-pre-wrap">{message}</div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className={`${opsButtonClassName("ghost")} mt-3`}
+        >
+          TRY_AGAIN
+        </button>
       </div>
     </div>
   );
