@@ -83,10 +83,21 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
       HOSTNAME: "0.0.0.0"
-      # Server-side LLM keys for the marketing-side route handlers (e.g.
-      # /api/landing/team-planner/chat). Never exposed to the browser —
-      # Next.js only forwards env vars prefixed with NEXT_PUBLIC_.
+      # Server-side env for marketing-side route handlers (e.g.
+      # /api/landing/team-planner/{chat,capture}). Never exposed to the
+      # browser — Next.js only forwards vars prefixed with NEXT_PUBLIC_.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Postgres for the planning_lead table (migration 066). The
+      # frontend joins the same multica_default network so `postgres`
+      # resolves to the postgres container.
+      DATABASE_URL: postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable
+      # Resend for the plan-delivery emails. Falls back to console.warn
+      # if RESEND_API_KEY is empty (lead saved, no emails sent).
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      # Used to build absolute hotlink URLs in the delivered emails.
+      AGENTHOST_APP_URL: ${AGENTHOST_APP_URL:-}
+      MULTICA_APP_URL: ${MULTICA_APP_URL:-}
     restart: unless-stopped
 
 volumes:

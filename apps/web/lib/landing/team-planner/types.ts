@@ -30,3 +30,34 @@ export type StreamEvent =
   | { type: "plan_ready"; plan: GeneratedPlan }
   | { type: "done" }
   | { type: "error"; message: string; status?: number };
+
+// =============================================================================
+// Capture — POST /api/landing/team-planner/capture
+// =============================================================================
+
+export const MAX_TEAMMATE_EMAILS = 3;
+
+export interface CaptureRequestBody {
+  primary_name: string;
+  primary_email: string;
+  cc_emails: string[]; // 0..MAX_TEAMMATE_EMAILS
+  plan: GeneratedPlan;
+  // Full conversation history that produced the plan, including the seeded
+  // greeting. The seed is included here (unlike the chat endpoint) so the
+  // saved transcript is complete for support / future fine-tuning.
+  conversation: PlannerChatMessage[];
+}
+
+export interface CaptureResponseSuccess {
+  ok: true;
+  hash: string; // 10-char base62
+  plan_url: string; // absolute URL to /plan/<hash>
+  recipients_emailed: number;
+}
+
+export interface CaptureResponseFailure {
+  ok: false;
+  error: string;
+}
+
+export type CaptureResponse = CaptureResponseSuccess | CaptureResponseFailure;

@@ -9,11 +9,14 @@ import {
   OpsSectionHead,
   opsButtonClassName,
 } from "./ops/ops-primitives";
-import type {
-  GeneratedPlan,
-  PlannerChatMessage,
-  RecommendedTier,
-  StreamEvent,
+import {
+  MAX_TEAMMATE_EMAILS,
+  type CaptureRequestBody,
+  type CaptureResponse,
+  type GeneratedPlan,
+  type PlannerChatMessage,
+  type RecommendedTier,
+  type StreamEvent,
 } from "@/lib/landing/team-planner/types";
 
 const CONTACT_EMAIL = "agenthost@kensink.com";
@@ -21,15 +24,18 @@ const HELP_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
   "Help me plan my AI team",
 )}`;
 
-const MAX_TEAMMATE_EMAILS = 3;
-
 // =============================================================================
-// PR 2 — chat backend wired
+// /build-your-team — chat planner + email capture
 //
-// Chat now streams from /api/landing/team-planner/chat. When the planner
-// emits a `plan_ready` event (its `generate_plan` tool call completed),
-// the gist + tier card + email-capture form unhide and the chat input
-// locks. Email capture itself is still a no-op submit; PR 3 wires it.
+// 1. Chat streams from POST /api/landing/team-planner/chat (PR 2). The
+//    planner runs as Claude Opus 4.7 with adaptive thinking; when it
+//    decides the interview is done it emits a `plan_ready` event with a
+//    structured plan via the `generate_plan` tool.
+// 2. On `plan_ready` the gist + tier card + email-capture form unhide.
+// 3. Submitting the form POSTs to /api/landing/team-planner/capture (PR 3),
+//    which inserts a planning_lead row, generates a 10-char hash, and
+//    fires Resend emails to the primary + up to 3 teammates. The success
+//    state surfaces the hotlink (/plan/<hash>) — that page lands in PR 4.
 // =============================================================================
 
 type Phase =
@@ -295,9 +301,12 @@ export function BuildYourTeamPageClient() {
   const [primaryEmail, setPrimaryEmail] = useState("");
   const [primaryName, setPrimaryName] = useState("");
   const [teammates, setTeammates] = useState<TeammateEmail[]>([]);
-  const [submitState, setSubmitState] = useState<
-    "idle" | "submitting" | "submitted"
-  >("idle");
+  type SubmitState =
+    | { kind: "idle" }
+    | { kind: "submitting" }
+    | { kind: "submitted"; planUrl: string; recipientCount: number }
+    | { kind: "error"; message: string };
+  const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
 
   function handleAddTeammate() {
     if (teammates.length >= MAX_TEAMMATE_EMAILS) return;
@@ -311,12 +320,54 @@ export function BuildYourTeamPageClient() {
       prev.map((t) => (t.id === id ? { ...t, value } : t)),
     );
   }
-  function handleEmailSubmit(e: FormEvent) {
+  async function handleEmailSubmit(e: FormEvent) {
     e.preventDefault();
-    if (submitState !== "idle") return;
-    setSubmitState("submitting");
-    // PR 3 wires this to POST /api/landing/team-planner/capture.
-    window.setTimeout(() => setSubmitState("submitted"), 900);
+    if (submitState.kind === "submitting" || submitState.kind === "submitted") {
+      return;
+    }
+    if (!plan) return; // shouldn't happen; the form is gated on plan_ready
+    setSubmitState({ kind: "submitting" });
+
+    const cc = teammates
+      .map((t) => t.value.trim())
+      .filter((v) => v.length > 0);
+
+    const body: CaptureRequestBody = {
+      primary_name: primaryName.trim(),
+      primary_email: primaryEmail.trim(),
+      cc_emails: cc,
+      plan,
+      conversation: messages.map((m) => ({ role: m.role, text: m.text })),
+    };
+
+    try {
+      const res = await fetch("/api/landing/team-planner/capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json()) as CaptureResponse;
+      if (!res.ok || !data.ok) {
+        const message = !data.ok
+          ? data.error
+          : "Couldn't send the plan. Please try again.";
+        setSubmitState({ kind: "error", message });
+        return;
+      }
+      setSubmitState({
+        kind: "submitted",
+        planUrl: data.plan_url,
+        recipientCount: data.recipients_emailed,
+      });
+    } catch (err) {
+      setSubmitState({
+        kind: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Network error sending the plan.",
+      });
+    }
   }
 
   const userTurnCount = messages.filter((m) => m.role === "user").length;
@@ -643,17 +694,52 @@ export function BuildYourTeamPageClient() {
               <button
                 type="submit"
                 disabled={
-                  submitState !== "idle" ||
+                  submitState.kind === "submitting" ||
+                  submitState.kind === "submitted" ||
                   !primaryEmail.trim() ||
                   !primaryName.trim()
                 }
                 className={`${opsButtonClassName("solid")} disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                {submitState === "idle" ? "EMAIL ME THE PLAN →" : null}
-                {submitState === "submitting" ? "SENDING…" : null}
-                {submitState === "submitted" ? "SENT — CHECK YOUR INBOX" : null}
+                {submitState.kind === "idle" ? "EMAIL ME THE PLAN →" : null}
+                {submitState.kind === "submitting" ? "SENDING…" : null}
+                {submitState.kind === "submitted"
+                  ? "SENT — CHECK YOUR INBOX"
+                  : null}
+                {submitState.kind === "error" ? "TRY AGAIN →" : null}
               </button>
             </div>
+
+            {submitState.kind === "submitted" ? (
+              <div className="mt-5 border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,var(--bg))] p-5">
+                <div className="mb-2 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+                  {`// SENT · ${submitState.recipientCount} ${submitState.recipientCount === 1 ? "RECIPIENT" : "RECIPIENTS"}`}
+                </div>
+                <p className="m-0 mb-3 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt)]">
+                  Check your inbox — the plan and a private link have landed
+                  for you{teammates.length > 0 ? " and your teammates" : ""}.
+                  The link below opens the same page; bookmark it if you want
+                  it handy.
+                </p>
+                <a
+                  href={submitState.planUrl}
+                  className="break-all text-[length:var(--font-size-tag)] text-[var(--accent)] underline-offset-2 hover:underline"
+                >
+                  {submitState.planUrl}
+                </a>
+              </div>
+            ) : null}
+
+            {submitState.kind === "error" ? (
+              <div className="mt-5 border border-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_8%,var(--bg))] p-5">
+                <div className="mb-2 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--warn)]">
+                  {"// SEND_FAILED"}
+                </div>
+                <p className="m-0 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+                  {submitState.message}
+                </p>
+              </div>
+            ) : null}
           </form>
         </OpsSection>
       ) : null}
