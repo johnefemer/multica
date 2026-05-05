@@ -248,6 +248,10 @@ services:
       DOCS_URL: ${DOCS_URL:-}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-}
+      # Server-side LLM keys for the marketing-side route handlers (e.g.
+      # /api/landing/team-planner/chat). Never exposed to the browser —
+      # Next.js only forwards env vars prefixed with NEXT_PUBLIC_.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     restart: unless-stopped
 
 volumes:
