@@ -302,7 +302,7 @@ export function WebhookTicker({
 }) {
   return (
     <div className="border border-[var(--line2)] bg-[var(--bg)] font-[family-name:var(--font-mono-display)]">
-      <div className="border-b border-[var(--line2)] bg-[var(--bg2)] px-3 py-2 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+      <div className="border-b border-[var(--line2)] bg-[var(--bg2)] px-4 py-2.5 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
         {"// INBOUND · /webhooks/github · HMAC_SHA256_VERIFIED"}
       </div>
       <ul className="m-0 list-none p-0">
@@ -310,11 +310,11 @@ export function WebhookTicker({
           <li
             key={i}
             className={cn(
-              "flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-[length:var(--font-size-nano-sm)]",
+              "flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 text-[length:var(--font-size-tag)] leading-[var(--lh-normal)]",
               i < events.length - 1 && "border-b border-[var(--line)]",
             )}
           >
-            <span className="text-[var(--dim2)]">{e.time}</span>
+            <span className="text-[var(--dim2)] tabular-nums">{e.time}</span>
             <span className="text-[var(--accent)]">{e.event}</span>
             <span className="text-[var(--txt2)]">{e.detail}</span>
           </li>
