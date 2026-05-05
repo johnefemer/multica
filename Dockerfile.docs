@@ -10,10 +10,22 @@ WORKDIR /app
 # present, plus the shared tsconfig/eslint workspaces so pnpm doesn't error
 # on missing references.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json .npmrc ./
+# Copy EVERY workspace package.json. The builder stage later does a
+# `COPY packages/` which surfaces packages/{views,core,...} and their
+# package.json files; pnpm then tries to install their deps in offline
+# mode against the store warmed here. If a workspace package is missing
+# from the deps stage, its dependencies aren't downloaded, the offline
+# install can't resolve them, and the build fails with
+# `ERR_PNPM_NO_OFFLINE_TARBALL`. So: warm the store with EVERY workspace
+# entry, even ones the docs app doesn't directly import.
+COPY apps/desktop/package.json apps/desktop/
 COPY apps/docs/package.json apps/docs/
-COPY packages/ui/package.json packages/ui/
-COPY packages/tsconfig/package.json packages/tsconfig/
+COPY apps/web/package.json apps/web/
+COPY packages/core/package.json packages/core/
 COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/tsconfig/package.json packages/tsconfig/
+COPY packages/ui/package.json packages/ui/
+COPY packages/views/package.json packages/views/
 
 # `apps/docs/package.json` declares `postinstall: fumadocs-mdx`, which reads
 # `apps/docs/source.config.ts` to generate the `.source/` content map. The
