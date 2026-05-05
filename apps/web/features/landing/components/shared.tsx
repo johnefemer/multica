@@ -1,6 +1,8 @@
 import { cn } from "@multica/ui/lib/utils";
 
 export const githubUrl = "https://github.com/johnefemer/multica";
+export const xUrl = "https://x.com/agenthostx";
+export const xHandle = "@agenthostx";
 
 export function GitHubMark({ className }: { className?: string }) {
   return (

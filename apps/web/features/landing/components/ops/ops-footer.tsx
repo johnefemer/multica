@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { cn } from "@multica/ui/lib/utils";
 import { useLocale, locales, localeLabels } from "../../i18n";
-import { GitHubMark, githubUrl } from "../shared";
+import { XMark, xHandle, xUrl } from "../shared";
 import { OpsContainer } from "./ops-primitives";
 
 export function OpsFooter() {
@@ -27,13 +27,16 @@ export function OpsFooter() {
               {footer.tagline}
             </p>
             <Link
-              href={githubUrl}
+              href={xUrl}
               target="_blank"
               rel="noreferrer"
-              aria-label="GitHub"
-              className="mt-[14px] inline-flex text-[var(--dim)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
+              aria-label={`Agenthost on X (${xHandle})`}
+              className="mt-[14px] inline-flex items-center gap-2 text-[var(--dim)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
             >
-              <GitHubMark className="size-4" />
+              <XMark className="size-3.5" />
+              <span className="text-[length:var(--font-size-tag)] tracking-[var(--tr-label)]">
+                {xHandle}
+              </span>
             </Link>
           </div>
 

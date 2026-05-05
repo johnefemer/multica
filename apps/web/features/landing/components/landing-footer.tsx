@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
 import { cn } from "@multica/ui/lib/utils";
 import { useAuthStore } from "@multica/core/auth";
-import { GitHubMark, githubUrl } from "./shared";
+import { XMark, xHandle, xUrl } from "./shared";
 import { useLocale, locales, localeLabels } from "../i18n";
 
 export function LandingFooter() {
@@ -30,12 +30,16 @@ export function LandingFooter() {
             </p>
             <div className="mt-4 flex items-center gap-3">
               <Link
-                href={githubUrl}
+                href={xUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-white/40 transition-colors hover:text-white"
+                aria-label={`Agenthost on X (${xHandle})`}
+                className="inline-flex items-center gap-2 text-white/40 transition-colors hover:text-white"
               >
-                <GitHubMark className="size-4" />
+                <XMark className="size-3.5" />
+                <span className="text-[13px] font-medium tracking-[0.02em]">
+                  {xHandle}
+                </span>
               </Link>
             </div>
             <div className="mt-6">
