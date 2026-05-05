@@ -1538,6 +1538,11 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	// usual user auth and lives below in the protected block.
 	r.Post("/api/auth/cli/exchange", h.ExchangeCliAuthCode)
 
+	// Public contact form (/contact) — IP-rate-limited, honeypot-protected.
+	// Forwards to the founder inbox via Resend; the email service does
+	// HTML-escaping, the handler does length + topic-whitelist validation.
+	r.Post("/api/contact", h.CreateContact)
+
 	// OAuth integration start (requires auth — user must be logged in)
 	r.With(middleware.Auth(queries, patCache, cloudPATVerifier, cfSigner)).Get("/auth/{provider}/start", h.IntegrationOAuthStart)
 	// OAuth callback: no auth middleware. The auth cookie is SameSite=Strict

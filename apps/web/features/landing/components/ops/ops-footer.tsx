@@ -24,13 +24,17 @@ export function OpsFooter() {
         <div className="mb-12 grid grid-cols-[1.4fr_repeat(4,1fr)] gap-8 max-[880px]:grid-cols-2 max-[880px]:gap-7 max-[480px]:grid-cols-1">
           {/* Brand cell */}
           <div className="max-[880px]:col-span-2 max-[480px]:col-auto">
-            <div className="flex items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)]">
+            <Link
+              href="/"
+              aria-label="Agenthost — back to home"
+              className="flex w-fit items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--accent)]"
+            >
               <span
                 aria-hidden="true"
                 className="block h-[10px] w-[10px] bg-[var(--accent)] [animation:ops-pulse_2.4s_ease-in-out_infinite] [box-shadow:var(--glow-accent)]"
               />
               <span>AGENTHOST</span>
-            </div>
+            </Link>
             <p className="mt-[14px] text-[12.5px] leading-[var(--lh-log)] text-[var(--dim)]">
               {footer.tagline}
             </p>

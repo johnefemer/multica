@@ -59,12 +59,6 @@ export function OpsCallToAction() {
                   v: cta.meta.contact,
                   href: `mailto:${cta.meta.contact}`,
                 },
-                {
-                  k: "// REPO",
-                  v: cta.meta.repo,
-                  href: `https://${cta.meta.repo}`,
-                  external: true,
-                },
               ] as {
                 k: string;
                 v: string;
