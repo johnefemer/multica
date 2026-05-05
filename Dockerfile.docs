@@ -15,6 +15,13 @@ COPY packages/ui/package.json packages/ui/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/eslint-config/package.json packages/eslint-config/
 
+# `apps/docs/package.json` declares `postinstall: fumadocs-mdx`, which reads
+# `apps/docs/source.config.ts` to generate the `.source/` content map. The
+# postinstall fires as part of `pnpm install`, so the config has to be in
+# place beforehand — otherwise the install errors with
+# `Could not resolve "/app/apps/docs/source.config.ts"`.
+COPY apps/docs/source.config.ts apps/docs/
+
 RUN pnpm install --frozen-lockfile
 
 # --- Build ---
