@@ -4505,7 +4505,7 @@ export function createEnDict(
     },
     footer: {
       tagline:
-        "The control plane for AI‑augmented engineering teams. Built by Kensink Labs. Shenzhen → the internet.",
+        "The control plane for AI‑augmented engineering teams. Built by Kensink Labs.",
       groups: [
         {
           label: "// PRODUCT",
@@ -4532,7 +4532,7 @@ export function createEnDict(
           links: [
             { label: "About Kensink", href: "/about" },
             { label: "Open source", href: "https://github.com/johnefemer/multica" },
-            { label: "Contact", href: "mailto:agenthost@kensink.com" },
+            { label: "Contact", href: "/contact" },
           ],
         },
         {
