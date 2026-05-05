@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,7 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
-import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
+import { cn } from "@multica/ui/lib/utils";
 import type {
   QuestionnaireAnswers,
   Role,
@@ -21,17 +21,25 @@ import { StepHeader } from "../components/step-header";
 import { OptionCard, OtherOptionCard } from "../components/option-card";
 
 /**
- * Step 1 — three-question user profile.
+ * Step 1 — three-question user profile, wizard-style.
  *
- * Classic app-shell layout: the left column is 3-region
- * (header / scrollable middle / footer) so the progress indicator
- * and the Continue CTA both stay visible regardless of how far the
- * user has scrolled into the questions. The right "Why we ask" panel
- * is a separate grid column that scrolls independently.
+ * One question at a time. Picking a concrete option auto-advances after
+ * a short delay so the user sees their selection lock in. Picking
+ * "Other" reveals an input + manual Continue button — auto-advance
+ * would discard the typed text. Q3's concrete pick auto-submits the
+ * full payload; Q3 + Other submits via the Finish button.
  *
- * Below lg the right panel hides and the left column fills the
- * viewport — 3-region layout still applies.
+ * Back walks Q3 → Q2 → Q1 and finally calls the parent's `onBack` if
+ * provided. Selections persist across back/forward so the user can
+ * edit prior answers without losing them.
+ *
+ * Right-column "Why we ask" panel is identical content across all
+ * sub-steps and hidden on <lg.
  */
+
+const ADVANCE_DELAY_MS = 320;
+type SubStep = 1 | 2 | 3;
+
 export function StepQuestionnaire({
   initial,
   onSubmit,
@@ -42,227 +50,204 @@ export function StepQuestionnaire({
   onBack?: () => void;
 }) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>(initial);
+  const [step, setStep] = useState<SubStep>(1);
   const [submitting, setSubmitting] = useState(false);
-  const mainRef = useRef<HTMLElement>(null);
-  const fadeStyle = useScrollFade(mainRef);
+  // Brief lock-out window during the auto-advance fade so the user
+  // can't double-click into a stale state mid-transition.
+  const [transitioning, setTransitioning] = useState(false);
+  const advanceTimerRef = useRef<number | null>(null);
 
-  const setTeamSize = (v: TeamSize) =>
-    setAnswers((a) => ({
-      ...a,
-      team_size: v,
-      team_size_other: v === "other" ? a.team_size_other : null,
-    }));
-  const setRole = (v: Role) =>
-    setAnswers((a) => ({
-      ...a,
-      role: v,
-      role_other: v === "other" ? a.role_other : null,
-    }));
-  const setUseCase = (v: UseCase) =>
-    setAnswers((a) => ({
-      ...a,
-      use_case: v,
-      use_case_other: v === "other" ? a.use_case_other : null,
-    }));
+  const clearAdvance = () => {
+    if (advanceTimerRef.current !== null) {
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  };
 
-  // A question counts as "answered" when it has a concrete selection,
-  // and — if that selection is "other" — its free-text field is non-empty.
-  // Same rule that used to drive canContinue; we compute the per-question
-  // booleans once here and derive both the count (footer indicator) and
-  // the overall gate from it.
-  const answeredCount = useMemo(() => {
-    const q1 =
-      answers.team_size !== null &&
-      (answers.team_size !== "other" ||
-        (answers.team_size_other ?? "").trim() !== "");
-    const q2 =
-      answers.role !== null &&
-      (answers.role !== "other" || (answers.role_other ?? "").trim() !== "");
-    const q3 =
-      answers.use_case !== null &&
-      (answers.use_case !== "other" ||
-        (answers.use_case_other ?? "").trim() !== "");
-    return (q1 ? 1 : 0) + (q2 ? 1 : 0) + (q3 ? 1 : 0);
-  }, [answers]);
-  const canContinue = answeredCount === 3;
+  // Cancel any pending advance on unmount so we don't fire setStep /
+  // doSubmit on a torn-down component (e.g. user hits Back during
+  // the 320ms window).
+  useEffect(() => () => clearAdvance(), []);
 
-  const submit = async () => {
-    if (!canContinue || submitting) return;
+  const isLocked = transitioning || submitting;
+
+  const isOtherTeamSizeValid =
+    answers.team_size === "other" &&
+    (answers.team_size_other ?? "").trim() !== "";
+  const isOtherRoleValid =
+    answers.role === "other" && (answers.role_other ?? "").trim() !== "";
+  const isOtherUseCaseValid =
+    answers.use_case === "other" &&
+    (answers.use_case_other ?? "").trim() !== "";
+
+  const doSubmit = async (payload: QuestionnaireAnswers) => {
+    if (submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit(answers);
+      await onSubmit(payload);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const advanceTo = (next: SubStep) => {
+    setTransitioning(true);
+    advanceTimerRef.current = window.setTimeout(() => {
+      setStep(next);
+      setTransitioning(false);
+      advanceTimerRef.current = null;
+    }, ADVANCE_DELAY_MS);
+  };
+
+  const advanceToSubmit = (payload: QuestionnaireAnswers) => {
+    setTransitioning(true);
+    advanceTimerRef.current = window.setTimeout(() => {
+      void doSubmit(payload);
+      // Stay locked while submit awaits; submitting flag keeps isLocked true.
+    }, ADVANCE_DELAY_MS);
+  };
+
+  const handleSelectTeamSize = (v: TeamSize) => {
+    if (isLocked) return;
+    clearAdvance();
+    setAnswers((a) => ({
+      ...a,
+      team_size: v,
+      team_size_other: v === "other" ? a.team_size_other : null,
+    }));
+    if (v !== "other") advanceTo(2);
+  };
+
+  const handleSelectRole = (v: Role) => {
+    if (isLocked) return;
+    clearAdvance();
+    setAnswers((a) => ({
+      ...a,
+      role: v,
+      role_other: v === "other" ? a.role_other : null,
+    }));
+    if (v !== "other") advanceTo(3);
+  };
+
+  const handleSelectUseCase = (v: UseCase) => {
+    if (isLocked) return;
+    clearAdvance();
+    // Build the submitted payload at click time so doSubmit doesn't
+    // race the setState commit.
+    const nextAnswers: QuestionnaireAnswers = {
+      ...answers,
+      use_case: v,
+      use_case_other: v === "other" ? answers.use_case_other : null,
+    };
+    setAnswers(nextAnswers);
+    if (v !== "other") advanceToSubmit(nextAnswers);
+  };
+
+  const handleOtherTeamSizeContinue = () => {
+    if (isLocked || !isOtherTeamSizeValid) return;
+    setStep(2);
+  };
+
+  const handleOtherRoleContinue = () => {
+    if (isLocked || !isOtherRoleValid) return;
+    setStep(3);
+  };
+
+  const handleOtherUseCaseContinue = () => {
+    if (isLocked || !isOtherUseCaseValid) return;
+    void doSubmit(answers);
+  };
+
+  const handleBack = () => {
+    clearAdvance();
+    setTransitioning(false);
+    if (step === 1) {
+      onBack?.();
+      return;
+    }
+    setStep((s) => (s === 3 ? 2 : 1));
+  };
+
   return (
     <div className="animate-onboarding-enter grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px]">
-      {/* Left column — DragStrip + 3-region app shell */}
+      {/* Left — wizard column */}
       <div className="flex min-h-0 flex-col">
         <DragStrip />
-        {/* Fixed header — Back + progress indicator */}
-        <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
-          {onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back
-            </button>
-          ) : (
-            <span aria-hidden className="w-0" />
-          )}
+        <header className="flex shrink-0 items-center gap-3 bg-background px-5 py-3 sm:gap-4 sm:px-10 md:px-14 lg:px-16">
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={isLocked}
+            aria-label={
+              step === 1
+                ? "Back to previous step"
+                : `Back to question ${step - 1}`
+            }
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
           <div className="flex-1">
             <StepHeader currentStep="questionnaire" />
           </div>
         </header>
 
-        {/* Scrollable middle — the only region that scrolls vertically.
-            `min-h-0` is required on a flex-1 child inside a flex column
-            so it can shrink below its content height and let
-            overflow-y-auto activate. `useScrollFade` applies a dynamic
-            mask-image gradient so content softly fades into the header /
-            footer at the edges as the user scrolls, replacing the hard
-            border separator. */}
         <main
-          ref={mainRef}
-          style={fadeStyle}
           className="min-h-0 flex-1 overflow-y-auto"
+          aria-busy={isLocked}
         >
-          <div className="mx-auto w-full max-w-[620px] px-6 py-10 sm:px-10 md:px-14 lg:px-0 lg:py-14">
-            <div className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Before we start
-            </div>
-            <h1 className="text-balance font-serif text-[36px] font-medium leading-[1.1] tracking-tight text-foreground">
-              Three questions to get to know you.
-            </h1>
+          {/* `key={step}` remounts the card per sub-step so the
+              `animate-onboarding-enter` keyframe replays — the same
+              fade/rise idiom used at the top-level step boundary. */}
+          <div
+            key={step}
+            className={cn(
+              "mx-auto w-full max-w-[620px] animate-onboarding-enter px-5 py-8 sm:px-10 sm:py-10 md:px-14 lg:px-0 lg:py-12",
+              isLocked && "pointer-events-none",
+            )}
+          >
+            <SubStepIndicator step={step} />
 
-            <div className="mt-10 flex flex-col gap-7">
-              <QuestionBlock
-                num={1}
-                question="Who will use this workspace?"
-                ariaLabel="Who will use this workspace?"
-              >
-                <OptionCard
-                  selected={answers.team_size === "solo"}
-                  onSelect={() => setTeamSize("solo")}
-                  label="Just me"
-                />
-                <OptionCard
-                  selected={answers.team_size === "team"}
-                  onSelect={() => setTeamSize("team")}
-                  label="My team (2–10 people)"
-                />
-                <OtherOptionCard
-                  selected={answers.team_size === "other"}
-                  onSelect={() => setTeamSize("other")}
-                  otherValue={answers.team_size_other ?? ""}
-                  onOtherChange={(v) =>
-                    setAnswers((a) => ({ ...a, team_size_other: v }))
-                  }
-                  placeholder="e.g. a small community I help run"
-                />
-              </QuestionBlock>
-
-              <QuestionBlock
-                num={2}
-                question="What best describes you?"
-                ariaLabel="What best describes you?"
-              >
-                <OptionCard
-                  selected={answers.role === "developer"}
-                  onSelect={() => setRole("developer")}
-                  label="Software developer"
-                />
-                <OptionCard
-                  selected={answers.role === "product_lead"}
-                  onSelect={() => setRole("product_lead")}
-                  label="Product or project lead"
-                />
-                <OptionCard
-                  selected={answers.role === "writer"}
-                  onSelect={() => setRole("writer")}
-                  label="Writer or content creator"
-                />
-                <OptionCard
-                  selected={answers.role === "founder"}
-                  onSelect={() => setRole("founder")}
-                  label="Founder or operator"
-                />
-                <OtherOptionCard
-                  selected={answers.role === "other"}
-                  onSelect={() => setRole("other")}
-                  otherValue={answers.role_other ?? ""}
-                  onOtherChange={(v) =>
-                    setAnswers((a) => ({ ...a, role_other: v }))
-                  }
-                  placeholder="e.g. researcher, designer, ops lead"
-                />
-              </QuestionBlock>
-
-              <QuestionBlock
-                num={3}
-                question="What do you want to do with Agenthost?"
-                ariaLabel="What do you want to do with Agenthost?"
-              >
-                <OptionCard
-                  selected={answers.use_case === "coding"}
-                  onSelect={() => setUseCase("coding")}
-                  label="Write and ship code"
-                />
-                <OptionCard
-                  selected={answers.use_case === "planning"}
-                  onSelect={() => setUseCase("planning")}
-                  label="Plan and manage projects"
-                />
-                <OptionCard
-                  selected={answers.use_case === "writing_research"}
-                  onSelect={() => setUseCase("writing_research")}
-                  label="Research or write"
-                />
-                <OptionCard
-                  selected={answers.use_case === "explore"}
-                  onSelect={() => setUseCase("explore")}
-                  label="I'm just exploring for now"
-                />
-                <OtherOptionCard
-                  selected={answers.use_case === "other"}
-                  onSelect={() => setUseCase("other")}
-                  otherValue={answers.use_case_other ?? ""}
-                  onOtherChange={(v) =>
-                    setAnswers((a) => ({ ...a, use_case_other: v }))
-                  }
-                  placeholder="e.g. automate my weekly reports"
-                />
-              </QuestionBlock>
-            </div>
+            {step === 1 && (
+              <Q1
+                answers={answers}
+                onSelect={handleSelectTeamSize}
+                onOtherChange={(v) =>
+                  setAnswers((a) => ({ ...a, team_size_other: v }))
+                }
+                onOtherContinue={handleOtherTeamSizeContinue}
+                otherValid={isOtherTeamSizeValid}
+              />
+            )}
+            {step === 2 && (
+              <Q2
+                answers={answers}
+                onSelect={handleSelectRole}
+                onOtherChange={(v) =>
+                  setAnswers((a) => ({ ...a, role_other: v }))
+                }
+                onOtherContinue={handleOtherRoleContinue}
+                otherValid={isOtherRoleValid}
+              />
+            )}
+            {step === 3 && (
+              <Q3
+                answers={answers}
+                onSelect={handleSelectUseCase}
+                onOtherChange={(v) =>
+                  setAnswers((a) => ({ ...a, use_case_other: v }))
+                }
+                onOtherContinue={handleOtherUseCaseContinue}
+                otherValid={isOtherUseCaseValid}
+                submitting={submitting}
+              />
+            )}
           </div>
         </main>
-
-        {/* Fixed footer — progress counter + Continue */}
-        <footer className="flex shrink-0 items-center justify-end gap-4 bg-background px-6 py-4 sm:px-10 md:px-14 lg:px-16">
-          <span
-            aria-live="polite"
-            className="text-xs tabular-nums text-muted-foreground"
-          >
-            {answeredCount} of 3 answered
-          </span>
-          <Button
-            size="lg"
-            disabled={!canContinue || submitting}
-            onClick={submit}
-          >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            Continue
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </footer>
       </div>
 
-      {/* Right — DragStrip + "Why we ask" side panel, independent scroll */}
+      {/* Right — "Why we ask" side panel, static across sub-steps */}
       <aside className="hidden min-h-0 border-l bg-muted/40 lg:flex lg:flex-col">
         <DragStrip />
         <div className="min-h-0 flex-1 overflow-y-auto px-12 py-12">
@@ -273,29 +258,238 @@ export function StepQuestionnaire({
   );
 }
 
-function QuestionBlock({
+function SubStepIndicator({ step }: { step: SubStep }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={`Question ${step} of 3`}
+      className="mb-5 flex items-center gap-3"
+    >
+      <span className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground tabular-nums">
+        Question {step} of 3
+      </span>
+      <div className="flex gap-1.5" aria-hidden>
+        {[1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full transition-colors",
+              i < step && "bg-foreground/40",
+              i === step && "bg-foreground",
+              i > step && "bg-muted",
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuestionShell({
   num,
   question,
   ariaLabel,
   children,
+  otherActive,
+  otherValid,
+  onOtherContinue,
+  isLast,
+  submitting,
 }: {
   num: number;
   question: string;
   ariaLabel: string;
   children: ReactNode;
+  otherActive: boolean;
+  otherValid: boolean;
+  onOtherContinue: () => void;
+  isLast: boolean;
+  submitting?: boolean;
 }) {
   return (
-    <fieldset role="radiogroup" aria-label={ariaLabel} className="m-0 p-0">
-      <legend className="mb-3 flex items-baseline gap-3">
+    <div>
+      <div className="mb-6 flex items-baseline gap-3">
         <span className="font-mono text-xs text-muted-foreground">
           {String(num).padStart(2, "0")}
         </span>
-        <span className="font-serif text-[22px] font-medium leading-tight tracking-tight text-foreground">
+        <h1 className="text-balance font-serif text-[26px] font-medium leading-[1.15] tracking-tight text-foreground sm:text-[30px] md:text-[34px]">
           {question}
-        </span>
-      </legend>
-      <div className="flex flex-col gap-2">{children}</div>
-    </fieldset>
+        </h1>
+      </div>
+      <fieldset role="radiogroup" aria-label={ariaLabel} className="m-0 p-0">
+        <div className="flex flex-col gap-2">{children}</div>
+        {otherActive && (
+          <div className="mt-5 flex justify-end">
+            <Button
+              size="lg"
+              onClick={onOtherContinue}
+              disabled={!otherValid || submitting}
+              className="w-full sm:w-auto"
+            >
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isLast ? "Finish" : "Continue"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </fieldset>
+    </div>
+  );
+}
+
+function Q1({
+  answers,
+  onSelect,
+  onOtherChange,
+  onOtherContinue,
+  otherValid,
+}: {
+  answers: QuestionnaireAnswers;
+  onSelect: (v: TeamSize) => void;
+  onOtherChange: (v: string) => void;
+  onOtherContinue: () => void;
+  otherValid: boolean;
+}) {
+  return (
+    <QuestionShell
+      num={1}
+      question="Who will use this workspace?"
+      ariaLabel="Who will use this workspace?"
+      otherActive={answers.team_size === "other"}
+      otherValid={otherValid}
+      onOtherContinue={onOtherContinue}
+      isLast={false}
+    >
+      <OptionCard
+        selected={answers.team_size === "solo"}
+        onSelect={() => onSelect("solo")}
+        label="Just me"
+      />
+      <OptionCard
+        selected={answers.team_size === "team"}
+        onSelect={() => onSelect("team")}
+        label="My team (2–10 people)"
+      />
+      <OtherOptionCard
+        selected={answers.team_size === "other"}
+        onSelect={() => onSelect("other")}
+        otherValue={answers.team_size_other ?? ""}
+        onOtherChange={onOtherChange}
+        placeholder="e.g. a small community I help run"
+      />
+    </QuestionShell>
+  );
+}
+
+function Q2({
+  answers,
+  onSelect,
+  onOtherChange,
+  onOtherContinue,
+  otherValid,
+}: {
+  answers: QuestionnaireAnswers;
+  onSelect: (v: Role) => void;
+  onOtherChange: (v: string) => void;
+  onOtherContinue: () => void;
+  otherValid: boolean;
+}) {
+  return (
+    <QuestionShell
+      num={2}
+      question="What best describes you?"
+      ariaLabel="What best describes you?"
+      otherActive={answers.role === "other"}
+      otherValid={otherValid}
+      onOtherContinue={onOtherContinue}
+      isLast={false}
+    >
+      <OptionCard
+        selected={answers.role === "developer"}
+        onSelect={() => onSelect("developer")}
+        label="Software developer"
+      />
+      <OptionCard
+        selected={answers.role === "product_lead"}
+        onSelect={() => onSelect("product_lead")}
+        label="Product or project lead"
+      />
+      <OptionCard
+        selected={answers.role === "writer"}
+        onSelect={() => onSelect("writer")}
+        label="Writer or content creator"
+      />
+      <OptionCard
+        selected={answers.role === "founder"}
+        onSelect={() => onSelect("founder")}
+        label="Founder or operator"
+      />
+      <OtherOptionCard
+        selected={answers.role === "other"}
+        onSelect={() => onSelect("other")}
+        otherValue={answers.role_other ?? ""}
+        onOtherChange={onOtherChange}
+        placeholder="e.g. researcher, designer, ops lead"
+      />
+    </QuestionShell>
+  );
+}
+
+function Q3({
+  answers,
+  onSelect,
+  onOtherChange,
+  onOtherContinue,
+  otherValid,
+  submitting,
+}: {
+  answers: QuestionnaireAnswers;
+  onSelect: (v: UseCase) => void;
+  onOtherChange: (v: string) => void;
+  onOtherContinue: () => void;
+  otherValid: boolean;
+  submitting: boolean;
+}) {
+  return (
+    <QuestionShell
+      num={3}
+      question="What do you want to do with Agenthost?"
+      ariaLabel="What do you want to do with Agenthost?"
+      otherActive={answers.use_case === "other"}
+      otherValid={otherValid}
+      onOtherContinue={onOtherContinue}
+      isLast={true}
+      submitting={submitting}
+    >
+      <OptionCard
+        selected={answers.use_case === "coding"}
+        onSelect={() => onSelect("coding")}
+        label="Write and ship code"
+      />
+      <OptionCard
+        selected={answers.use_case === "planning"}
+        onSelect={() => onSelect("planning")}
+        label="Plan and manage projects"
+      />
+      <OptionCard
+        selected={answers.use_case === "writing_research"}
+        onSelect={() => onSelect("writing_research")}
+        label="Research or write"
+      />
+      <OptionCard
+        selected={answers.use_case === "explore"}
+        onSelect={() => onSelect("explore")}
+        label="I'm just exploring for now"
+      />
+      <OtherOptionCard
+        selected={answers.use_case === "other"}
+        onSelect={() => onSelect("other")}
+        otherValue={answers.use_case_other ?? ""}
+        onOtherChange={onOtherChange}
+        placeholder="e.g. automate my weekly reports"
+      />
+    </QuestionShell>
   );
 }
 
