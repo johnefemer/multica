@@ -16,14 +16,6 @@ import {
 } from "@multica/core/paths";
 import { api } from "@multica/core/api";
 import type { Workspace } from "@multica/core/types";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@multica/ui/components/ui/card";
-import { Button } from "@multica/ui/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { setLoggedInCookie } from "@/features/auth/auth-cookie";
 import { LoginPage, validateCliCallback } from "@multica/views/auth";
@@ -53,6 +45,57 @@ async function resolveLoggedInDestination(
     }
   }
   return resolvePostAuthDestination(workspaces, hasOnboarded);
+}
+
+/**
+ * Inline-styled handoff screens for the Desktop OAuth bounce. They live
+ * here (not in `@multica/views/auth`) because the LoginPage shell is a
+ * shared component and these states are platform-specific to the web
+ * shell — they only fire when `platform=desktop` and the browser is
+ * trying to relinquish the session back to the desktop app.
+ *
+ * The styling mirrors the Ops aesthetic used by the redesigned
+ * LoginPage so the user doesn't see a treatment shift on the bounce.
+ */
+function DesktopHandoffShell({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-[#0a0d10] px-6 text-center text-[#d4dde4] [font-family:ui-monospace,'JetBrains_Mono',Menlo,monospace]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "linear-gradient(#1a2128 1px, transparent 1px), linear-gradient(90deg, #1a2128 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div className="relative z-10 flex w-full max-w-[480px] flex-col items-center gap-5 border border-[#26303a] bg-[#0f1318] px-8 py-10">
+        <div className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em]">
+          <span
+            aria-hidden="true"
+            className="block h-[10px] w-[10px] animate-pulse bg-[#7cf29c]"
+            style={{ boxShadow: "0 0 12px #7cf29c" }}
+          />
+          <span>AGENTHOST</span>
+        </div>
+        <h1 className="m-0 text-[28px] font-semibold uppercase leading-[1] tracking-[-0.02em] text-[#d4dde4]">
+          {title}
+        </h1>
+        <p className="m-0 text-[14px] leading-[1.6] text-[#9aa6af]">
+          {description}
+        </p>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function LoginPageContent() {

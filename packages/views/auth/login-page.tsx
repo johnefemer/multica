@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardHeader,
@@ -47,7 +45,9 @@ interface CliCallbackConfig {
 }
 
 interface LoginPageProps {
-  /** Logo element rendered above the title */
+  /** Logo element. Kept for backwards compatibility — the redesigned
+   *  shell uses an AGENTHOST wordmark in the header strip and ignores
+   *  this. Removing the prop would be a breaking API change for callers. */
   logo?: ReactNode;
   /** Called after successful login. The workspace list is seeded into React
    *  Query before this fires, so the caller can compute a destination URL. */
@@ -95,6 +95,162 @@ export function validateCliCallback(cliCallback: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Visual primitives — Ops-style auth shell
+// ---------------------------------------------------------------------------
+
+/**
+ * Dark, monospace auth shell: subtle grid backdrop + soft accent glow,
+ * brand strip with the AGENTHOST wordmark and a pulsing accent dot, a
+ * centered single-column content area below.
+ *
+ * Self-contained so this surface can render outside `.ops-landing`
+ * without dragging the Ops design tokens across the package boundary.
+ * Hex values mirror the canonical palette in
+ * `apps/web/features/landing/components/ops/tokens.css`.
+ */
+function AuthShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative flex min-h-svh flex-col bg-[#0a0d10] text-[#d4dde4] [font-family:ui-monospace,'JetBrains_Mono',Menlo,monospace]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "linear-gradient(#1a2128 1px, transparent 1px), linear-gradient(90deg, #1a2128 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(circle at 20% 0%, rgba(124, 242, 156, 0.06), transparent 55%)",
+        }}
+      />
+      <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-[#26303a] px-6 py-4 sm:px-10">
+        <div className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em]">
+          <span
+            aria-hidden="true"
+            className="block h-[10px] w-[10px] animate-pulse bg-[#7cf29c]"
+            style={{ boxShadow: "0 0 12px #7cf29c" }}
+          />
+          <span className="text-[#d4dde4]">AGENTHOST</span>
+          <span className="ml-1 hidden text-[10px] font-normal tracking-[0.16em] text-[#6b7780] sm:inline">
+            {"// KENSINK_LABS"}
+          </span>
+        </div>
+        <span className="text-[10px] tracking-[0.12em] text-[#6b7780]">
+          <span className="text-[#7cf29c]">●</span> ONLINE
+        </span>
+      </header>
+      <main className="relative z-10 flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
+        <div className="w-full max-w-[480px]">{children}</div>
+      </main>
+      <footer className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-[#26303a] px-6 py-3 text-[10px] tracking-[0.12em] text-[#6b7780] sm:px-10">
+        <span>{"// SECURE_AUTH · 6-DIGIT_CODE_OVER_EMAIL"}</span>
+        <span>{`// KENSINK_LABS · ${new Date().getFullYear()}`}</span>
+      </footer>
+    </div>
+  );
+}
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-5 text-[11px] font-medium uppercase tracking-[0.18em] text-[#7cf29c]">
+      {children}
+    </div>
+  );
+}
+
+function Headline({ children }: { children: ReactNode }) {
+  return (
+    <h1 className="m-0 mb-3 text-[36px] font-semibold uppercase leading-[0.96] tracking-[-0.025em] text-[#d4dde4] sm:text-[42px]">
+      {children}
+    </h1>
+  );
+}
+
+function Sub({ children }: { children: ReactNode }) {
+  return (
+    <p className="m-0 mb-8 text-[14px] leading-[1.6] text-[#9aa6af]">
+      {children}
+    </p>
+  );
+}
+
+function PrimaryButton({
+  children,
+  type = "button",
+  form,
+  onClick,
+  disabled,
+  className,
+}: {
+  children: ReactNode;
+  type?: "button" | "submit";
+  form?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type={type}
+      form={form}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex w-full items-center justify-center gap-2 border border-[#7cf29c] bg-[#7cf29c] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#0a0d10] transition-colors duration-150",
+        "hover:bg-[#a4f5ba]",
+        "disabled:cursor-not-allowed disabled:border-[#26303a] disabled:bg-[#26303a] disabled:text-[#6b7780]",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function OutlineButton({
+  children,
+  type = "button",
+  onClick,
+  disabled,
+  className,
+}: {
+  children: ReactNode;
+  type?: "button" | "submit";
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex w-full items-center justify-center gap-2 border border-[#26303a] bg-transparent px-4 py-3 text-[12px] font-medium uppercase tracking-[0.14em] text-[#9aa6af] transition-colors duration-150",
+        "hover:border-[#384451] hover:text-[#d4dde4]",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ErrorLine({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-3 border-l-2 border-[#ff6363] bg-[rgba(255,99,99,0.06)] px-3 py-2 text-[12px] text-[#ff6363]">
+      {children}
+    </p>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -340,48 +496,38 @@ export function LoginPage({
 
   if (step === "cli_show_code" && cliAuthCode) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-6">
-        <div className="flex w-full max-w-xl flex-col items-center gap-8 text-center">
-          {logo && <div>{logo}</div>}
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Authentication Code
-          </h1>
-          <p className="text-base text-muted-foreground">
-            Paste this into the Agenthost CLI:
-          </p>
-          <div className="w-full rounded-xl border bg-muted/40 px-6 py-5">
-            <code className="block w-full break-all font-mono text-sm">
-              {cliAuthCode}
-            </code>
-          </div>
+      <AuthShell>
+        {logo && <div className="mb-6">{logo}</div>}
+        <Eyebrow>{"// PASTE_THIS"}</Eyebrow>
+        <Headline>Authentication Code</Headline>
+        <Sub>Paste this into the Agenthost CLI prompt.</Sub>
+        <div className="border border-[#26303a] bg-[#0f1318] px-5 py-5">
+          <code className="block w-full break-all text-center text-[18px] tracking-[0.04em] text-[#7cf29c]">
+            {cliAuthCode}
+          </code>
+        </div>
+        <div className="mt-4 flex justify-center">
           <button
             type="button"
             onClick={copyCliAuthCode}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-2 border border-[#26303a] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-[#9aa6af] transition-colors duration-150 hover:border-[#384451] hover:text-[#d4dde4]"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-            </svg>
+            {codeCopied ? (
+              <Check className="h-3.5 w-3.5 text-[#7cf29c]" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
             {codeCopied ? "Copied" : "Copy code"}
           </button>
-          <p className="text-xs text-muted-foreground">
-            This code expires in 5 minutes and can only be used once. You can
-            close this tab once the CLI shows &ldquo;Authenticated&rdquo;.
-          </p>
         </div>
-      </div>
+        <p className="mt-6 text-[11px] tracking-[0.12em] text-[#6b7780]">
+          {"// EXPIRES IN 5 MINUTES · ONE-TIME USE"}
+        </p>
+        <p className="mt-2 text-[12px] leading-[1.6] text-[#9aa6af]">
+          You can close this tab once the CLI shows{" "}
+          <span className="text-[#d4dde4]">&ldquo;Authenticated&rdquo;</span>.
+        </p>
+      </AuthShell>
     );
   }
 
@@ -502,7 +648,7 @@ export function LoginPage({
   }
 
   // -------------------------------------------------------------------------
-  // Email step
+  // Email step (default)
   // -------------------------------------------------------------------------
 
   return (
