@@ -18,10 +18,10 @@ git push origin kensink-v2
 
 That's it for 95% of cases. Two workflows fan out from the push:
 
-1. **`build-kensink-images.yml`** — rebuilds the backend/frontend Docker images, pushes to GHCR, SSHes to EC2, pulls, restarts. Backend migrations apply automatically on container start.
+1. **`build-kensink-images.yml`** — rebuilds the backend / frontend / docs Docker images, pushes to GHCR, SSHes to EC2, pulls, restarts. Backend migrations apply automatically on container start.
 2. **`release-cli.yml`** — rebuilds the `agenthost` CLI binary (4 platforms), replaces the rolling `kensink-latest` GitHub Release. [`kensink-install.sh`](../scripts/kensink-install.sh) downloads from that URL, so anyone running the install command gets the new CLI immediately.
 
-Both fire in parallel on `server/**` changes. One push ships backend + CLI together.
+Both fire in parallel on `server/**` changes. One push ships backend + CLI together. Docs-only edits ship via `build-kensink-images.yml` alone (no CLI republish).
 
 > **Active deploy line:** `kensink-v2`, not `kensink`. Commit `9412b08c chore(deploy): switch deploy line from kensink to kensink-v2` switched every workflow trigger, checkout ref, and the `agenthost-deploy.sh` default. The `kensink` branch is now a held stable snapshot — pushing to it does nothing. Image tags (`:kensink`, `:latest`), the `kensink-latest` GitHub Release tag, and the `kensink-install.sh` filename are stable identifiers and were intentionally NOT renamed.
 
@@ -41,27 +41,31 @@ Both fire in parallel on `server/**` changes. One push ships backend + CLI toget
 ┌──────────────────────────────────────────────────────────────┐
 │  GitHub — johnefemer/multica@kensink-v2                      │
 │  Triggers: .github/workflows/build-kensink-images.yml        │
-│    • path filter: server/**, apps/web/**, packages/**,       │
-│      Dockerfile, Dockerfile.web, docker-compose.selfhost*    │
+│    • path filter: server/**, apps/web/**, apps/docs/**,      │
+│      packages/**, Dockerfile, Dockerfile.web, Dockerfile.docs│
+│      docker-compose.selfhost*                                │
 └───────────────────────────┬──────────────────────────────────┘
                             │
-              ┌─────────────┴─────────────┐
-              ▼                           ▼
-┌──────────────────────────┐   ┌──────────────────────────┐
-│  Job: build-backend      │   │  Job: build-frontend     │
-│  docker buildx push →    │   │  docker buildx push →    │
-│  ghcr.io/johnefemer/     │   │  ghcr.io/johnefemer/     │
-│    multica-backend:      │   │    multica-web:          │
-│    {kensink, latest}     │   │    {kensink, latest}     │
-└──────────────┬───────────┘   └──────────────┬───────────┘
-               └──────────────┬───────────────┘
-                              ▼
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│ Job: build-      │ │ Job: build-      │ │ Job: build-docs  │
+│   backend        │ │   frontend       │ │ docker buildx →  │
+│ docker buildx →  │ │ docker buildx →  │ │ ghcr.io/johnefem.│
+│ multica-backend  │ │ multica-web      │ │   multica-docs   │
+│ {kensink,latest} │ │ {kensink,latest} │ │ {kensink,latest} │
+└────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘
+         └───────────────────┬┴───────────────────┘
+                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  Job: deploy  (needs: [build-backend, build-frontend])       │
+│  Job: deploy  (needs: [build-backend, build-frontend,        │
+│                        build-docs])                          │
 │  SSH → ubuntu@54.82.211.103                                  │
 │  cd /opt/multica                                             │
 │  docker compose -f docker-compose.selfhost.yml pull backend  │
 │  docker compose ... up -d --no-deps backend                  │
+│  docker compose ... pull docs                                │
+│  docker compose ... up -d --no-deps docs                     │
 │  docker compose ... pull frontend                            │
 │  docker compose ... up -d --no-deps frontend                 │
 │  docker image prune -f                                       │
@@ -82,15 +86,17 @@ All triggers below fire on pushes to `kensink-v2` (and only `kensink-v2`).
 
 | File changed | `build-kensink-images.yml` (Docker → EC2) | `release-cli.yml` (GitHub Release) |
 |---|:---:|:---:|
-| `server/**` | ✓ rebuilds both images | ✓ republishes `kensink-latest` |
+| `server/**` | ✓ rebuilds all three images | ✓ republishes `kensink-latest` |
 | `Dockerfile` | ✓ | — |
-| `apps/web/**`, `packages/**`, `Dockerfile.web` | ✓ (rebuilds both, even though only web changed) | — |
+| `apps/web/**`, `packages/**`, `Dockerfile.web` | ✓ (rebuilds all three, even though only web changed) | — |
+| `apps/docs/**`, `Dockerfile.docs` | ✓ (rebuilds all three; docs container is the only one whose runtime actually changes) | — |
 | `docker-compose.selfhost*.yml` | ✓ | — |
 | `scripts/kensink-install.sh` | — | ✓ |
-| `docker-compose.datadog.yml`, docs, other scripts | — | — |
+| `docker-compose.datadog.yml`, repo-internal `docs/**` markdown, other scripts | — | — |
 
 Key observations:
-- `build-kensink-images.yml` rebuilds **both** services on any match because the path filter is a single union. For per-service filtering you'd need to split the workflow.
+- `build-kensink-images.yml` rebuilds **all three** services on any match because the path filter is a single union — backend, frontend, AND docs. For per-service filtering you'd need to split the workflow.
+- `apps/docs/**` is the user-facing Fumadocs site (deployed). The `docs/**` directory at the repo root is internal engineering docs (deploy runbooks, design specs) and is **not** in any workflow's path filter — editing those files ships nothing.
 - `docker-compose.datadog.yml` is **not** in any path filter, so changes to it don't trigger a rebuild — intentional, since the Datadog agent is an independent container (see [Datadog agent deploy](#datadog-agent-deploy)).
 - Pushes to `kensink` (the snapshot branch) trigger nothing. To revert the deploy line back to `kensink`, swap `kensink-v2` → `kensink` in the four files listed in `9412b08c`'s commit message.
 
@@ -98,18 +104,20 @@ Key observations:
 
 ## Image naming
 
-Both images live in **GHCR under `johnefemer`**, not upstream `multica-ai`:
+All three images live in **GHCR under `johnefemer`**, not upstream `multica-ai`:
 
 | Image | Registry path | Tags |
 |---|---|---|
 | Backend (Go) | `ghcr.io/johnefemer/multica-backend` | `:kensink`, `:latest` |
 | Frontend (Next.js) | `ghcr.io/johnefemer/multica-web` | `:kensink`, `:latest` |
+| Docs (Fumadocs / Next.js) | `ghcr.io/johnefemer/multica-docs` | `:kensink`, `:latest` |
 
 The server's `/opt/multica/.env` pins the image references:
 
 ```dotenv
 MULTICA_BACKEND_IMAGE=ghcr.io/johnefemer/multica-backend
 MULTICA_WEB_IMAGE=ghcr.io/johnefemer/multica-web
+MULTICA_DOCS_IMAGE=ghcr.io/johnefemer/multica-docs
 MULTICA_IMAGE_TAG=kensink
 ```
 
@@ -126,6 +134,7 @@ Containers are prefixed with the Compose project name ([docker-compose.selfhost.
 | postgres | `agenthost-postgres-1` | `pgvector/pgvector:pg17` |
 | backend | `agenthost-backend-1` | `ghcr.io/johnefemer/multica-backend:kensink` |
 | frontend | `agenthost-frontend-1` | `ghcr.io/johnefemer/multica-web:kensink` |
+| docs | `agenthost-docs-1` | `ghcr.io/johnefemer/multica-docs:kensink` |
 
 The Datadog agent runs in a separate Compose project (`name: datadog`) and uses an explicit `container_name: dd-agent`, so it is unaffected by the project prefix.
 
@@ -181,6 +190,84 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 ```
 
 Expect to see all three new container names listed under the Docker check.
+
+---
+
+## Docs site (`apps/docs`) deploy
+
+The user-facing documentation site lives at [apps/docs/](../apps/docs/) — a [Fumadocs](https://fumadocs.dev/)-based Next.js app with bilingual MDX content (en + zh). It runs as its own container and the frontend container proxies `/docs/*` requests to it.
+
+### Routing
+
+Single-domain (slash route), not subdomain:
+
+```
+                            agenthost.kensink.com
+                                    │
+                                    ▼
+                          ┌─────────────────────┐
+   /, /pricing, /slack ──►│ frontend (port 3000)│
+   /github, /contact …    │ apps/web            │
+                          └──────┬──────────────┘
+                                 │  /docs/* rewrite
+                                 │  next.config.ts:35-48
+                                 │  proxies to ${DOCS_URL}
+                                 ▼
+                          ┌─────────────────────┐
+   /docs, /docs/cli, …  ──►│ docs (port 4000)   │
+                          │ apps/docs           │
+                          │ basePath:"/docs"    │
+                          └─────────────────────┘
+```
+
+The web app reads `DOCS_URL` once at server boot (`process.env.DOCS_URL` in [apps/web/next.config.ts](../apps/web/next.config.ts)). [docker-compose.selfhost.yml](../docker-compose.selfhost.yml) sets it to `http://docs:4000` — Docker's intra-network DNS resolves `docs` to the docs container. Restart the frontend if the URL ever changes.
+
+The docs Next.js app has `basePath: "/docs"` in [apps/docs/next.config.mjs](../apps/docs/next.config.mjs), so its routes naturally mount under `/docs/*`. The proxy preserves the path: a request for `/docs/cli` is forwarded as `/docs/cli` and the docs app's basePath matches.
+
+### What triggers a docs rebuild
+
+Same workflow as backend / frontend — `build-kensink-images.yml` — with `apps/docs/**` and `Dockerfile.docs` added to the path filter. **The deploy job rebuilds all three images on any match**, so a docs-only change still rebuilds backend and frontend (cheap thanks to GHA layer caching, but worth knowing).
+
+A push that *only* touches files under `docs/` at the repo root (engineering markdown like this file) ships nothing — those paths are intentionally not in any workflow's filter.
+
+### Build pipeline
+
+[Dockerfile.docs](../Dockerfile.docs) mirrors `Dockerfile.web`:
+
+1. **deps stage** — `pnpm install --frozen-lockfile` against the lockfile + the docs / ui / tsconfig / eslint-config workspaces.
+2. **builder stage** — full source overlay, `pnpm install --frozen-lockfile --offline` re-runs lifecycle hooks (the docs app's `postinstall: fumadocs-mdx` materialises `.source/`), then `STANDALONE=true pnpm --filter @multica/docs build` produces `.next/standalone`.
+3. **runner stage** — copies `.next/standalone` + `.next/static` + `.source` into a clean `node:22-alpine`, drops privileges, runs `node apps/docs/server.js` on port 4000.
+
+### Verifying a docs deploy
+
+```bash
+# Image got built and pushed
+crane manifest ghcr.io/johnefemer/multica-docs:kensink | head -5
+
+# Container is running on EC2
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker ps --filter name=agenthost-docs-1 --format "{{.Names}}\t{{.Status}}"'
+
+# End-to-end via the public URL (proxy through frontend)
+curl -sf -o /dev/null -w "%{http_code}\n" https://agenthost.kensink.com/docs
+
+# Check the proxy target the web app booted with
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker exec agenthost-frontend-1 sh -lc "echo \$DOCS_URL"'
+```
+
+### Adding new docs content
+
+MDX files in `apps/docs/content/docs/` get picked up automatically by the `fumadocs-mdx` build step. Add an `.mdx` file (and optionally a `.zh.mdx` sibling for the Chinese locale), commit, push to `kensink-v2`, and the new page is live within ~3 minutes.
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `/docs` returns 500 in prod | Frontend booted before docs container was healthy, OR `DOCS_URL` is unset / pointing at nothing | `docker compose -f /opt/multica/docker-compose.selfhost.yml restart frontend` after confirming `agenthost-docs-1` is up |
+| `/docs` returns 404 | Docs app build missing the page; or proxy URL doesn't include `/docs` prefix | Check `apps/docs/content/docs/` contains the requested page; check `DOCS_URL` is `http://docs:4000` (not `:4000/docs` — the path is added by next.config rewrite) |
+| Docs container restarts in a loop | Build artefact missing `.source/` or `.next/standalone` | `docker logs agenthost-docs-1 --tail=50` — usually a missing fumadocs index. Rebuild with `gh workflow run build-kensink-images.yml --ref kensink-v2` |
+| Page renders but sidebar is empty | `.source` directory wasn't copied into the runtime image | Confirm `Dockerfile.docs` has the `COPY ... /.source` line; rebuild |
 
 ---
 
@@ -488,6 +575,9 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 # Health endpoint
 curl -sf https://agenthost.kensink.com/health
 
+# Docs site (proxied through the frontend, exercises the full path)
+curl -sf -o /dev/null -w "%{http_code}\n" https://agenthost.kensink.com/docs
+
 # Container status
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
   'docker compose -f /opt/multica/docker-compose.selfhost.yml ps'
@@ -648,3 +738,4 @@ The OAuth callback (`/auth/{provider}/callback`) intentionally has **no** auth m
 - [ ] DB backup taken if the migration is destructive
 - [ ] If the change affects CLI behavior (`server/cmd/multica/`, `server/internal/daemon/`), remember `release-cli.yml` will auto-publish the new binary — existing installs need `kensink-install.sh` re-run to pick it up
 - [ ] If touching `docker-compose.datadog.yml`, remember no workflow will redeploy it — you must SSH and `docker compose ... up -d --force-recreate datadog-agent` manually
+- [ ] If touching `apps/docs/**`, the docs image rebuilds and the `agenthost-docs-1` container restarts as part of the same deploy — no extra step. Verify with `curl https://agenthost.kensink.com/docs` after deploy.
