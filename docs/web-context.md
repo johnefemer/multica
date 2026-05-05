@@ -624,7 +624,7 @@ integrationKeys.slackBindings(wsId)  // ["integrations", wsId, "slack", "binding
    - If 2+ agents and no `binding.default_agent_id` → ephemeral picker shown only to you → pick one → ack + reply.
 5. Reply in the same thread (as starter) → continues the conversation (look up `chat_session` by `external_thread_id`).
 6. Reply by anyone else in the thread → one-time ephemeral note about the v1 1:1 limitation.
-7. Failures: `docker logs multica-backend-1 --tail=200 | grep -i slack`.
+7. Failures: `docker logs agenthost-backend-1 --tail=200 | grep -i slack`.
 
 #### Things NOT to do
 

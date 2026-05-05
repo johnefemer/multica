@@ -117,6 +117,73 @@ The compose file interpolates these into the `image:` field of each service ([do
 
 ---
 
+## Container naming
+
+Containers are prefixed with the Compose project name ([docker-compose.selfhost.yml:11](../docker-compose.selfhost.yml#L11) — `name: agenthost`):
+
+| Service | Container | Image |
+|---|---|---|
+| postgres | `agenthost-postgres-1` | `pgvector/pgvector:pg17` |
+| backend | `agenthost-backend-1` | `ghcr.io/johnefemer/multica-backend:kensink` |
+| frontend | `agenthost-frontend-1` | `ghcr.io/johnefemer/multica-web:kensink` |
+
+The Datadog agent runs in a separate Compose project (`name: datadog`) and uses an explicit `container_name: dd-agent`, so it is unaffected by the project prefix.
+
+### Why the on-disk volume/network names still say `multica_*`
+
+The Compose project was renamed `multica` → `agenthost`, but the network and named volumes keep their original on-disk names via explicit `name:` overrides:
+
+| Compose key | On-disk name | Holds |
+|---|---|---|
+| `networks.default` | `multica_default` | App ↔ Datadog network plumbing |
+| `volumes.pgdata` | `multica_pgdata` | PostgreSQL data directory |
+| `volumes.backend_uploads` | `multica_backend_uploads` | File uploads (`/app/data/uploads`) |
+
+Renaming a Docker volume in place isn't supported, and Compose's project-prefix convention would point a freshly-renamed `agenthost_pgdata` at an empty volume — wiping the database. The pinned names sidestep that. **Do not remove the `name:` keys** in [docker-compose.selfhost.yml](../docker-compose.selfhost.yml) without first migrating the data with `docker run --rm -v multica_pgdata:/from -v <new>:/to alpine cp -a /from/. /to/`.
+
+The Datadog compose file's `external: true` reference to `multica_default` ([docker-compose.datadog.yml:12](../docker-compose.datadog.yml#L12)) relies on the same pinning.
+
+### One-time cutover from `multica-*` → `agenthost-*`
+
+When the rename first ships, Compose treats `agenthost` as a brand-new project: the new containers come up alongside the old `multica-*` containers (which are now orphaned because no project owns them anymore). The deploy step pulls + restarts the new project, but does NOT remove containers from the old project.
+
+After verifying the new stack is healthy:
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
+  docker rm -f multica-backend-1 multica-frontend-1 multica-postgres-1
+'
+```
+
+Do **not** run `docker volume rm multica_pgdata` or `docker volume rm multica_backend_uploads` — those volumes are still in use by the new `agenthost-*` containers. Same for `docker network rm multica_default`.
+
+### Datadog audit after the rename
+
+Every container metric / log filter that pinned on `container_name:multica-*` will go silent the moment the new containers come up. Audit and update before cutover:
+
+- **Monitors** — Datadog → Monitors → Manage Monitors → search `multica-`. For each hit:
+  - If the query filters by `container_name`, change to `container_name:agenthost-backend-1` (etc.) or — better — switch to label-based filters that survive future renames: `service:backend`, `service:frontend`, `service:postgres` (these come from `DD_CONTAINER_LABELS_AS_TAGS: "true"` and the `com.docker.compose.service` label).
+  - If the query filters by `host:agenthost`, no change needed.
+- **Dashboards** — Dashboards → search `multica-` in widget queries. Same fix as monitors.
+- **Log indexes / pipelines** — Logs → Configuration → Pipelines / Indexes. Search for `multica-`. Update any source filters or processor rules.
+- **Saved log views** — Logs → Saved Views, search for `multica-`.
+- **Notebooks** — Notebooks → search `multica-` in cell queries.
+- **SLOs** — Service Level Objectives → search `multica-`.
+- **Synthetics / RUM** — unlikely to filter on container names, but worth a sanity scan if present.
+
+Recommended replacement strategy: prefer `service:<name>` (Compose service label) over `container_name:agenthost-<name>-1`, so the next rename — if any — costs zero monitor edits.
+
+After cutover, verify ingestion has rolled over:
+
+```bash
+ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+  'docker exec dd-agent agent status 2>&1 | grep -E "agenthost-(backend|frontend|postgres)"'
+```
+
+Expect to see all three new container names listed under the Docker check.
+
+---
+
 ## Migrations
 
 Migrations run **automatically** on backend container start via [docker/entrypoint.sh](../docker/entrypoint.sh):
@@ -139,7 +206,7 @@ exec ./server
 
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker exec multica-postgres-1 psql -U multica -d multica \
+  'docker exec agenthost-postgres-1 psql -U multica -d multica \
      -c "SELECT version FROM schema_migrations;"'
 ```
 
@@ -147,7 +214,7 @@ Or check a specific constraint/column directly:
 
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker exec multica-postgres-1 psql -U multica -d multica \
+  'docker exec agenthost-postgres-1 psql -U multica -d multica \
      -c "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = '"'"'issue_origin_type_check'"'"';"'
 ```
 
@@ -204,7 +271,7 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
     sleep 2
   done
 
-  docker logs multica-backend-1 --tail=40
+  docker logs agenthost-backend-1 --tail=40
 '
 ```
 
@@ -427,7 +494,7 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 # Backend logs (recent)
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker logs multica-backend-1 --tail=50'
+  'docker logs agenthost-backend-1 --tail=50'
 
 # Which commit is deployed
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
@@ -435,7 +502,7 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 # Which image digest is running
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker inspect multica-backend-1 --format "{{.Image}} {{.Config.Image}}"'
+  'docker inspect agenthost-backend-1 --format "{{.Image}} {{.Config.Image}}"'
 ```
 
 ---
@@ -457,7 +524,7 @@ Migrations are **not** auto-reverted. If a migration breaks things:
 
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker exec -it multica-backend-1 ./migrate down 1'
+  'docker exec -it agenthost-backend-1 ./migrate down 1'
 ```
 
 Then redeploy the previous backend image (Option A). Every migration **must** ship with a working `.down.sql` — enforce in review.
@@ -470,7 +537,7 @@ No automation yet. Before any risky migration (DDL that alters constraints, drop
 
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  docker exec multica-postgres-1 \
+  docker exec agenthost-postgres-1 \
     pg_dump -U multica multica | gzip > ~/multica-backup-\$(date +%Y%m%d-%H%M).sql.gz
 "
 ```
@@ -558,7 +625,7 @@ The OAuth callback (`/auth/{provider}/callback`) intentionally has **no** auth m
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | GHA build succeeds, server still shows old code | `.env` on server has wrong image/tag | `ssh ... grep MULTICA_ /opt/multica/.env` — verify values match [kensink images](#image-naming) |
-| Migration error on boot, backend crash-loops | Bad `.up.sql` or conflicting schema | `docker logs multica-backend-1` to see the Postgres error; if safe, `./migrate down 1` and redeploy a fix |
+| Migration error on boot, backend crash-loops | Bad `.up.sql` or conflicting schema | `docker logs agenthost-backend-1` to see the Postgres error; if safe, `./migrate down 1` and redeploy a fix |
 | Disk full mid-deploy | Layer accumulation | `docker system prune -af` then re-run deploy |
 | Health stays unhealthy after deploy | App-level crash after migrations | Tail logs — usually an env var missing (`GITHUB_CLIENT_ID`, etc.) |
 | Integration tile shows "Connect" button greyed out / tooltip says `<PROVIDER>_CLIENT_ID not configured` | OAuth secret missing from server `.env` | See [Integration OAuth secrets](#integration-oauth-secrets-server-side); add the var, restart backend, hard-refresh page |

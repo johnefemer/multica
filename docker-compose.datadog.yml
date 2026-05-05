@@ -4,13 +4,18 @@
 #   docker compose -f docker-compose.datadog.yml up -d
 #
 # Connects to the multica_default network so Datadog can see all
-# multica containers and collect their metrics + logs.
+# agenthost containers and collect their metrics + logs.
+#
+# Note: the network is still named `multica_default` on disk even though
+# the app's Compose project was renamed `multica` → `agenthost`. The name
+# is pinned in docker-compose.selfhost.yml so this `external: true`
+# reference keeps resolving without a network migration.
 
 name: datadog
 
 networks:
   multica_default:
-    external: true   # shared with docker-compose.selfhost.yml (name: multica)
+    external: true   # shared with docker-compose.selfhost.yml (name: agenthost, network pinned to multica_default)
 
 volumes:
   datadog_run:       # shared socket dir for APM + DogStatsD

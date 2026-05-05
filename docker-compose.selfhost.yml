@@ -8,7 +8,17 @@
 # Frontend: http://localhost:3000
 # Backend:  http://localhost:8080 (also used by CLI/daemon)
 
-name: multica
+name: agenthost
+
+# Network and volumes keep their existing on-disk names (`multica_default`,
+# `multica_pgdata`, `multica_backend_uploads`) even though the project is now
+# `agenthost`. Pinning explicit `name:` values bypasses Compose's project-prefix
+# convention, so the new `agenthost-*` containers attach to the same persistent
+# state and the Datadog compose file's `external: true` reference still resolves.
+# Do NOT rename these — doing so creates fresh empty volumes and loses the DB.
+networks:
+  default:
+    name: multica_default
 
 services:
   postgres:
@@ -77,4 +87,6 @@ services:
 
 volumes:
   pgdata:
+    name: multica_pgdata
   backend_uploads:
+    name: multica_backend_uploads
