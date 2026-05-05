@@ -13,17 +13,60 @@ import {
 } from "@multica/core/paths";
 import { api } from "@multica/core/api";
 import type { Workspace } from "@multica/core/types";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@multica/ui/components/ui/card";
-import { Button } from "@multica/ui/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { setLoggedInCookie } from "@/features/auth/auth-cookie";
 import { LoginPage, validateCliCallback } from "@multica/views/auth";
+
+/**
+ * Inline-styled handoff screens for the Desktop OAuth bounce. They live
+ * here (not in `@multica/views/auth`) because the LoginPage shell is a
+ * shared component and these states are platform-specific to the web
+ * shell — they only fire when `platform=desktop` and the browser is
+ * trying to relinquish the session back to the desktop app.
+ *
+ * The styling mirrors the Ops aesthetic used by the redesigned
+ * LoginPage so the user doesn't see a treatment shift on the bounce.
+ */
+function DesktopHandoffShell({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-[#0a0d10] px-6 text-center text-[#d4dde4] [font-family:ui-monospace,'JetBrains_Mono',Menlo,monospace]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "linear-gradient(#1a2128 1px, transparent 1px), linear-gradient(90deg, #1a2128 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div className="relative z-10 flex w-full max-w-[480px] flex-col items-center gap-5 border border-[#26303a] bg-[#0f1318] px-8 py-10">
+        <div className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.18em]">
+          <span
+            aria-hidden="true"
+            className="block h-[10px] w-[10px] animate-pulse bg-[#7cf29c]"
+            style={{ boxShadow: "0 0 12px #7cf29c" }}
+          />
+          <span>AGENTHOST</span>
+        </div>
+        <h1 className="m-0 text-[28px] font-semibold uppercase leading-[1] tracking-[-0.02em] text-[#d4dde4]">
+          {title}
+        </h1>
+        <p className="m-0 text-[14px] leading-[1.6] text-[#9aa6af]">
+          {description}
+        </p>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function LoginPageContent() {
   const router = useRouter();
@@ -119,43 +162,35 @@ function LoginPageContent() {
   if (isDesktopHandoff && user) {
     if (desktopError) {
       return (
-        <div className="flex min-h-screen items-center justify-center">
-          <Card className="w-full max-w-sm">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Sign-in Failed</CardTitle>
-              <CardDescription>{desktopError}</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
+        <DesktopHandoffShell
+          title="Sign-in failed"
+          description={desktopError}
+        />
       );
     }
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Opening Agenthost</CardTitle>
-            <CardDescription>
-              {desktopToken
-                ? "You should see a prompt to open the Agenthost desktop app. If nothing happens, click the button below."
-                : "Preparing Desktop sign-in..."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            {desktopToken ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  window.location.href = `multica://auth/callback?token=${encodeURIComponent(desktopToken)}`;
-                }}
-              >
-                Open Agenthost Desktop
-              </Button>
-            ) : (
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <DesktopHandoffShell
+        title="Opening Agenthost"
+        description={
+          desktopToken
+            ? "You should see a prompt to open the Agenthost desktop app. If nothing happens, click below."
+            : "Preparing desktop sign-in..."
+        }
+      >
+        {desktopToken ? (
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = `multica://auth/callback?token=${encodeURIComponent(desktopToken)}`;
+            }}
+            className="inline-flex items-center justify-center gap-2 border border-[#7cf29c] bg-[#7cf29c] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#0a0d10] transition-colors duration-150 hover:bg-[#a4f5ba]"
+          >
+            Open Agenthost Desktop
+          </button>
+        ) : (
+          <Loader2 className="h-5 w-5 animate-spin text-[#7cf29c]" />
+        )}
+      </DesktopHandoffShell>
     );
   }
 
