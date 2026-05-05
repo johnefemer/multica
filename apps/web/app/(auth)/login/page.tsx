@@ -198,9 +198,12 @@ function LoginPageContent() {
     <LoginPage
       onSuccess={handleSuccess}
       logo={
+        // Login mark — Agenthost favicon (the same source used for the
+        // browser tab + PWA install icon, wired in apps/web/app/layout.tsx).
+        // Home page logo is intentionally untouched per the latest brief.
         <img
-          src="/kensink-logo.png"
-          alt="Kensink Labs"
+          src="/favicon/apple-icon-180x180.png"
+          alt="Agenthost"
           className="h-12 w-12 object-contain"
         />
       }
