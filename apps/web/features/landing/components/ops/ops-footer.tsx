@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { cn } from "@multica/ui/lib/utils";
 import { useLocale, locales, localeLabels } from "../../i18n";
-import { XMark, xHandle, xUrl } from "../shared";
+import {
+  GitHubMark,
+  SlackMark,
+  XMark,
+  githubPageUrl,
+  slackPageUrl,
+  xHandle,
+  xUrl,
+} from "../shared";
 import { OpsContainer } from "./ops-primitives";
 
 export function OpsFooter() {
@@ -26,18 +34,40 @@ export function OpsFooter() {
             <p className="mt-[14px] text-[12.5px] leading-[var(--lh-log)] text-[var(--dim)]">
               {footer.tagline}
             </p>
-            <Link
-              href={xUrl}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`Agenthost on X (${xHandle})`}
-              className="mt-[14px] inline-flex items-center gap-2 text-[var(--dim)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
-            >
-              <XMark className="size-3.5" />
-              <span className="text-[length:var(--font-size-tag)] tracking-[var(--tr-label)]">
-                {xHandle}
-              </span>
-            </Link>
+            <div className="mt-[14px] flex flex-col gap-2">
+              <Link
+                href={xUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Agenthost on X (${xHandle})`}
+                className="inline-flex w-fit items-center gap-2 text-[var(--dim)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
+              >
+                <XMark className="size-3.5" />
+                <span className="text-[length:var(--font-size-tag)] tracking-[var(--tr-label)]">
+                  {xHandle}
+                </span>
+              </Link>
+              <Link
+                href={slackPageUrl}
+                aria-label="Slack integration"
+                className="inline-flex w-fit items-center gap-2 text-[var(--dim)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
+              >
+                <SlackMark className="size-3.5" />
+                <span className="text-[length:var(--font-size-tag)] tracking-[var(--tr-label)]">
+                  Slack integration
+                </span>
+              </Link>
+              <Link
+                href={githubPageUrl}
+                aria-label="GitHub integration"
+                className="inline-flex w-fit items-center gap-2 text-[var(--dim)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--txt)]"
+              >
+                <GitHubMark className="size-3.5" />
+                <span className="text-[length:var(--font-size-tag)] tracking-[var(--tr-label)]">
+                  GitHub integration
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* Link groups */}
