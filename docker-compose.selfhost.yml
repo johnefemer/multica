@@ -83,6 +83,10 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
       HOSTNAME: "0.0.0.0"
+      # Server-side LLM keys for the marketing-side route handlers (e.g.
+      # /api/landing/team-planner/chat). Never exposed to the browser —
+      # Next.js only forwards env vars prefixed with NEXT_PUBLIC_.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     restart: unless-stopped
 
 volumes:
