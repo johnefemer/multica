@@ -53,15 +53,13 @@ export function GitHubPageClient() {
           </span>
         </div>
 
-        <div className="grid grid-cols-[1.3fr_1fr] gap-12 max-[1020px]:grid-cols-1 max-[1020px]:gap-8">
+        <div className="grid grid-cols-[1.5fr_minmax(0,1fr)] gap-10 max-[1180px]:grid-cols-1 max-[1180px]:gap-10">
           <div>
-            <h1 className="m-0 mb-6 sm:mb-8 [overflow-wrap:anywhere] text-[length:var(--font-size-hero)] font-[number:var(--weight-bold)] uppercase leading-[0.96] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1020px]:text-[length:var(--font-size-hero-lg)] max-[760px]:text-[length:var(--font-size-hero-md)] max-[380px]:text-[length:var(--font-size-hero-sm)]">
+            <h1 className="m-0 mb-6 sm:mb-8 [overflow-wrap:anywhere] text-[length:var(--font-size-hero-lg)] font-[number:var(--weight-bold)] uppercase leading-[0.98] tracking-[var(--tr-headline)] text-[var(--txt)] max-[1280px]:text-[length:var(--font-size-hero-md)] max-[760px]:text-[length:var(--font-size-hero-sm)]">
               GITHUB ISSUES IN.
               <br />
               <span className="text-[var(--accent)]">SHIPPED PRS</span>{" "}
               <span className="text-[var(--dim2)]">OUT.</span>
-              <br />
-              SAME REPO.
             </h1>
             <p className="m-0 mb-9 max-w-[58ch] text-[length:var(--font-size-lede)] leading-[var(--lh-loose)] text-[var(--txt2)]">
               Connect a repo. Every open issue mirrors onto your Agenthost
@@ -107,51 +105,43 @@ export function GitHubPageClient() {
             </div>
           </div>
 
-          {/* Hero side mock — a snapshot of the board, anchored on a single
-              issue moving from Triage → In Progress with an agent assigned. */}
+          {/* Hero side mock — a focused 2-lane snapshot anchored on the
+              same issue moving from Triage → In Progress with an agent
+              assigned. Two lanes (instead of four) keeps the column narrow
+              enough that the H1 on the left doesn't get squeezed into
+              one-word-per-line. */}
           <div className="flex flex-col gap-3">
-            <BoardFrame>
-              <BoardLane name="// TRIAGE" count={3}>
-                <IssueCard
-                  repo="multica-ai/api"
-                  number={482}
-                  title="API 500 on null user_id in billing/checkout"
-                  labels={["bug", "billing"]}
-                />
-                <IssueCard
-                  repo="multica-ai/api"
-                  number={486}
-                  title="Add idempotency key on POST /charges"
-                  labels={["enhancement"]}
-                />
-              </BoardLane>
-              <BoardLane name="// TODO" count={2}>
-                <IssueCard
-                  repo="multica-ai/web"
-                  number={221}
-                  title="Empty-state copy for /agents page"
-                  labels={["frontend"]}
-                />
-              </BoardLane>
-              <BoardLane name="// IN PROGRESS" count={1} active>
-                <IssueCard
-                  repo="multica-ai/api"
-                  number={482}
-                  title="API 500 on null user_id in billing/checkout"
-                  labels={["bug"]}
-                  state="in_progress"
-                  assignee="Python-Agent"
-                />
-              </BoardLane>
-              <BoardLane name="// IN REVIEW" count={1}>
-                <IssueCard
-                  repo="multica-ai/api"
-                  number={471}
-                  title="Cache repo list per-token (5min TTL)"
-                  state="in_review"
-                />
-              </BoardLane>
-            </BoardFrame>
+            <div className="overflow-hidden border border-[var(--line2)] bg-[var(--bg)]">
+              <div className="border-b border-[var(--line2)] bg-[var(--bg2)] px-3 py-2 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+                {"// AGENTHOST_BOARD · MIRROR_OF_GITHUB_ISSUES"}
+              </div>
+              <div className="grid grid-cols-2 gap-3 p-3">
+                <BoardLane name="// TRIAGE" count={3}>
+                  <IssueCard
+                    repo="multica-ai/api"
+                    number={482}
+                    title="API 500 on null user_id in billing/checkout"
+                    labels={["bug"]}
+                  />
+                  <IssueCard
+                    repo="multica-ai/api"
+                    number={486}
+                    title="Add idempotency key on POST /charges"
+                    labels={["enhancement"]}
+                  />
+                </BoardLane>
+                <BoardLane name="// IN PROGRESS" count={1} active>
+                  <IssueCard
+                    repo="multica-ai/api"
+                    number={482}
+                    title="API 500 on null user_id in billing/checkout"
+                    labels={["bug"]}
+                    state="in_progress"
+                    assignee="Python-Agent"
+                  />
+                </BoardLane>
+              </div>
+            </div>
             <p className="text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
               {"// CARDS COME FROM GITHUB · STATE STAYS IN SYNC"}
             </p>
@@ -290,48 +280,57 @@ export function GitHubPageClient() {
           </div>
 
           <aside className="flex flex-col gap-4">
-            <div className="border border-[var(--line2)] bg-[var(--bg2)] p-5">
-              <div className="mb-2 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
+            <div className="border border-[var(--line2)] bg-[var(--bg2)] p-6">
+              <div className="mb-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
                 {"// WHAT'S HAPPENING"}
               </div>
-              <ol className="m-0 flex list-none flex-col gap-3 p-0 text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt2)]">
-                <li className="flex gap-2">
-                  <span className="text-[var(--accent)]">01</span>
+              <ol className="m-0 flex list-none flex-col gap-4 p-0 text-[length:var(--font-size-base)] leading-[var(--lh-loose)] text-[var(--txt2)]">
+                <li className="flex gap-3">
+                  <span className="shrink-0 font-[number:var(--weight-bold)] text-[var(--accent)]">
+                    01
+                  </span>
                   <span>
                     GitHub fires <code>issues.opened</code>; Agenthost
                     verifies the HMAC signature and creates a mirrored issue
                     bound to the source repo.
                   </span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="text-[var(--accent)]">02</span>
+                <li className="flex gap-3">
+                  <span className="shrink-0 font-[number:var(--weight-bold)] text-[var(--accent)]">
+                    02
+                  </span>
                   <span>
                     The mirrored issue is a first-class Agenthost issue —
                     same kanban, same assignment model, same agent dispatch.
                   </span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="text-[var(--accent)]">03</span>
+                <li className="flex gap-3">
+                  <span className="shrink-0 font-[number:var(--weight-bold)] text-[var(--accent)]">
+                    03
+                  </span>
                   <span>
-                    Agent runs in its runtime, opens a PR <em>in your real
-                    repo</em>. The PR lands via the runtime&apos;s git config —
-                    not via the integration token.
+                    Agent runs in its runtime, opens a PR{" "}
+                    <em>in your real repo</em>. The PR lands via the
+                    runtime&apos;s git config — not via the integration token.
                   </span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="text-[var(--accent)]">04</span>
+                <li className="flex gap-3">
+                  <span className="shrink-0 font-[number:var(--weight-bold)] text-[var(--accent)]">
+                    04
+                  </span>
                   <span>
-                    <code>workflow_run.completed</code> + <code>pull_request.closed</code>
-                    {" "}flow back inbound; the mirrored issue closes when the PR merges.
+                    <code>workflow_run.completed</code> +{" "}
+                    <code>pull_request.closed</code> flow back inbound; the
+                    mirrored issue closes when the PR merges.
                   </span>
                 </li>
               </ol>
             </div>
-            <div className="border border-[var(--line2)] bg-[var(--bg2)] p-5">
-              <div className="mb-2 text-[length:var(--font-size-nano-sm)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
+            <div className="border border-[var(--line2)] bg-[var(--bg2)] p-6">
+              <div className="mb-3 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--dim)]">
                 {"// WEBHOOK EVENTS WE LISTEN TO"}
               </div>
-              <pre className="m-0 overflow-x-auto whitespace-pre font-[family-name:var(--font-mono-display)] text-[length:var(--font-size-nano-sm)] leading-[var(--lh-normal)] text-[var(--txt2)]">{`issues          opened, edited, closed, reopened
+              <pre className="m-0 overflow-x-auto whitespace-pre font-[family-name:var(--font-mono-display)] text-[length:var(--font-size-tag)] leading-[var(--lh-loose)] text-[var(--txt2)]">{`issues          opened, edited, closed, reopened
 pull_request    opened, closed (merged)
 workflow_run    completed (CI status)
 push            commits to default branch`}</pre>
