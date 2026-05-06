@@ -20,8 +20,14 @@ import Link from "next/link";
 export const PLAN_ACCENT = "#39ff88";
 
 export function PlanPageShell({ children }: { children: ReactNode }) {
+  // The root layout sets `<body class="h-full overflow-hidden">` because
+  // the dashboard app needs a fixed shell with internal scroll panels.
+  // The marketing `(landing)` route group works around this by wrapping
+  // its tree in `h-full overflow-y-auto`. /plan/[hash] is OUTSIDE that
+  // group (so it doesn't drag in the marketing chrome / locale provider),
+  // so the shell itself has to be the scroll container.
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-mono antialiased">
+    <div className="h-full overflow-y-auto overflow-x-hidden bg-zinc-950 text-zinc-100 font-mono antialiased">
       {/* Thin brand band */}
       <header className="border-b border-zinc-800 bg-zinc-950">
         <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4 px-6 py-4 sm:px-8">
