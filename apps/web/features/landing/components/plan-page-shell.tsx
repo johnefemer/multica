@@ -35,7 +35,7 @@ export function PlanPageShell({ children }: { children: ReactNode }) {
     >
       {/* Thin brand band */}
       <header className="border-b border-[var(--line2)] bg-[var(--bg)]">
-        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-[var(--container-pad)] py-[14px] max-[1020px]:px-[var(--container-pad-lg)] max-[760px]:px-[var(--container-pad-md)]">
+        <div className="mx-auto flex w-full max-w-[var(--container-narrow,1100px)] items-center justify-between px-[var(--container-pad)] py-[14px] max-[1020px]:px-[var(--container-pad-lg)] max-[760px]:px-[var(--container-pad-md)]">
           <Link
             href="/"
             className="flex min-w-0 items-center gap-[10px] text-[length:var(--font-size-tag)] font-[number:var(--weight-medium)] tracking-[var(--tr-label)] text-[var(--txt)]"
@@ -59,7 +59,7 @@ export function PlanPageShell({ children }: { children: ReactNode }) {
 
       {/* Tight footer */}
       <footer className="border-t border-[var(--line2)] bg-[var(--bg)] py-5">
-        <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-wrap items-center justify-between gap-3 px-[var(--container-pad)] text-[length:var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:px-[var(--container-pad-lg)] max-[760px]:px-[var(--container-pad-md)]">
+        <div className="mx-auto flex w-full max-w-[var(--container-narrow,1100px)] flex-wrap items-center justify-between gap-3 px-[var(--container-pad)] text-[length:var(--font-size-micro)] tracking-[var(--tr-caps)] text-[var(--dim)] max-[1020px]:px-[var(--container-pad-lg)] max-[760px]:px-[var(--container-pad-md)]">
           <span>{"// AGENTHOST · KENSINK_LABS"}</span>
           <Link
             href="/build-your-team"

@@ -43,14 +43,20 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
   const replySubject = encodeURIComponent(
     `Plan ${lead.hash} · ${lead.primary_name}`,
   );
+  // Eyebrow label includes the plan owner's name so it's the very first
+  // thing on the page (above the headline).
+  const ownerLabel = `// PLAN_FOR_${lead.primary_name
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")}`;
 
   return (
     <PlanPageShell>
       {/* §00 — HERO ----------------------------------------------------- */}
-      <OpsSection id="hero">
+      <OpsSection id="hero" containerClassName="max-w-[var(--container-narrow,1100px)]">
         <OpsSectionHead
           num="§00"
-          label="// AI_DEVELOPMENT_PLAN"
+          label={ownerLabel}
           headlineParts={[
             "YOUR ",
             "AI TEAM",
@@ -79,6 +85,7 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
           </div>
           <div className="flex flex-col border border-[var(--line2)] bg-[var(--bg2)]">
             {[
+              { k: "// PLAN_FOR", v: lead.primary_name, accent: true },
               { k: "// CREATED", v: formatLongDate(lead.created_at) },
               {
                 k: "// EDITED",
@@ -101,7 +108,11 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
                 className="flex justify-between gap-3 border-b border-[var(--line)] px-[18px] py-[14px] text-[length:var(--font-size-label)] tracking-[var(--tr-micro)] text-[var(--dim)] last:border-b-0"
               >
                 <span className="flex-none">{row.k}</span>
-                <b className="truncate font-[number:var(--weight-medium)] text-[var(--txt)]">
+                <b
+                  className={`truncate font-[number:var(--weight-medium)] ${
+                    row.accent ? "text-[var(--accent)]" : "text-[var(--txt)]"
+                  }`}
+                >
                   {row.v}
                 </b>
               </div>
@@ -110,8 +121,8 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
         </div>
       </OpsSection>
 
-      {/* §01 — PLAN BODY (markdown) ------------------------------------- */}
-      <OpsSection id="plan">
+      {/* §01 — PLAN BODY (markdown, narrow reading column) -------------- */}
+      <OpsSection id="plan" containerClassName="max-w-[860px]">
         <OpsSectionHead
           num="§01"
           label="// THE_PLAN"
@@ -207,7 +218,7 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
         className="relative border-b border-[var(--line2)] py-[var(--cta-pad-y)] max-[1020px]:py-[var(--cta-pad-y-lg)] max-[760px]:py-[var(--cta-pad-y-md)]"
         style={{ background: "var(--bg-cta-glow), var(--bg)" }}
       >
-        <OpsContainer>
+        <OpsContainer className="max-w-[var(--container-narrow,1100px)]">
           <div className="grid grid-cols-[1.4fr_1fr] items-end gap-16 max-[880px]:grid-cols-1 max-[880px]:gap-9">
             <div>
               <div className="mb-5 text-[length:var(--font-size-label)] tracking-[var(--tr-eyebrow)] text-[var(--accent)]">
