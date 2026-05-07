@@ -138,8 +138,8 @@ The `multica` CLI connects your local machine to Multica — authenticate, manag
 | Command | Description |
 |---------|-------------|
 | `multica login` | Authenticate (opens browser) |
-| `multica daemon start` | Start the local agent runtime |
-| `multica daemon status` | Check daemon status |
+| `agenthost daemon start` | Start the local agent runtime |
+| `agenthost daemon status` | Check daemon status |
 | `multica setup` | One-command setup for Multica Cloud (configure + login + start daemon) |
 | `multica setup self-host` | Same, but for self-hosted deployments |
 | `multica issue list` | List issues in your workspace |

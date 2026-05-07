@@ -44,7 +44,7 @@ The `multica setup self-host` command will:
 ## Verification
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 Should show `running` with detected agents.
@@ -53,7 +53,7 @@ Should show `running` with detected agents.
 
 ```bash
 # Stop the daemon
-multica daemon stop
+agenthost daemon stop
 
 # Stop all Docker services
 cd multica
@@ -72,5 +72,5 @@ If the default ports (8080/3000) are in use:
 
 - **Backend not ready:** `docker compose -f docker-compose.selfhost.yml logs backend`
 - **Frontend not ready:** `docker compose -f docker-compose.selfhost.yml logs frontend`
-- **Daemon issues:** `multica daemon logs`
+- **Daemon issues:** `agenthost daemon logs`
 - **Health checks:** `curl http://localhost:8080/health` for liveness, `curl http://localhost:8080/readyz` for dependency-aware readiness

@@ -120,7 +120,7 @@ multica setup self-host --server-url https://api.example.com --app-url https://a
 To verify the daemon is running:
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 > **Alternative:** If you prefer manual steps, see [Manual CLI Configuration](#manual-cli-configuration) below.
@@ -147,7 +147,7 @@ If you cloned the repo manually:
 make selfhost-stop
 
 # Stop the local daemon
-multica daemon stop
+agenthost daemon stop
 ```
 
 ## Switching to Multica Cloud
@@ -210,7 +210,7 @@ multica config set app_url http://localhost:3000
 multica login
 
 # Start the daemon
-multica daemon start
+agenthost daemon start
 ```
 
 For production deployments with TLS:
@@ -219,7 +219,7 @@ For production deployments with TLS:
 multica config set app_url https://app.example.com
 multica config set server_url https://api.example.com
 multica login
-multica daemon start
+agenthost daemon start
 ```
 
 ## Advanced Configuration

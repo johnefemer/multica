@@ -50,7 +50,7 @@ Or step by step:
 multica login
 
 # 2. Start the agent daemon
-multica daemon start
+agenthost daemon start
 
 # 3. Done — agents in your watched workspaces can now execute tasks on your machine
 ```
@@ -98,7 +98,7 @@ The daemon is the local agent runtime. It detects available AI CLIs on your mach
 ### Start
 
 ```bash
-multica daemon start
+agenthost daemon start
 ```
 
 By default, the daemon runs in the background and logs to `~/.multica/daemon.log`.
@@ -106,20 +106,20 @@ By default, the daemon runs in the background and logs to `~/.multica/daemon.log
 To run in the foreground (useful for debugging):
 
 ```bash
-multica daemon start --foreground
+agenthost daemon start --foreground
 ```
 
 ### Stop
 
 ```bash
-multica daemon stop
+agenthost daemon stop
 ```
 
 ### Status
 
 ```bash
-multica daemon status
-multica daemon status --output json
+agenthost daemon status
+agenthost daemon status --output json
 ```
 
 Shows PID, uptime, detected agents, and watched workspaces.
@@ -127,9 +127,9 @@ Shows PID, uptime, detected agents, and watched workspaces.
 ### Logs
 
 ```bash
-multica daemon logs              # Last 50 lines
-multica daemon logs -f           # Follow (tail -f)
-multica daemon logs -n 100       # Last 100 lines
+agenthost daemon logs              # Last 50 lines
+agenthost daemon logs -f           # Follow (tail -f)
+agenthost daemon logs -n 100       # Last 100 lines
 ```
 
 ### Supported Agents
@@ -217,7 +217,7 @@ multica config set app_url http://localhost:3000
 # multica config set app_url https://app.example.com
 
 multica login
-multica daemon start
+agenthost daemon start
 ```
 
 ### Profiles
@@ -229,10 +229,10 @@ Profiles let you run multiple daemons on the same machine — for example, one f
 multica setup self-host --profile staging --server-url https://api-staging.example.com --app-url https://staging.example.com
 
 # Start its daemon
-multica daemon start --profile staging
+agenthost daemon start --profile staging
 
 # Default profile runs separately
-multica daemon start
+agenthost daemon start
 ```
 
 Each profile gets its own config directory (`~/.multica/profiles/<name>/`), daemon state, health port, and workspace root.
@@ -544,5 +544,5 @@ Most commands support `--output` with two formats:
 
 ```bash
 multica issue list --output json
-multica daemon status --output json
+agenthost daemon status --output json
 ```

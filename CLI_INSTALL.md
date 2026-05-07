@@ -150,26 +150,26 @@ Expected output should show the authenticated user and server URL.
 First, check if the daemon is already running:
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 - **If status is "running"**: skip to **Step 5**.
 - **If status is "stopped"**: start it:
 
 ```bash
-multica daemon start
+agenthost daemon start
 ```
 
 Wait 3 seconds, then verify:
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 Expected output should show `running` status with detected agents (e.g. `claude`, `codex`, `opencode`, `openclaw`, `hermes`, `gemini`, `pi`, `cursor-agent`).
 
 **If daemon fails to start:**
-- Check logs: `multica daemon logs`
+- Check logs: `agenthost daemon logs`
 - If a port conflict occurs, the daemon may already be running under a different profile.
 - If no agents are detected, ensure at least one AI CLI (`claude`, `codex`, `opencode`, `openclaw`, `hermes`, `gemini`, `pi`, or `cursor-agent`) is installed and on the `$PATH`.
 
@@ -180,7 +180,7 @@ Expected output should show `running` status with detected agents (e.g. `claude`
 Run:
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 Confirm:
@@ -190,7 +190,7 @@ Confirm:
 
 If the agents list is empty, tell the user:
 
-> "The Multica daemon is running but no AI agent CLIs were detected. Please install at least one supported CLI (`claude`, `codex`, `opencode`, `openclaw`, `hermes`, `gemini`, `pi`, or `cursor-agent`), then restart the daemon with `multica daemon stop && multica daemon start`."
+> "The Multica daemon is running but no AI agent CLIs were detected. Please install at least one supported CLI (`claude`, `codex`, `opencode`, `openclaw`, `hermes`, `gemini`, `pi`, or `cursor-agent`), then restart the daemon with `agenthost daemon stop && agenthost daemon start`."
 
 ---
 
@@ -198,4 +198,4 @@ If the agents list is empty, tell the user:
 
 When all steps are complete, inform the user:
 
-> "Multica CLI is installed and the daemon is running. Agents in your workspaces can now execute tasks on this machine. You can manage workspaces with `multica workspace list` and view daemon logs with `multica daemon logs -f`."
+> "Multica CLI is installed and the daemon is running. Agents in your workspaces can now execute tasks on this machine. You can manage workspaces with `multica workspace list` and view daemon logs with `agenthost daemon logs -f`."

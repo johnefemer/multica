@@ -167,7 +167,7 @@ function ManualUpdateGuide({ openByDefault }: { openByDefault: boolean }) {
           />
           <ManualCmd label="Windows (PowerShell)" cmd={MANUAL_WINDOWS_CMD} />
           <p className="text-xs text-muted-foreground">
-            After upgrading, restart the daemon: <code>multica daemon stop &amp;&amp; multica daemon start</code>
+            After upgrading, restart the daemon: <code>agenthost daemon stop &amp;&amp; agenthost daemon start</code>
           </p>
         </div>
       )}

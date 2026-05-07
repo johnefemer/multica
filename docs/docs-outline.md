@@ -473,7 +473,7 @@ multica issue assign <issue-id> --agent <agent-slug>
     - Recover-orphans（启动时把 dispatched/running 转 failed）
     - Legacy daemon_id migration（hostname → UUID 自动迁移）
     - 配置优先级（CLI flag > config file > env）
-    - CLI：`multica daemon install/login/start/stop/status/logs`
+    - CLI：`agenthost daemon install/login/start/stop/status/logs`
   - **Runtime 部分**:
     - Runtime = daemon × provider
     - 唯一约束 `(workspace_id, daemon_id, provider)`
@@ -821,7 +821,7 @@ multica issue assign <issue-id> --agent <agent-slug>
     | `WS /ws` | ✓（cookie）| ✓（首条消息）| - |
   - 登录 flow（email + code / OAuth）
   - PAT 创建 / 撤销 / 管理（UI 在 Settings，CLI 通过 `multica login`）
-  - Daemon token 生成时机（`multica daemon login`）
+  - Daemon token 生成时机（`agenthost daemon login`）
   - Logout（删本地 token，不撤销 server session）
 - **不写**: self-host 时的 auth setup（§7.2）、CLI 具体命令（§8.1）
 - **写前要验证**: Daemon Token 在 WS 的行为；JWT 过期后重连
@@ -839,7 +839,7 @@ multica issue assign <issue-id> --agent <agent-slug>
   - **Desktop vs Web 对比表**（开篇）
   - **多 tab 系统**（per-workspace 隔离，localStorage 持久化，跨 workspace 切换时恢复上次活跃 tab）
   - **自动更新**（electron-updater + GitHub Release；Windows arm64 特殊处理 `latest-arm64.yml`；app quit 时安装）
-  - **Daemon 不内置**：desktop 只是窗口，daemon 要单独 `multica daemon start`，desktop package 里 bundle 了 CLI
+  - **Daemon 不内置**：desktop 只是窗口，daemon 要单独 `agenthost daemon start`，desktop package 里 bundle 了 CLI
   - 安装：macOS .dmg / Windows .exe / Linux .AppImage
 - **不写**:
   - Window Overlay（实现细节，用户无感知）
@@ -877,7 +877,7 @@ multica issue assign <issue-id> --agent <agent-slug>
   - 8.10 multica skill 详细
   - 8.11 multica autopilot 详细
   - 8.12 multica repo 详细
-  - 8.13 multica daemon 详细
+  - 8.13 agenthost daemon 详细
   - 8.14 multica runtime 详细
   - 8.15 multica config / version / update / attachment 详细
 
