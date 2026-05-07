@@ -33,7 +33,7 @@ A **runtime** is a daemon process that runs on a developer's machine (laptop, de
 ┌─────────────────────────────────────────────────────────────┐
 │             Developer Machine / Runtime Host                │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │  multica daemon  (background process)              │    │
+│  │  agenthost daemon  (background process)              │    │
 │  │  • holds WebSocket connection to server            │    │
 │  │  • receives agent tasks over the socket            │    │
 │  │  • executes tasks via local AI tools               │    │
@@ -59,9 +59,9 @@ The `multica` binary is the single entrypoint for everything runtime-related:
 |---------|-------------|
 | `multica setup self-host --server-url <url>` | Configures server URL, authenticates, and starts daemon |
 | `multica login` | Re-authenticate against the configured server |
-| `multica daemon start` | Start the daemon in the background |
-| `multica daemon stop` | Stop the background daemon |
-| `multica daemon status` | Check daemon health and connected workspace |
+| `agenthost daemon start` | Start the daemon in the background |
+| `agenthost daemon stop` | Stop the background daemon |
+| `agenthost daemon status` | Check daemon health and connected workspace |
 | `multica agent run <issue-id>` | Manually trigger an agent task |
 
 **Config file location:** `~/.multica/config.json` (per profile)
@@ -76,7 +76,7 @@ The `multica` binary is the single entrypoint for everything runtime-related:
 
 ### 2. Daemon
 
-The daemon is a long-running background process spawned by `multica daemon start`. It:
+The daemon is a long-running background process spawned by `agenthost daemon start`. It:
 
 - Opens a **WebSocket connection** to `wss://agenthost.kensink.com/ws`
 - Authenticates using the JWT token stored in the config file
@@ -136,7 +136,7 @@ This will:
 ### Step 3 — Verify
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 Expected output when healthy:
@@ -190,18 +190,18 @@ The desktop app download and cloud runtime waitlist options are **disabled** on 
 
 ### Start daemon after reboot
 ```bash
-multica daemon start
+agenthost daemon start
 ```
 
 ### Check if daemon is running
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 ### Reconnect after token expiry
 ```bash
 multica login
-multica daemon restart
+agenthost daemon restart
 ```
 
 ### Run an agent manually
@@ -233,9 +233,9 @@ Common patterns at Kensink Labs:
 |---------|-------------|-----|
 | `server not reachable` | Server down or DNS not resolving | Check `https://agenthost.kensink.com/health` |
 | `token expired` | JWT has 24h lifetime | Run `multica login` |
-| `daemon: not running` | Process crashed or not started | Run `multica daemon start` |
-| WebSocket reconnects in loop | Auth failure (bad token) | Run `multica login` then `multica daemon restart` |
-| Agent tasks queue but don't run | No runtime connected in workspace | Check `multica daemon status` |
+| `daemon: not running` | Process crashed or not started | Run `agenthost daemon start` |
+| WebSocket reconnects in loop | Auth failure (bad token) | Run `multica login` then `agenthost daemon restart` |
+| Agent tasks queue but don't run | No runtime connected in workspace | Check `agenthost daemon status` |
 
 ---
 
