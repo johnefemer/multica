@@ -26,6 +26,53 @@ const MAX_TURNS = 30;
 // the confirmation turn). 5 leaves slack for any nesting we don't anticipate.
 const MAX_TOOL_LOOP = 5;
 
+// User-visible message for ANY backend failure. Anthropic responses, network
+// blips, capture failures, malformed tool input — all collapse to this. Real
+// detail goes to the server log + the aicoach Slack channel; nothing leaks
+// through the NDJSON stream.
+const GENERIC_USER_ERROR =
+  "The planner is briefly unavailable — please try again in a moment.";
+
+// Best-effort backend-error reporter. Logs the full failure server-side and
+// pings the aicoach Slack channel when SLACK_BACKEND_ERROR_WEBHOOK_URL is
+// configured. Swallows its own errors so a missing or down webhook can never
+// take the request down.
+async function reportPlannerError(
+  context: string,
+  err: unknown,
+): Promise<void> {
+  console.error(`[planner/${context}]`, err);
+
+  const webhook = process.env.SLACK_BACKEND_ERROR_WEBHOOK_URL;
+  if (!webhook) return;
+
+  let detail: string;
+  if (err instanceof Anthropic.APIError) {
+    detail = `*Anthropic API error* — status ${err.status}\n\`\`\`${err.message}\`\`\``;
+  } else if (err instanceof Error) {
+    const stack = err.stack?.split("\n").slice(0, 6).join("\n") ?? "";
+    detail = `*${err.name}*: ${err.message}\n\`\`\`${stack}\`\`\``;
+  } else {
+    detail = `\`\`\`${String(err)}\`\`\``;
+  }
+
+  // Slack incoming webhooks hard-cap around 40000 chars. Trim defensively.
+  const text = `:rotating_light: planner / ${context}\n${detail}`.slice(
+    0,
+    38000,
+  );
+
+  try {
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  } catch (slackErr) {
+    console.error("[planner/slack] webhook failed:", slackErr);
+  }
+}
+
 function isPlannerMessage(value: unknown): value is PlannerChatMessage {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
@@ -237,12 +284,15 @@ export async function POST(req: Request) {
                   content: `Email sent successfully. Private link: ${result.plan_url}. ${result.recipients_emailed} recipient(s) emailed. Confirm delivery to the user with one short, warm line that includes the URL inline so they can click it. Do not write a long monologue.`,
                 });
               } catch (err) {
-                const msg = err instanceof Error ? err.message : "unknown error";
-                console.error("[planner/chat] executeCapture failed:", err);
+                // Log + ping aicoach Slack with the real error, but feed the
+                // LLM only a generic instruction so the user-facing recovery
+                // line stays neutral (no upstream provider details echoed).
+                await reportPlannerError("executeCapture", err);
                 toolResults.push({
                   type: "tool_result",
                   tool_use_id: tu.id,
-                  content: `Capture failed: ${msg}. Apologize briefly and ask the user to double-check the email or try again.`,
+                  content:
+                    "The capture step failed. Apologize briefly and ask the user to try again in a moment — do not mention any upstream service or technical detail.",
                   is_error: true,
                 });
               }
@@ -263,19 +313,11 @@ export async function POST(req: Request) {
 
         send({ type: "done" });
       } catch (err) {
-        if (err instanceof Anthropic.APIError) {
-          send({
-            type: "error",
-            message: err.message,
-            status: err.status,
-          });
-        } else {
-          send({
-            type: "error",
-            message:
-              err instanceof Error ? err.message : "unknown planner error",
-          });
-        }
+        // Never forward provider error messages to the frontend — the user
+        // sees a single generic line, the real detail goes to the server log
+        // and the aicoach Slack channel.
+        await reportPlannerError("chat-loop", err);
+        send({ type: "error", message: GENERIC_USER_ERROR });
       } finally {
         controller.close();
       }
