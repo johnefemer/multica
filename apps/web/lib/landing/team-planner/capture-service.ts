@@ -2,7 +2,11 @@ import { Resend } from "resend";
 import { dbQuery } from "@/lib/db";
 import { generatePlanHash } from "./hash";
 import { renderPlanEmail } from "./email-template";
-import type { GeneratedPlan, PlannerChatMessage } from "./types";
+import type {
+  GeneratedPlan,
+  LeadScoreSignals,
+  PlannerChatMessage,
+} from "./types";
 
 // =============================================================================
 // Capture service — shared between:
@@ -33,6 +37,56 @@ interface PlanningLeadInsertRow extends Record<string, unknown> {
   hash: string;
 }
 
+// Lead score is capped at 100; >= 60 flips priority_lead to true and fires
+// the Slack webhook. Rubric is documented in generate-plan.schema.json so
+// the planner prompt and the server can be reviewed against the same source.
+const PRIORITY_THRESHOLD = 60;
+
+export function computeLeadScore(signals: LeadScoreSignals): number {
+  let score = 0;
+
+  switch (signals.team_size_band) {
+    case "solo":
+      score -= 30;
+      break;
+    case "small":
+      score += 10;
+      break;
+    case "mid":
+      score += 20;
+      break;
+    case "large":
+      score += 30;
+      break;
+  }
+
+  switch (signals.stack_maturity) {
+    case "production":
+      score += 15;
+      break;
+    case "scaling":
+      score += 25;
+      break;
+    // 'early' adds nothing
+  }
+
+  switch (signals.delegation_specificity) {
+    case "moderate":
+      score += 10;
+      break;
+    case "high":
+      score += 20;
+      break;
+    // 'vague' adds nothing
+  }
+
+  if (signals.compliance_signal) score += 15;
+
+  if (score < 0) return 0;
+  if (score > 100) return 100;
+  return score;
+}
+
 function appUrl(): string {
   return (
     process.env.AGENTHOST_APP_URL ||
@@ -43,6 +97,8 @@ function appUrl(): string {
 
 async function insertLead(
   input: CaptureInput,
+  leadScore: number,
+  priorityLead: boolean,
   attempts = 3,
 ): Promise<PlanningLeadInsertRow> {
   let lastErr: unknown;
@@ -52,8 +108,14 @@ async function insertLead(
       const rows = await dbQuery<PlanningLeadInsertRow>(
         `INSERT INTO planning_lead
            (hash, primary_email, primary_name, cc_emails,
-            recommended_tier, project_summary, conversation, plan_markdown)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+            recommended_tier, project_summary, conversation, plan_markdown,
+            agent_roster, starter_skills, autopilot_routines,
+            milestones, wont_fix, lead_score_signals,
+            lead_score, priority_lead)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
+                 $9::jsonb, $10::jsonb, $11::jsonb,
+                 $12::jsonb, $13::jsonb, $14::jsonb,
+                 $15, $16)
          RETURNING id, hash`,
         [
           hash,
@@ -64,6 +126,14 @@ async function insertLead(
           input.plan.plan_summary,
           JSON.stringify(input.conversation),
           input.plan.plan_markdown,
+          JSON.stringify(input.plan.agent_roster),
+          JSON.stringify(input.plan.starter_skills),
+          JSON.stringify(input.plan.autopilot_routines),
+          JSON.stringify(input.plan.milestones),
+          JSON.stringify(input.plan.wont_fix),
+          JSON.stringify(input.plan.lead_score_signals),
+          leadScore,
+          priorityLead,
         ],
       );
       const row = rows[0];
@@ -83,10 +153,48 @@ async function insertLead(
   throw lastErr ?? new Error("hash collision retries exhausted");
 }
 
+// Fire-and-forget Slack notification on priority leads. We don't block the
+// capture response on this — if Slack is down the lead is still saved and
+// emailed; the sales team picks it up from the priority-leads view instead.
+async function notifyPriorityLead(
+  hash: string,
+  input: CaptureInput,
+  leadScore: number,
+): Promise<void> {
+  const webhookUrl = process.env.SLACK_PRIORITY_LEAD_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const planUrl = `${appUrl()}/plan/${hash}`;
+  const signals = input.plan.lead_score_signals;
+  const summary = input.plan.plan_summary.split(".")[0] ?? "";
+
+  const text =
+    `*New priority lead* — score ${leadScore}\n` +
+    `*${input.primary_name}* <${input.primary_email}>\n` +
+    `${summary}\n` +
+    `Tier: \`${input.plan.recommended_tier}\` · Team: \`${signals.team_size_band}\` · ` +
+    `Stack: \`${signals.stack_maturity}\` · Delegation: \`${signals.delegation_specificity}\`` +
+    `${signals.compliance_signal ? " · *compliance*" : ""}\n` +
+    `<${planUrl}|Open plan →>`;
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  } catch (err) {
+    console.error("[capture-service] slack webhook failed:", err);
+  }
+}
+
 export async function executeCapture(
   input: CaptureInput,
 ): Promise<CaptureResult> {
-  const lead = await insertLead(input);
+  const leadScore = computeLeadScore(input.plan.lead_score_signals);
+  const priorityLead = leadScore >= PRIORITY_THRESHOLD;
+
+  const lead = await insertLead(input, leadScore, priorityLead);
   const planUrl = `${appUrl()}/plan/${lead.hash}`;
 
   const recipients = [
@@ -139,6 +247,10 @@ export async function executeCapture(
     console.warn(
       `[capture-service] RESEND_API_KEY not set; skipping emails. Lead saved with hash ${lead.hash}.`,
     );
+  }
+
+  if (priorityLead) {
+    await notifyPriorityLead(lead.hash, input, leadScore);
   }
 
   return {
