@@ -98,6 +98,15 @@ services:
       # Used to build absolute hotlink URLs in the delivered emails.
       AGENTHOST_APP_URL: ${AGENTHOST_APP_URL:-}
       MULTICA_APP_URL: ${MULTICA_APP_URL:-}
+      # Slack incoming webhook for the priority-lead ping (capture-service).
+      # When unset the lead is still saved + emailed; only the Slack ping is
+      # skipped. See docs/agenthost-planner.md.
+      SLACK_PRIORITY_LEAD_WEBHOOK_URL: ${SLACK_PRIORITY_LEAD_WEBHOOK_URL:-}
+      # Slack incoming webhook for the aicoach #backend-error channel.
+      # The planner /chat route reports every backend failure here (Anthropic
+      # API errors, capture failures, etc.) while sending only a generic
+      # "briefly unavailable" message to the user-facing stream.
+      SLACK_BACKEND_ERROR_WEBHOOK_URL: ${SLACK_BACKEND_ERROR_WEBHOOK_URL:-}
       # Internal docs service URL — Next.js's /docs/* rewrite proxy in
       # apps/web/next.config.ts uses this to forward requests to the docs
       # container. Read at server boot, so a frontend restart is required
