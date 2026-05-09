@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PlanPageShell, PLAN_ACCENT } from "./plan-page-shell";
 import type { PlanningLead } from "@/lib/landing/team-planner/storage";
+import type { SuggestedCli } from "@/lib/landing/team-planner/types";
 
 const CONTACT_EMAIL = "agenthost@kensink.com";
 
@@ -21,6 +22,19 @@ const TIER_TAGLINE: Record<PlanningLead["recommended_tier"], string> = {
   solo: "One-time setup, pay-as-you-go.",
   team: "Flat per-workspace, BYOK with unlimited tokens.",
   frontier: "Custom pricing, dedicated infra, compliance.",
+};
+
+const CLI_LABEL: Record<SuggestedCli, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  cursor: "Cursor",
+  gemini: "Gemini",
+  opencode: "OpenCode",
+  openclaw: "OpenClaw",
+  hermes: "Hermes",
+  pi: "Pi",
+  copilot: "Copilot",
+  kimi: "Kimi",
 };
 
 function formatLongDate(d: Date | string): string {
@@ -132,7 +146,103 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
         </div>
       </section>
 
-      {/* §02 — PLAN BODY (markdown) ------------------------------------- */}
+      {/* §02 — AGENT ROSTER (v2 only) ------------------------------------ */}
+      {lead.agent_roster && lead.agent_roster.length > 0 ? (
+        <section className="mb-16">
+          <div className="mb-6 flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="block h-[1px] w-12"
+              style={{ backgroundColor: PLAN_ACCENT }}
+            />
+            <span
+              className="text-[11px] font-medium uppercase tracking-widest"
+              style={{ color: PLAN_ACCENT }}
+            >
+              {"// YOUR_AI_TEAM"}
+            </span>
+          </div>
+          <h2 className="mb-8 text-2xl font-bold uppercase tracking-tight text-zinc-100 sm:text-3xl">
+            PROPOSED <span style={{ color: PLAN_ACCENT }}>ROSTER</span>.
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {lead.agent_roster.map((a) => (
+              <div
+                key={a.name}
+                className="flex flex-col border border-zinc-800 bg-zinc-900/40 p-5"
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <h3 className="text-base font-bold uppercase tracking-tight text-zinc-100">
+                    {a.name}
+                  </h3>
+                  <span
+                    className="flex-none border px-2 py-0.5 text-[10px] uppercase tracking-widest"
+                    style={{ borderColor: PLAN_ACCENT, color: PLAN_ACCENT }}
+                  >
+                    {CLI_LABEL[a.suggested_cli] ?? a.suggested_cli}
+                  </span>
+                </div>
+                <p className="mb-4 flex-1 text-sm leading-relaxed text-zinc-300">
+                  {a.job_one_liner}
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {a.starter_skills.map((s) => (
+                    <li
+                      key={s}
+                      className="border border-zinc-800 px-2 py-1 text-[10px] text-zinc-400"
+                    >
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* §03 — MILESTONES (v2 only) -------------------------------------- */}
+      {lead.milestones ? (
+        <section className="mb-16">
+          <div className="mb-6 flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="block h-[1px] w-12"
+              style={{ backgroundColor: PLAN_ACCENT }}
+            />
+            <span
+              className="text-[11px] font-medium uppercase tracking-widest"
+              style={{ color: PLAN_ACCENT }}
+            >
+              {"// WHAT_GOOD_LOOKS_LIKE"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {(
+              [
+                { k: "WEEK_1", v: lead.milestones.week_1 },
+                { k: "MONTH_1", v: lead.milestones.month_1 },
+                { k: "QUARTER_1", v: lead.milestones.quarter_1 },
+              ] as const
+            ).map((m) => (
+              <div
+                key={m.k}
+                className="border border-zinc-800 bg-zinc-900/40 p-5"
+              >
+                <div
+                  className="mb-3 text-[11px] font-medium uppercase tracking-widest"
+                  style={{ color: PLAN_ACCENT }}
+                >
+                  {`// ${m.k}`}
+                </div>
+                <p className="text-sm leading-relaxed text-zinc-300">{m.v}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* §04 — PLAN BODY (markdown) ------------------------------------- */}
       <section className="mb-16">
         <div className="mb-6 flex items-center gap-3">
           <span
@@ -233,7 +343,40 @@ export function PlanPageContent({ lead }: { lead: PlanningLead }) {
         </article>
       </section>
 
-      {/* §03 — REPLY CTA ------------------------------------------------ */}
+      {/* §05 — WHAT AGENTHOST WON'T FIX (v2 only) ----------------------- */}
+      {lead.wont_fix && lead.wont_fix.length > 0 ? (
+        <section
+          className="mb-16 border-l-2 bg-zinc-900/40 p-6 sm:p-8"
+          style={{ borderColor: PLAN_ACCENT }}
+        >
+          <div
+            className="mb-3 text-[11px] font-medium uppercase tracking-widest"
+            style={{ color: PLAN_ACCENT }}
+          >
+            {"// WHAT_AGENTHOST_WONT_FIX"}
+          </div>
+          <h3 className="mb-5 text-xl font-bold uppercase tracking-tight text-zinc-100 sm:text-2xl">
+            HONEST <span style={{ color: PLAN_ACCENT }}>LIMITS</span>.
+          </h3>
+          <ul className="space-y-3">
+            {lead.wont_fix.map((w, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm leading-relaxed text-zinc-300 sm:text-base"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-[10px] h-[6px] w-[6px] flex-none rounded-full"
+                  style={{ backgroundColor: PLAN_ACCENT }}
+                />
+                <span className="min-w-0 flex-1">{w}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* §06 — REPLY CTA ------------------------------------------------ */}
       <section className="border border-zinc-800 bg-zinc-900/40 p-6 sm:p-8">
         <div
           className="mb-3 text-[11px] font-medium uppercase tracking-widest"
