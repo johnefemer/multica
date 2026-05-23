@@ -4,10 +4,6 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
-  // Gate standalone tracing on STANDALONE=true so `pnpm dev` and
-  // `pnpm typecheck` skip the extra cost. The Dockerfile.docs build
-  // sets the env var; everything else gets a normal output.
-  ...(process.env.STANDALONE === "true" ? { output: "standalone" } : {}),
   // The fumadocs-mdx postinstall regenerates `source.generated.ts` with a
   // `/// <reference types="vite/client" />` directive (used for Vite HMR
   // types). vite isn't a docs-app dep, so Next's default typecheck step
@@ -17,21 +13,10 @@ const config = {
   // directive or vite is added as an explicit dep.
   typescript: { ignoreBuildErrors: true },
   reactStrictMode: true,
-  basePath: "/docs",
-  // Visiting http://host/ (outside basePath) would otherwise 404 — redirect
-  // to the docs root. basePath: false makes the source and destination
-  // literal (not re-prefixed with `/docs`), so the redirect runs before
-  // basePath routing kicks in.
-  async redirects() {
-    return [
-      {
-        source: "/",
-        destination: "/docs",
-        basePath: false,
-        permanent: false,
-      },
-    ];
-  },
+  // No `basePath` — the docs app is deployed to its own subdomain
+  // (docs.agenthost.pro on Cloudflare Pages). The legacy "/docs" basePath
+  // belonged to the previous slash-route topology where this app sat
+  // behind the main web app's rewrite proxy.
 };
 
 export default withMDX(config);

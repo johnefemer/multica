@@ -6,7 +6,11 @@ import { resolve } from "path";
 config({ path: resolve(__dirname, "../../.env") });
 
 const remoteApiUrl = process.env.REMOTE_API_URL || "http://localhost:8080";
-const docsUrl = process.env.DOCS_URL || "http://localhost:4000";
+// Public docs site — Cloudflare Pages at docs.agenthost.pro. Override
+// via DOCS_ORIGIN to point at a local dev instance (e.g.
+// http://localhost:4000) without rebuilding.
+const docsOrigin =
+  process.env.DOCS_ORIGIN || "https://docs.agenthost.pro";
 
 // Parse hostnames from CORS_ALLOWED_ORIGINS so that Next.js dev server
 // allows cross-origin HMR / webpack requests (e.g. from Tailscale IPs).
@@ -32,20 +36,27 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     qualities: [75, 80, 85],
   },
+  // Permanent redirect to the docs subdomain. Done as a redirect rather
+  // than a rewrite so the canonical URL the user sees changes — bookmarks
+  // and shared `/docs/...` links land cleanly on docs.agenthost.pro and
+  // stay there. `[workspaceSlug]` dynamic segments won't shadow because
+  // redirects run before file-system routing.
+  async redirects() {
+    return [
+      {
+        source: "/docs",
+        destination: `${docsOrigin}/`,
+        permanent: true,
+      },
+      {
+        source: "/docs/:path*",
+        destination: `${docsOrigin}/:path*`,
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return {
-      // Run before file-system routes so /docs isn't shadowed by the
-      // [workspaceSlug] dynamic segment.
-      beforeFiles: [
-        {
-          source: "/docs",
-          destination: `${docsUrl}/docs`,
-        },
-        {
-          source: "/docs/:path*",
-          destination: `${docsUrl}/docs/:path*`,
-        },
-      ],
       afterFiles: [
         {
           source: "/api/:path*",
