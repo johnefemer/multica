@@ -125,7 +125,7 @@ EXAMPLES
   $ agenthost agent list --output json
 
 ENVIRONMENT VARIABLES
-  AGENTHOST_SERVER_URL    Override the default server URL (https://agenthost.kensink.com)
+  AGENTHOST_SERVER_URL    Override the default server URL (https://agenthost.pro)
   AGENTHOST_WORKSPACE_ID  Set the active workspace
 
 LEARN MORE

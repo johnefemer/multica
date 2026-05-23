@@ -21,7 +21,7 @@ const jsonLd = {
     {
       "@type": "Organization",
       name: "Agenthost",
-      url: "https://agenthost.kensink.com",
+      url: "https://agenthost.pro",
       sameAs: ["https://github.com/johnefemer/multica"],
     },
     {

@@ -6,7 +6,7 @@ import { useLocale } from "../../i18n";
 
 const INSTALL_CMD =
   "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash";
-const SETUP_CMD = "agenthost setup self-host --server-url https://agenthost.kensink.com";
+const SETUP_CMD = "agenthost setup self-host --server-url https://agenthost.pro";
 
 /**
  * Scenario-first CLI section. Copy leans into servers / remote dev

@@ -1,7 +1,7 @@
 name: Release CLI (kensink)
 
 # Builds the agenthost CLI binary from the kensink-v2 branch (the active
-# deploy line; see 9412b08c) with our custom defaults (agenthost.kensink.com)
+# deploy line; see 9412b08c) with our custom defaults (agenthost.pro)
 # and publishes it as a rolling "kensink-latest" GitHub release.
 # kensink-install.sh downloads from here.
 
@@ -94,7 +94,7 @@ jobs:
             --notes "$(cat <<'EOF'
           Latest **agenthost** CLI binary built from the `kensink-v2` branch.
 
-          Pre-configured to connect to **https://agenthost.kensink.com** by default.
+          Pre-configured to connect to **https://agenthost.pro** by default.
 
           Install via:
           ```bash

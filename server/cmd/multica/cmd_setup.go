@@ -17,7 +17,7 @@ import (
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Configure the CLI, authenticate, and start the daemon",
-	Long: `Configures the CLI to connect to Agenthost (agenthost.kensink.com), then
+	Long: `Configures the CLI to connect to Agenthost (agenthost.pro), then
 authenticates via browser and starts the agent daemon.
 
 If a configuration already exists, you will be prompted before overwriting.
@@ -43,7 +43,7 @@ var setupSelfHostCmd = &cobra.Command{
 	Short: "Configure the CLI for a self-hosted Agenthost server",
 	Long: `Configures the CLI to connect to a self-hosted Agenthost server.
 
-Defaults to https://agenthost.kensink.com. Use --server-url to override.
+Defaults to https://agenthost.pro. Use --server-url to override.
 
 Examples:
   agenthost setup self-host
@@ -52,8 +52,8 @@ Examples:
 }
 
 func init() {
-	setupSelfHostCmd.Flags().String("server-url", "", "Backend server URL (overrides default https://agenthost.kensink.com)")
-	setupSelfHostCmd.Flags().String("app-url", "", "Frontend app URL (overrides default https://agenthost.kensink.com)")
+	setupSelfHostCmd.Flags().String("server-url", "", "Backend server URL (overrides default https://agenthost.pro)")
+	setupSelfHostCmd.Flags().String("app-url", "", "Frontend app URL (overrides default https://agenthost.pro)")
 
 	// runSetupCloud / runSetupSelfHost both call runLogin, which reads
 	// --token / --manual / --callback-host off the invoking command's flags.
@@ -121,8 +121,8 @@ func runSetupCloud(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := cli.CLIConfig{
-		ServerURL: "https://agenthost.kensink.com",
-		AppURL:    "https://agenthost.kensink.com",
+		ServerURL: "https://agenthost.pro",
+		AppURL:    "https://agenthost.pro",
 	}
 	if err := cli.SaveCLIConfigForProfile(cfg, profile); err != nil {
 		return fmt.Errorf("save config: %w", err)
@@ -164,7 +164,7 @@ func runSetupSelfHost(cmd *cobra.Command, args []string) error {
 
 	// Default to Agenthost; override via --server-url / --app-url.
 	if serverURL == "" {
-		serverURL = "https://agenthost.kensink.com"
+		serverURL = "https://agenthost.pro"
 	}
 	if appURL == "" {
 		appURL = serverURL

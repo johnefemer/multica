@@ -96,7 +96,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.OWNER }}/multica-web:latest
           build-args: |
             REMOTE_API_URL=http://backend:8080
-            NEXT_PUBLIC_WS_URL=wss://agenthost.kensink.com/ws
+            NEXT_PUBLIC_WS_URL=wss://agenthost.pro/ws
             NEXT_PUBLIC_APP_VERSION=kensink
           cache-from: type=gha
           cache-to: type=gha,mode=max

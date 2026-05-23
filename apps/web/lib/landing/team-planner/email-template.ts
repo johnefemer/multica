@@ -177,7 +177,7 @@ export function renderPlanEmail(input: EmailRenderInput): RenderedEmail {
             <!-- Footer -->
             <tr>
               <td style="padding: 16px 24px; font-size: 11px; color: #999; text-align: center;">
-                Agenthost · agenthost.kensink.com
+                Agenthost · agenthost.pro
               </td>
             </tr>
 
@@ -212,7 +212,7 @@ export function renderPlanEmail(input: EmailRenderInput): RenderedEmail {
     "",
     "Reply to this email and the Agenthost team will help you deploy your AI Team — pricing questions, infrastructure setup, agent configuration.",
     "",
-    "— Agenthost · agenthost.kensink.com",
+    "— Agenthost · agenthost.pro",
   ].join("\n");
 
   return { subject, html, text };

@@ -78,7 +78,7 @@ func (s *EmailService) SendVerificationCode(to, code string) error {
 func (s *EmailService) SendInvitationEmail(to, inviterName, workspaceName, invitationID string) error {
 	appURL := strings.TrimSpace(os.Getenv("FRONTEND_ORIGIN"))
 	if appURL == "" {
-		appURL = "https://agenthost.kensink.com"
+		appURL = "https://agenthost.pro"
 	}
 	inviteURL := fmt.Sprintf("%s/invite/%s", appURL, invitationID)
 
@@ -182,7 +182,7 @@ func (s *EmailService) SendContactForm(inquiry ContactInquiry) error {
 					<tr><td style="padding: 4px 12px 4px 0; color: #666;">Topic</td><td style="padding: 4px 0;">%s</td></tr>
 				</table>
 				<div style="border-left: 3px solid #7cf29c; padding: 12px 16px; background: #f6fff9; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">%s</div>
-				<p style="color: #999; font-size: 12px; margin-top: 24px;">Sent via <a href="https://agenthost.kensink.com/contact" style="color: #999;">agenthost.kensink.com/contact</a> · IP %s · UA %s</p>
+				<p style="color: #999; font-size: 12px; margin-top: 24px;">Sent via <a href="https://agenthost.pro/contact" style="color: #999;">agenthost.pro/contact</a> · IP %s · UA %s</p>
 			</div>`,
 			safeName, safeEmail, safeEmail, companyRow, safeTopic, safeMessage, safeIP, safeUA,
 		),

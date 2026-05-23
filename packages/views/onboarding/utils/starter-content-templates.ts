@@ -370,7 +370,7 @@ export function buildSelfServeSubIssues(
       description: [
         `**Why this first**: agenthost talks to AI tools (Claude Code, Codex, Cursor, Gemini) only through a **runtime** — a small background process running on your own machine. Without one connected, agents can't actually *do* anything; they exist on paper only.`,
         ``,
-        `Running locally means your code, repos, and credentials stay on your machine. agenthost.kensink.com only sees the orchestration metadata.`,
+        `Running locally means your code, repos, and credentials stay on your machine. agenthost.pro only sees the orchestration metadata.`,
         ``,
         `**Install** (macOS, Linux, or Windows via WSL):`,
         ``,
@@ -381,7 +381,7 @@ export function buildSelfServeSubIssues(
         `Then sign in and start the daemon:`,
         ``,
         `\`\`\``,
-        `agenthost setup self-host --server-url https://agenthost.kensink.com`,
+        `agenthost setup self-host --server-url https://agenthost.pro`,
         `\`\`\``,
         ``,
         `The installer drops the \`agenthost\` binary into \`/usr/local/bin\` (or \`~/.local/bin\` if you can't write to /usr). \`agenthost setup\` walks you through signing in, picking which AI providers to register (each provider becomes its own runtime entry), and starting a background daemon. The daemon keeps running after you close the terminal — nothing to leave open.`,

@@ -67,7 +67,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://agenthost.kensink.com"),
+  metadataBase: new URL("https://agenthost.pro"),
   title: {
     default: "Kensink Labs — AI Agent Task Management",
     template: "%s | Kensink Labs",

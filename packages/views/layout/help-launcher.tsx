@@ -9,8 +9,8 @@ import {
 } from "@multica/ui/components/ui/dropdown-menu";
 import { useModalStore } from "@multica/core/modals";
 
-const DOCS_URL = "https://agenthost.kensink.com/docs";
-const CHANGELOG_URL = "https://agenthost.kensink.com/changelog";
+const DOCS_URL = "https://agenthost.pro/docs";
+const CHANGELOG_URL = "https://agenthost.pro/changelog";
 
 export function HelpLauncher() {
   return (

@@ -663,7 +663,7 @@ agent_id            = "Python-Agent"`}</pre>
             },
             {
               q: "Where's the data hosted?",
-              a: "On agenthost.kensink.com (self-hostable). Slack message bodies pass through Agenthost only when explicitly addressed; outbound bot replies are posted via the Slack Web API.",
+              a: "On agenthost.pro (self-hostable). Slack message bodies pass through Agenthost only when explicitly addressed; outbound bot replies are posted via the Slack Web API.",
             },
           ].map((item, i, arr) => (
             <div
