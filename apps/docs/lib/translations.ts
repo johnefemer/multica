@@ -67,7 +67,7 @@ export const localeLabels: Record<Lang, string> = {
 // this dict only carries TSX-rendered chrome above the MDX body.
 export const homeCopy = {
   en: {
-    eyebrow: "Multica Docs",
+    eyebrow: "Agenthost Docs",
     titleLead: "Humans and agents,",
     titleAccent: "in one place.",
     byline: ["Getting started", "Updated July 2026", "2 min read"],

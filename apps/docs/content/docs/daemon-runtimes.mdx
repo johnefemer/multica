@@ -31,7 +31,7 @@ With Multica Desktop, the app starts the daemon automatically — no extra comma
 On the web, a remote computer, or a headless environment, [install the Multica CLI](/cli) first, then run:
 
 ```bash
-multica daemon start
+agenthost daemon start
 ```
 
 The daemon runs in the background by default. Common commands:
@@ -169,7 +169,7 @@ If the problem persists, see [Troubleshooting](/troubleshooting).
 
 ## GitHub authentication and private repositories
 
-Private GitHub access for local `git` / `multica repo checkout` uses tokens **on the daemon host**, not the workspace GitHub OAuth integration. See **[GitHub authentication for agents](/github-auth-for-agents)** for the three-tier token priority, how to verify `gh` on a runtime, workspace repos, and per-identity workarounds.
+Private GitHub access for local `git` / `agenthost repo checkout` uses tokens **on the daemon host**, not the workspace GitHub OAuth integration. See **[GitHub authentication for agents](/github-auth-for-agents)** for the three-tier token priority, how to verify `gh` on a runtime, workspace repos, and per-identity workarounds.
 
 ## Next steps
 
