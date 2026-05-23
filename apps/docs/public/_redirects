@@ -1,9 +1,26 @@
-# Cloudflare Pages edge redirects. Copied verbatim into apps/docs/out/
-# by Next.js's static-export step, then read by CF Pages at deploy time.
+# Cloudflare Pages edge redirects.
+# Copied verbatim into apps/docs/out/ by Next.js's static-export step,
+# then read by CF Pages at deploy time.
 #
-# The docs Next.js app has no app/page.tsx (only [lang]/page.tsx), so
-# without a redirect docs.agenthost.pro/ would 404. fumadocs sets
-# `hideLocale: "default-locale"` on i18n, but that only applies inside
-# the app — at the static-hosting layer we still need to point bare /
-# at /en/ explicitly.
-/    /en/    302
+# The docs Next.js app routes everything under [lang]/, so the on-disk
+# layout is /en/<page>/index.html and /zh/<page>/index.html. fumadocs
+# is configured with `hideLocale: "default-locale"`, which means the
+# sidebar and internal navigation emit prefix-free URLs (`/agents/`,
+# `/assigning-issues/`, …) for the default-language (English) routes —
+# but those paths don't exist on disk.
+#
+# At runtime we use CF Pages' rewrite mode (status 200) to map every
+# unmatched apex path back into the /en/ tree without changing the
+# user-visible URL. CF Pages serves existing files (out/en/**,
+# out/zh/**, out/sitemap.xml, out/_next/**) directly without consulting
+# this file, so the catch-all only fires for the missing-on-disk
+# prefix-free routes.
+#
+# Order matters — first match wins. The bare `/` rule comes first
+# because splats can match the empty string; we don't actually need it
+# (the catch-all would handle `/` with an empty splat), but spelling
+# it explicitly avoids one layer of redirect-debugging the next time
+# this hits a CF behavior change.
+
+/    /en/    200
+/*   /en/:splat    200
