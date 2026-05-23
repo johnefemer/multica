@@ -1,26 +1,66 @@
 # Cloudflare Pages edge redirects.
-# Copied verbatim into apps/docs/out/ by Next.js's static-export step,
-# then read by CF Pages at deploy time.
+# Copied verbatim into apps/docs/out/ by Next.js's static-export step.
 #
-# The docs Next.js app routes everything under [lang]/, so the on-disk
-# layout is /en/<page>/index.html and /zh/<page>/index.html. fumadocs
-# is configured with `hideLocale: "default-locale"`, which means the
-# sidebar and internal navigation emit prefix-free URLs (`/agents/`,
-# `/assigning-issues/`, …) for the default-language (English) routes —
-# but those paths don't exist on disk.
+# The docs app routes everything under [lang]/, so on-disk layout is
+# /en/<page>/index.html. fumadocs's hideLocale: "default-locale" makes
+# the sidebar emit prefix-free URLs (`/agents/`, `/assigning-issues/`)
+# which don't exist on disk. Without these rules they 404.
 #
-# At runtime we use CF Pages' rewrite mode (status 200) to map every
-# unmatched apex path back into the /en/ tree without changing the
-# user-visible URL. CF Pages serves existing files (out/en/**,
-# out/zh/**, out/sitemap.xml, out/_next/**) directly without consulting
-# this file, so the catch-all only fires for the missing-on-disk
-# prefix-free routes.
-#
-# Order matters — first match wins. The bare `/` rule comes first
-# because splats can match the empty string; we don't actually need it
-# (the catch-all would handle `/` with an empty splat), but spelling
-# it explicitly avoids one layer of redirect-debugging the next time
-# this hits a CF behavior change.
+# We use 302 redirects (URL bar shifts to /en/<page>/) rather than
+# rewrites because CF Pages does NOT support splats in rewrites — and a
+# splat + status-200 rule actively breaks routing for unrelated paths
+# (verified — see deploy fcbe3fd7 where every /en/* page returned 404
+# until we removed the rule). Enumerating each route avoids that
+# entire class of bug.
 
-/    /en/    200
-/*   /en/:splat    200
+/    /en/    302
+/agents    /en/agents/    302
+/agents/*    /en/agents/:splat    302
+/agents-create    /en/agents-create/    302
+/agents-create/*    /en/agents-create/:splat    302
+/assigning-issues    /en/assigning-issues/    302
+/assigning-issues/*    /en/assigning-issues/:splat    302
+/auth-setup    /en/auth-setup/    302
+/auth-setup/*    /en/auth-setup/:splat    302
+/auth-tokens    /en/auth-tokens/    302
+/auth-tokens/*    /en/auth-tokens/:splat    302
+/autopilots    /en/autopilots/    302
+/autopilots/*    /en/autopilots/:splat    302
+/chat    /en/chat/    302
+/chat/*    /en/chat/:splat    302
+/cli    /en/cli/    302
+/cli/*    /en/cli/:splat    302
+/cloud-quickstart    /en/cloud-quickstart/    302
+/cloud-quickstart/*    /en/cloud-quickstart/:splat    302
+/comments    /en/comments/    302
+/comments/*    /en/comments/:splat    302
+/daemon-runtimes    /en/daemon-runtimes/    302
+/daemon-runtimes/*    /en/daemon-runtimes/:splat    302
+/desktop-app    /en/desktop-app/    302
+/desktop-app/*    /en/desktop-app/:splat    302
+/environment-variables    /en/environment-variables/    302
+/environment-variables/*    /en/environment-variables/:splat    302
+/github-auth-for-agents    /en/github-auth-for-agents/    302
+/github-auth-for-agents/*    /en/github-auth-for-agents/:splat    302
+/how-agenthost-works    /en/how-agenthost-works/    302
+/how-agenthost-works/*    /en/how-agenthost-works/:splat    302
+/inbox    /en/inbox/    302
+/inbox/*    /en/inbox/:splat    302
+/issues    /en/issues/    302
+/issues/*    /en/issues/:splat    302
+/members-roles    /en/members-roles/    302
+/members-roles/*    /en/members-roles/:splat    302
+/mentioning-agents    /en/mentioning-agents/    302
+/mentioning-agents/*    /en/mentioning-agents/:splat    302
+/providers    /en/providers/    302
+/providers/*    /en/providers/:splat    302
+/self-host-quickstart    /en/self-host-quickstart/    302
+/self-host-quickstart/*    /en/self-host-quickstart/:splat    302
+/skills    /en/skills/    302
+/skills/*    /en/skills/:splat    302
+/tasks    /en/tasks/    302
+/tasks/*    /en/tasks/:splat    302
+/troubleshooting    /en/troubleshooting/    302
+/troubleshooting/*    /en/troubleshooting/:splat    302
+/workspaces    /en/workspaces/    302
+/workspaces/*    /en/workspaces/:splat    302
