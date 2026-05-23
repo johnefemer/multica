@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "next dev --port 4000",
     "build": "fumadocs-mdx && next build",
-    "build:cf": "fumadocs-mdx && next-on-pages",
-    "preview:cf": "wrangler pages dev .vercel/output/static",
-    "deploy:cf": "wrangler pages deploy .vercel/output/static --project-name=agenthost-docs",
+    "preview:cf": "wrangler pages dev out",
+    "deploy:cf": "wrangler pages deploy out --project-name=agenthost-docs",
     "start": "next start",
     "typecheck": "fumadocs-mdx && tsc --noEmit",
     "postinstall": "fumadocs-mdx"
@@ -26,13 +25,11 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
     "@tailwindcss/postcss": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vercel": "^47.0.0",
     "wrangler": "^4.43.0"
   }
 }

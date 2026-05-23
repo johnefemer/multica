@@ -1,20 +1,21 @@
 name: Deploy Docs (Cloudflare Pages)
 
-# Builds apps/docs with @cloudflare/next-on-pages and deploys to the
-# Cloudflare Pages project `agenthost-docs` (custom domain
-# docs.agenthost.pro). Replaces the previous slash-route topology where
-# apps/web proxied /docs/* to a sibling docs container — the docs site
-# now ships independently on a dedicated subdomain.
+# Builds apps/docs as a static export and uploads the resulting `out/`
+# directory to the Cloudflare Pages project `agenthost-docs` (custom
+# domain docs.agenthost.pro).
 #
-# Required GHA repository secrets (set under Settings → Secrets → Actions):
-#   CLOUDFLARE_API_TOKEN  Pages:Edit + Account:Read scope
+# Required GHA repository secrets:
+#   CLOUDFLARE_API_TOKEN  Pages:Edit + Account:Read (+ Zone:DNS:Edit if
+#                         CF should also manage the custom-domain CNAME)
 #   CLOUDFLARE_ACCOUNT_ID The Agenthost / Kensink Cloudflare account id
 #
-# The CF Pages project itself must exist before the first run. Create
-# once via the dashboard (Workers & Pages → Create → Pages → Direct
-# upload) or via the API with `wrangler pages project create
-# agenthost-docs`. Custom domain `docs.agenthost.pro` should be bound
-# under Pages → Project → Custom domains.
+# One-time setup (already done):
+#   - Pages project `agenthost-docs` created via API.
+#   - docs.agenthost.pro bound as a custom domain.
+#   - CNAME record `docs.agenthost.pro → agenthost-docs.pages.dev`
+#     must exist in the agenthost.pro DNS zone for the domain to
+#     activate. CF auto-creates it when the API token has DNS:Edit;
+#     otherwise add it via dashboard.
 
 on:
   push:
@@ -51,20 +52,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Materialises the fumadocs-mdx content index (.source/) so the
-      # next-on-pages build can resolve content imports.
-      - name: Generate fumadocs source index
-        run: pnpm --filter @multica/docs exec fumadocs-mdx
-
-      # Compiles the docs Next.js app for the Workers runtime. Output
-      # lands in apps/docs/.vercel/output/static — the path pinned in
-      # wrangler.jsonc.
-      - name: Build for Cloudflare Pages
-        run: pnpm --filter @multica/docs exec next-on-pages
+      # `pnpm @multica/docs build` runs fumadocs-mdx (regenerates the
+      # `.source/` index) then `next build` with `output: "export"`,
+      # which writes the static site to apps/docs/out.
+      - name: Build static export
+        run: pnpm --filter @multica/docs build
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/docs/.vercel/output/static --project-name=agenthost-docs --branch=main
+          command: pages deploy apps/docs/out --project-name=agenthost-docs --branch=main

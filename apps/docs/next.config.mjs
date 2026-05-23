@@ -4,19 +4,25 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
+  // Static export — produces a plain `out/` directory of HTML + assets
+  // that CF Pages serves directly, no Workers runtime involved. This
+  // sidesteps `fumadocs-mdx`'s `fs/promises` runtime import, which can't
+  // be bundled for the Edge runtime that `@cloudflare/next-on-pages`
+  // would require otherwise.
+  output: "export",
+  // Static export can't run image optimization (no server), so disable
+  // the optimizer and serve raw image URLs.
+  images: { unoptimized: true },
+  // Trailing slashes generate `/<route>/index.html` instead of `<route>.html`,
+  // which Cloudflare Pages prefers for cleaner URLs (no extension required).
+  trailingSlash: true,
   // The fumadocs-mdx postinstall regenerates `source.generated.ts` with a
   // `/// <reference types="vite/client" />` directive (used for Vite HMR
   // types). vite isn't a docs-app dep, so Next's default typecheck step
-  // fails the build. The repo's own typecheck (`pnpm typecheck`) still
-  // runs against this app, so disabling Next's redundant pass here trades
-  // nothing meaningful. Remove once fumadocs-mdx stops emitting that
-  // directive or vite is added as an explicit dep.
+  // would fail the build. Repo's own `pnpm typecheck` still runs against
+  // this app, so disabling Next's redundant pass trades nothing.
   typescript: { ignoreBuildErrors: true },
   reactStrictMode: true,
-  // No `basePath` — the docs app is deployed to its own subdomain
-  // (docs.agenthost.pro on Cloudflare Pages). The legacy "/docs" basePath
-  // belonged to the previous slash-route topology where this app sat
-  // behind the main web app's rewrite proxy.
 };
 
 export default withMDX(config);

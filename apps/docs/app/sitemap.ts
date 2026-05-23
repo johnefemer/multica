@@ -3,6 +3,11 @@ import { source } from "@/lib/source";
 import { i18n } from "@/lib/i18n";
 import { absoluteDocsUrl } from "@/lib/site";
 
+// `output: "export"` requires every route handler to be explicitly
+// statically renderable. The sitemap is fully derived from build-time
+// MDX, so force-static is correct and won't drop entries.
+export const dynamic = "force-static";
+
 /**
  * Dynamic sitemap — pulls the full page list from Fumadocs' source at build
  * time. Each logical page emits one entry; all available language variants
