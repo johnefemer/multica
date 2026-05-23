@@ -1,11 +1,11 @@
 ---
 title: Self-Hosting Guide
-description: Deploy Multica on your own infrastructure.
+description: Deploy Agenthost on your own infrastructure.
 ---
 
 ## Architecture Overview
 
-Multica has three components:
+Agenthost has three components:
 
 | Component | Description | Technology |
 |-----------|-------------|------------|
@@ -13,7 +13,7 @@ Multica has three components:
 | **Frontend** | Web application | Next.js 16 |
 | **Database** | Primary data store | PostgreSQL 17 with pgvector |
 
-Each user who wants to run AI agents locally also installs the **`multica` CLI** and runs the **agent daemon** on their own machine.
+Each user who wants to run AI agents locally also installs the **`agenthost` CLI** and runs the **agent daemon** on their own machine.
 
 ## Prerequisites
 
@@ -28,10 +28,10 @@ Two commands to set up everything:
 curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash -s -- --with-server
 
 # Configure CLI, authenticate, and start the daemon
-multica setup self-host
+agenthost setup self-host
 ```
 
-This installs the CLI, checks out the latest self-host assets, pulls the official Multica images from GHCR, and configures everything for localhost. Then open http://localhost:3000 and pick a login method: configure `RESEND_API_KEY` in `.env` for email-based codes (recommended), or set `APP_ENV=development` in `.env` to enable the dev master code **`888888`**. See [Step 2 — Log In](#step-2--log-in) for details.
+This installs the CLI, checks out the latest self-host assets, pulls the official Agenthost images from GHCR, and configures everything for localhost. Then open http://localhost:3000 and pick a login method: configure `RESEND_API_KEY` in `.env` for email-based codes (recommended), or set `APP_ENV=development` in `.env` to enable the dev master code **`888888`**. See [Step 2 — Log In](#step-2--log-in) for details.
 
 <Callout>
 If the self-host server is already running and you only need the CLI on a macOS/Linux machine, install it with Homebrew: `brew install multica-ai/tap/multica`.
@@ -101,7 +101,7 @@ You also need at least one AI agent CLI:
 ### b) One-command setup
 
 ```bash
-multica setup self-host
+agenthost setup self-host
 ```
 
 This automatically:
@@ -113,17 +113,17 @@ This automatically:
 For on-premise deployments with custom domains:
 
 ```bash
-multica setup self-host --server-url https://api.example.com --app-url https://app.example.com
+agenthost setup self-host --server-url https://api.example.com --app-url https://app.example.com
 ```
 
 Verify the daemon is running:
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 <Callout>
-Alternatively, configure step by step: `multica config set server_url http://localhost:8080 && multica config set app_url http://localhost:3000 && multica login && multica daemon start`
+Alternatively, configure step by step: `agenthost config set server_url http://localhost:8080 && agenthost config set app_url http://localhost:3000 && agenthost login && agenthost daemon start`
 </Callout>
 
 ### Step 4 — Verify & Start Using
@@ -140,15 +140,15 @@ Alternatively, configure step by step: `multica config set server_url http://loc
 make selfhost-stop
 
 # Stop the local daemon
-multica daemon stop
+agenthost daemon stop
 ```
 
-## Switching to Multica Cloud
+## Switching to Agenthost Cloud
 
-If you've been self-hosting and want to switch your CLI to [Multica Cloud](https://multica.ai):
+If you've been self-hosting and want to switch your CLI to [Agenthost Cloud](https://multica.ai):
 
 ```bash
-multica setup
+agenthost setup
 ```
 
 This reconfigures the CLI for multica.ai, re-authenticates, and restarts the daemon. You will be prompted before overwriting the existing configuration.
@@ -183,7 +183,7 @@ All configuration is done via environment variables. Copy `.env.example` as a st
 
 ### Email (Required for Authentication)
 
-Multica uses email-based magic link authentication via [Resend](https://resend.com).
+Agenthost uses email-based magic link authentication via [Resend](https://resend.com).
 
 | Variable | Description |
 |----------|-------------|
@@ -269,7 +269,7 @@ Agent-specific overrides:
 
 ## Database Setup
 
-Multica requires PostgreSQL 17 with the pgvector extension.
+Agenthost requires PostgreSQL 17 with the pgvector extension.
 
 ### Using the Included Docker Compose
 
@@ -277,7 +277,7 @@ Multica requires PostgreSQL 17 with the pgvector extension.
 docker compose up -d postgres
 ```
 
-This starts a `pgvector/pgvector:pg17` container on port 5432 with default credentials (`multica`/`multica`).
+This starts a `pgvector/pgvector:pg17` container on port 5432 with default credentials (`agenthost`/`agenthost`).
 
 ### Using Your Own PostgreSQL
 

@@ -1,16 +1,16 @@
 ---
 title: CLI Reference
-description: Complete command reference for the Multica CLI and agent daemon.
+description: Complete command reference for the Agenthost CLI and agent daemon.
 ---
 
-The `multica` CLI connects your local machine to Multica. It handles authentication, workspace management, issue tracking, and runs the agent daemon that executes AI tasks locally.
+The `agenthost` CLI connects your local machine to Agenthost. It handles authentication, workspace management, issue tracking, and runs the agent daemon that executes AI tasks locally.
 
 ## Authentication
 
 ### Browser Login
 
 ```bash
-multica login
+agenthost login
 ```
 
 Opens your browser for OAuth authentication, creates a 90-day personal access token, and auto-configures your workspaces.
@@ -18,7 +18,7 @@ Opens your browser for OAuth authentication, creates a 90-day personal access to
 ### Token Login
 
 ```bash
-multica login --token
+agenthost login --token
 ```
 
 Authenticate by pasting a personal access token directly. Useful for headless environments.
@@ -26,7 +26,7 @@ Authenticate by pasting a personal access token directly. Useful for headless en
 ### Check Status
 
 ```bash
-multica auth status
+agenthost auth status
 ```
 
 Shows your current server, user, and token validity.
@@ -34,19 +34,19 @@ Shows your current server, user, and token validity.
 ### Logout
 
 ```bash
-multica auth logout
+agenthost auth logout
 ```
 
 Removes the stored authentication token.
 
 ## Agent Daemon
 
-The daemon is the local agent runtime. It detects available AI CLIs on your machine, registers them with the Multica server, and executes tasks when agents are assigned work.
+The daemon is the local agent runtime. It detects available AI CLIs on your machine, registers them with the Agenthost server, and executes tasks when agents are assigned work.
 
 ### Start
 
 ```bash
-multica daemon start
+agenthost daemon start
 ```
 
 By default, the daemon runs in the background and logs to `~/.multica/daemon.log`.
@@ -54,20 +54,20 @@ By default, the daemon runs in the background and logs to `~/.multica/daemon.log
 To run in the foreground (useful for debugging):
 
 ```bash
-multica daemon start --foreground
+agenthost daemon start --foreground
 ```
 
 ### Stop
 
 ```bash
-multica daemon stop
+agenthost daemon stop
 ```
 
 ### Status
 
 ```bash
-multica daemon status
-multica daemon status --output json
+agenthost daemon status
+agenthost daemon status --output json
 ```
 
 Shows PID, uptime, detected agents, and watched workspaces.
@@ -75,9 +75,9 @@ Shows PID, uptime, detected agents, and watched workspaces.
 ### Logs
 
 ```bash
-multica daemon logs              # Last 50 lines
-multica daemon logs -f           # Follow (tail -f)
-multica daemon logs -n 100       # Last 100 lines
+agenthost daemon logs              # Last 50 lines
+agenthost daemon logs -f           # Follow (tail -f)
+agenthost daemon logs -n 100       # Last 100 lines
 ```
 
 ### Supported Agents
@@ -137,21 +137,21 @@ Agent-specific overrides:
 
 ### Self-Hosted Server
 
-When connecting to a self-hosted Multica instance, point the CLI to your server before logging in:
+When connecting to a self-hosted Agenthost instance, point the CLI to your server before logging in:
 
 ```bash
 export MULTICA_APP_URL=https://app.example.com
 export MULTICA_SERVER_URL=wss://api.example.com/ws
 
-multica login
-multica daemon start
+agenthost login
+agenthost daemon start
 ```
 
 Or set them persistently:
 
 ```bash
-multica config set app_url https://app.example.com
-multica config set server_url wss://api.example.com/ws
+agenthost config set app_url https://app.example.com
+agenthost config set server_url wss://api.example.com/ws
 ```
 
 ### Profiles
@@ -160,13 +160,13 @@ Profiles let you run multiple daemons on the same machine — for example, one f
 
 ```bash
 # Set up a staging profile
-multica setup self-host --profile staging --server-url https://api-staging.example.com --app-url https://staging.example.com
+agenthost setup self-host --profile staging --server-url https://api-staging.example.com --app-url https://staging.example.com
 
 # Start its daemon
-multica daemon start --profile staging
+agenthost daemon start --profile staging
 
 # Default profile runs separately
-multica daemon start
+agenthost daemon start
 ```
 
 Each profile gets its own config directory (`~/.multica/profiles/<name>/`), daemon state, health port, and workspace root.
@@ -176,7 +176,7 @@ Each profile gets its own config directory (`~/.multica/profiles/<name>/`), daem
 ### List Workspaces
 
 ```bash
-multica workspace list
+agenthost workspace list
 ```
 
 Watched workspaces are marked with `*`. The daemon only processes tasks for watched workspaces.
@@ -184,21 +184,21 @@ Watched workspaces are marked with `*`. The daemon only processes tasks for watc
 ### Watch / Unwatch
 
 ```bash
-multica workspace watch <workspace-id>
-multica workspace unwatch <workspace-id>
+agenthost workspace watch <workspace-id>
+agenthost workspace unwatch <workspace-id>
 ```
 
 ### Get Details
 
 ```bash
-multica workspace get <workspace-id>
-multica workspace get <workspace-id> --output json
+agenthost workspace get <workspace-id>
+agenthost workspace get <workspace-id> --output json
 ```
 
 ### List Members
 
 ```bash
-multica workspace members <workspace-id>
+agenthost workspace members <workspace-id>
 ```
 
 ## Issues
@@ -206,10 +206,10 @@ multica workspace members <workspace-id>
 ### List Issues
 
 ```bash
-multica issue list
-multica issue list --status in_progress
-multica issue list --priority urgent --assignee "Agent Name"
-multica issue list --limit 20 --output json
+agenthost issue list
+agenthost issue list --status in_progress
+agenthost issue list --priority urgent --assignee "Agent Name"
+agenthost issue list --limit 20 --output json
 ```
 
 Available filters: `--status`, `--priority`, `--assignee`, `--project`, `--limit`.
@@ -217,14 +217,14 @@ Available filters: `--status`, `--priority`, `--assignee`, `--project`, `--limit
 ### Get Issue
 
 ```bash
-multica issue get <id>
-multica issue get <id> --output json
+agenthost issue get <id>
+agenthost issue get <id> --output json
 ```
 
 ### Create Issue
 
 ```bash
-multica issue create --title "Fix login bug" --description "..." --priority high --assignee "Lambda"
+agenthost issue create --title "Fix login bug" --description "..." --priority high --assignee "Lambda"
 ```
 
 Flags: `--title` (required), `--description`, `--status`, `--priority`, `--assignee`, `--parent`, `--project`, `--due-date`.
@@ -232,20 +232,20 @@ Flags: `--title` (required), `--description`, `--status`, `--priority`, `--assig
 ### Update Issue
 
 ```bash
-multica issue update <id> --title "New title" --priority urgent
+agenthost issue update <id> --title "New title" --priority urgent
 ```
 
 ### Assign Issue
 
 ```bash
-multica issue assign <id> --to "Lambda"
-multica issue assign <id> --unassign
+agenthost issue assign <id> --to "Lambda"
+agenthost issue assign <id> --unassign
 ```
 
 ### Change Status
 
 ```bash
-multica issue status <id> in_progress
+agenthost issue status <id> in_progress
 ```
 
 Valid statuses: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`.
@@ -254,31 +254,31 @@ Valid statuses: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`
 
 ```bash
 # List comments
-multica issue comment list <issue-id>
+agenthost issue comment list <issue-id>
 
 # Add a comment
-multica issue comment add <issue-id> --content "Looks good, merging now"
+agenthost issue comment add <issue-id> --content "Looks good, merging now"
 
 # Reply to a specific comment
-multica issue comment add <issue-id> --parent <comment-id> --content "Thanks!"
+agenthost issue comment add <issue-id> --parent <comment-id> --content "Thanks!"
 
 # Delete a comment
-multica issue comment delete <comment-id>
+agenthost issue comment delete <comment-id>
 ```
 
 ### Execution History
 
 ```bash
 # List all execution runs for an issue
-multica issue runs <issue-id>
-multica issue runs <issue-id> --output json
+agenthost issue runs <issue-id>
+agenthost issue runs <issue-id> --output json
 
 # View messages for a specific execution run
-multica issue run-messages <task-id>
-multica issue run-messages <task-id> --output json
+agenthost issue run-messages <task-id>
+agenthost issue run-messages <task-id> --output json
 
 # Incremental fetch (only messages after a given sequence number)
-multica issue run-messages <task-id> --since 42 --output json
+agenthost issue run-messages <task-id> --since 42 --output json
 ```
 
 ## Projects
@@ -289,9 +289,9 @@ belongs to a workspace and can optionally have a lead (member or agent).
 ### List Projects
 
 ```bash
-multica project list
-multica project list --status in_progress
-multica project list --output json
+agenthost project list
+agenthost project list --status in_progress
+agenthost project list --output json
 ```
 
 Available filters: `--status`.
@@ -299,14 +299,14 @@ Available filters: `--status`.
 ### Get Project
 
 ```bash
-multica project get <id>
-multica project get <id> --output json
+agenthost project get <id>
+agenthost project get <id> --output json
 ```
 
 ### Create Project
 
 ```bash
-multica project create --title "2026 Week 16 Sprint" --icon "🏃" --lead "Lambda"
+agenthost project create --title "2026 Week 16 Sprint" --icon "🏃" --lead "Lambda"
 ```
 
 Flags: `--title` (required), `--description`, `--status`, `--icon`, `--lead`.
@@ -314,8 +314,8 @@ Flags: `--title` (required), `--description`, `--status`, `--icon`, `--lead`.
 ### Update Project
 
 ```bash
-multica project update <id> --title "New title" --status in_progress
-multica project update <id> --lead "Lambda"
+agenthost project update <id> --title "New title" --status in_progress
+agenthost project update <id> --lead "Lambda"
 ```
 
 Flags: `--title`, `--description`, `--status`, `--icon`, `--lead`.
@@ -323,7 +323,7 @@ Flags: `--title`, `--description`, `--status`, `--icon`, `--lead`.
 ### Change Status
 
 ```bash
-multica project status <id> in_progress
+agenthost project status <id> in_progress
 ```
 
 Valid statuses: `planned`, `in_progress`, `paused`, `completed`, `cancelled`.
@@ -331,7 +331,7 @@ Valid statuses: `planned`, `in_progress`, `paused`, `completed`, `cancelled`.
 ### Delete Project
 
 ```bash
-multica project delete <id>
+agenthost project delete <id>
 ```
 
 ### Associating Issues with Projects
@@ -340,9 +340,9 @@ Use the `--project` flag on `issue create` / `issue update` to attach an issue t
 project, or on `issue list` to filter issues by project:
 
 ```bash
-multica issue create --title "Login bug" --project <project-id>
-multica issue update <issue-id> --project <project-id>
-multica issue list --project <project-id>
+agenthost issue create --title "Login bug" --project <project-id>
+agenthost issue update <issue-id> --project <project-id>
+agenthost issue list --project <project-id>
 ```
 
 ## Configuration
@@ -350,7 +350,7 @@ multica issue list --project <project-id>
 ### View Config
 
 ```bash
-multica config show
+agenthost config show
 ```
 
 Shows config file path, server URL, app URL, and default workspace.
@@ -358,17 +358,17 @@ Shows config file path, server URL, app URL, and default workspace.
 ### Set Values
 
 ```bash
-multica config set server_url wss://api.example.com/ws
-multica config set app_url https://app.example.com
-multica config set workspace_id <workspace-id>
+agenthost config set server_url wss://api.example.com/ws
+agenthost config set app_url https://app.example.com
+agenthost config set workspace_id <workspace-id>
 ```
 
 ## Other Commands
 
 ```bash
-multica version              # Show CLI version and commit hash
-multica update               # Update to latest version
-multica agent list           # List agents in the current workspace
+agenthost version              # Show CLI version and commit hash
+agenthost update               # Update to latest version
+agenthost agent list           # List agents in the current workspace
 ```
 
 ## Output Formats
@@ -379,6 +379,6 @@ Most commands support `--output` with two formats:
 - `json` — structured JSON (useful for scripting and automation)
 
 ```bash
-multica issue list --output json
-multica daemon status --output json
+agenthost issue list --output json
+agenthost daemon status --output json
 ```
