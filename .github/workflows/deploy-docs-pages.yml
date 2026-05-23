@@ -1,0 +1,70 @@
+name: Deploy Docs (Cloudflare Pages)
+
+# Builds apps/docs with @cloudflare/next-on-pages and deploys to the
+# Cloudflare Pages project `agenthost-docs` (custom domain
+# docs.agenthost.pro). Replaces the previous slash-route topology where
+# apps/web proxied /docs/* to a sibling docs container — the docs site
+# now ships independently on a dedicated subdomain.
+#
+# Required GHA repository secrets (set under Settings → Secrets → Actions):
+#   CLOUDFLARE_API_TOKEN  Pages:Edit + Account:Read scope
+#   CLOUDFLARE_ACCOUNT_ID The Agenthost / Kensink Cloudflare account id
+#
+# The CF Pages project itself must exist before the first run. Create
+# once via the dashboard (Workers & Pages → Create → Pages → Direct
+# upload) or via the API with `wrangler pages project create
+# agenthost-docs`. Custom domain `docs.agenthost.pro` should be bound
+# under Pages → Project → Custom domains.
+
+on:
+  push:
+    branches: [kensink-v2]
+    paths:
+      - "apps/docs/**"
+      - "packages/ui/**"
+      - ".github/workflows/deploy-docs-pages.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kensink-v2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Materialises the fumadocs-mdx content index (.source/) so the
+      # next-on-pages build can resolve content imports.
+      - name: Generate fumadocs source index
+        run: pnpm --filter @multica/docs exec fumadocs-mdx
+
+      # Compiles the docs Next.js app for the Workers runtime. Output
+      # lands in apps/docs/.vercel/output/static — the path pinned in
+      # wrangler.jsonc.
+      - name: Build for Cloudflare Pages
+        run: pnpm --filter @multica/docs exec next-on-pages
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/docs/.vercel/output/static --project-name=agenthost-docs --branch=main

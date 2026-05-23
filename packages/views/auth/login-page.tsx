@@ -1,5 +1,8 @@
 "use client";
 
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Check, Copy } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -186,77 +189,6 @@ function Headline({ children }: { children: ReactNode }) {
 function Sub({ children }: { children: ReactNode }) {
   return (
     <p className="m-0 mb-8 text-[14px] leading-[1.6] text-[#9aa6af]">
-      {children}
-    </p>
-  );
-}
-
-function PrimaryButton({
-  children,
-  type = "button",
-  form,
-  onClick,
-  disabled,
-  className,
-}: {
-  children: ReactNode;
-  type?: "button" | "submit";
-  form?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  className?: string;
-}) {
-  return (
-    <button
-      type={type}
-      form={form}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "inline-flex w-full items-center justify-center gap-2 border border-[#7cf29c] bg-[#7cf29c] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#0a0d10] transition-colors duration-150",
-        "hover:bg-[#a4f5ba]",
-        "disabled:cursor-not-allowed disabled:border-[#26303a] disabled:bg-[#26303a] disabled:text-[#6b7780]",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function OutlineButton({
-  children,
-  type = "button",
-  onClick,
-  disabled,
-  className,
-}: {
-  children: ReactNode;
-  type?: "button" | "submit";
-  onClick?: () => void;
-  disabled?: boolean;
-  className?: string;
-}) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "inline-flex w-full items-center justify-center gap-2 border border-[#26303a] bg-transparent px-4 py-3 text-[12px] font-medium uppercase tracking-[0.14em] text-[#9aa6af] transition-colors duration-150",
-        "hover:border-[#384451] hover:text-[#d4dde4]",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ErrorLine({ children }: { children: ReactNode }) {
-  return (
-    <p className="mt-3 border-l-2 border-[#ff6363] bg-[rgba(255,99,99,0.06)] px-3 py-2 text-[12px] text-[#ff6363]">
       {children}
     </p>
   );

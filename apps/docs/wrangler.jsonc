@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agenthost-docs",
+  // Project type: Pages with a Workers-based runtime. The `pages_build_output_dir`
+  // is what `@cloudflare/next-on-pages` produces; wrangler / the Pages
+  // deploy action picks it up as the deploy artifact.
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "pages_build_output_dir": "apps/docs/.vercel/output/static"
+}

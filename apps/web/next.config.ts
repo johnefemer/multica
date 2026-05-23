@@ -23,6 +23,10 @@ const remoteApiUrl = isDev
 const docsUrl = isDev
   ? resolveDevDocsUrl(process.env)
   : resolveDocsUrl(process.env);
+// Kensink: public docs site on Cloudflare Pages. Used when DOCS_URL is unset
+// (no in-app /docs proxy); override via DOCS_ORIGIN for a local docs instance.
+const docsOrigin =
+  process.env.DOCS_ORIGIN || "https://docs.agenthost.pro";
 
 // Parse hostnames from CORS_ALLOWED_ORIGINS so that Next.js dev server
 // allows cross-origin HMR / webpack requests (e.g. from Tailscale IPs).
@@ -47,6 +51,28 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     qualities: [75, 80, 85],
+  },
+  // Permanent redirect to the docs subdomain. Done as a redirect rather
+  // than a rewrite so the canonical URL the user sees changes — bookmarks
+  // and shared `/docs/...` links land cleanly on docs.agenthost.pro and
+  // stay there. `[workspaceSlug]` dynamic segments won't shadow because
+  // redirects run before file-system routing.
+  async redirects() {
+    // Kensink: send /docs to the standalone docs site unless an in-app docs
+    // upstream (DOCS_URL) is configured, in which case the rewrite below serves it.
+    if (docsUrl) return [];
+    return [
+      {
+        source: "/docs",
+        destination: `${docsOrigin}/`,
+        permanent: true,
+      },
+      {
+        source: "/docs/:path*",
+        destination: `${docsOrigin}/:path*`,
+        permanent: true,
+      },
+    ];
   },
   async rewrites() {
     return {
