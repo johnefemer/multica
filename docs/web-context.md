@@ -554,10 +554,10 @@ The full design lives in [docs/slack-integration.md](./slack-integration.md). Th
 
 | Surface | URL |
 |---|---|
-| **OAuth & Permissions** → Redirect URL | `https://agenthost.kensink.com/auth/slack/callback` |
-| **Event Subscriptions** → Request URL | `https://agenthost.kensink.com/webhooks/slack/events` |
-| **Interactivity & Shortcuts** → Request URL | `https://agenthost.kensink.com/webhooks/slack/interactivity` |
-| **Slash commands** (Phase 5+) → `/agenthost` → Request URL | `https://agenthost.kensink.com/webhooks/slack/commands` |
+| **OAuth & Permissions** → Redirect URL | `https://agenthost.pro/auth/slack/callback` |
+| **Event Subscriptions** → Request URL | `https://agenthost.pro/webhooks/slack/events` |
+| **Interactivity & Shortcuts** → Request URL | `https://agenthost.pro/webhooks/slack/interactivity` |
+| **Slash commands** (Phase 5+) → `/agenthost` → Request URL | `https://agenthost.pro/webhooks/slack/commands` |
 
 Bot events to subscribe (under Event Subscriptions): `app_mention`, `message.channels`, `message.groups`.
 

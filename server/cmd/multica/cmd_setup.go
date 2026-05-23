@@ -19,7 +19,7 @@ import (
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Configure the CLI, authenticate, and start the daemon",
-	Long: `Configures the CLI to connect to Agenthost (agenthost.kensink.com), then
+	Long: `Configures the CLI to connect to Agenthost (agenthost.pro), then
 authenticates via browser and starts the agent daemon.
 
 If a configuration already exists, you will be prompted before overwriting.
@@ -55,7 +55,7 @@ var setupSelfHostCmd = &cobra.Command{
 	Short: "Configure the CLI for a self-hosted Agenthost server",
 	Long: `Configures the CLI to connect to a self-hosted Agenthost server.
 
-Defaults to https://agenthost.kensink.com. Use --server-url to override.
+Defaults to https://agenthost.pro. Use --server-url to override.
 
 If you run this command from a different machine than the server, also pass
 --callback-host <host-or-ip-the-browser-can-reach-back-to-this-machine-on> so

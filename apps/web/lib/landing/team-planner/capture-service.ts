@@ -91,7 +91,7 @@ function appUrl(): string {
   return (
     process.env.AGENTHOST_APP_URL ||
     process.env.MULTICA_APP_URL ||
-    "https://agenthost.kensink.com"
+    "https://agenthost.pro"
   ).replace(/\/$/, "");
 }
 

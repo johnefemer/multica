@@ -4716,7 +4716,7 @@ export function createEnDict(
         {
           heading: "Vulnerability disclosure",
           paragraphs: [
-            "Report security issues to security@agenthost.kensink.com. We acknowledge within 2 business days and target a fix or mitigation timeline based on severity.",
+            "Report security issues to security@agenthost.pro. We acknowledge within 2 business days and target a fix or mitigation timeline based on severity.",
           ],
         },
         {

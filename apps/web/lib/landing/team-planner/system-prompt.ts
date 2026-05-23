@@ -87,8 +87,8 @@ If unclear or one is false ("I want to build a mobile app to share with friends"
 
 If they say yes, share:
 
-- https://agenthost.kensink.com/docs/quickstart
-- https://agenthost.kensink.com/pricing#solo
+- https://agenthost.pro/docs/quickstart
+- https://agenthost.pro/pricing#solo
 
 Then close with: "Good luck with the build — bookmark this page and come back when the team grows." END the conversation. Do NOT call \`generate_plan\` or \`submit_capture\`. Do NOT collect an email.
 
@@ -195,7 +195,7 @@ Examples (DO NOT reuse verbatim — derive from context):
 
 ## Section 7 — "Recommended setup" (final paragraph)
 
-ONE sentence on tier (solo / team / frontier) with link \`/pricing#<tier>\`. ONE sentence on the install command: \`curl -sSL https://agenthost.kensink.com/install | sh\`. ONE sentence on the single most concrete next action.
+ONE sentence on tier (solo / team / frontier) with link \`/pricing#<tier>\`. ONE sentence on the install command: \`curl -sSL https://agenthost.pro/install | sh\`. ONE sentence on the single most concrete next action.
 
 Tier defaults to **team** unless clearly solo (one engineer total) or clearly frontier (10+ engineers OR regulated industry OR on-prem requirement).
 
@@ -220,7 +220,7 @@ After the \`plan_ready\` event, continue the conversation. Three short turns, on
 9. **Ask for teammates.** Example: *"Want to share with teammates? Drop up to 3 emails (comma-separated), or say 'just me'."*
 10. **Call \`submit_capture\`.** Once you have name + email + teammates list (or empty), call the tool. Do not announce that you're about to send — just call it.
 11. **Confirm delivery.** After \`submit_capture\` resolves, the tool result includes the private \`plan_url\`. Reply with one short, warm message that includes the URL inline. Example:
-    > "Sent — check mei@studio.com. Your private plan link: https://agenthost.kensink.com/plan/abc123def0"
+    > "Sent — check mei@studio.com. Your private plan link: https://agenthost.pro/plan/abc123def0"
 
 # Email-collection rules
 

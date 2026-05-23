@@ -2,7 +2,7 @@
 # Agenthost by Kensink Labs — CLI installer
 #
 # Installs the agenthost CLI and pre-configures it to connect to
-# https://agenthost.kensink.com.
+# https://agenthost.pro.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash
@@ -12,7 +12,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-AGENTHOST_SERVER_URL="https://agenthost.kensink.com"
+AGENTHOST_SERVER_URL="https://agenthost.pro"
 AGENTHOST_RELEASE_URL="https://github.com/johnefemer/multica/releases/download/kensink-latest"
 
 # Colors (disabled when not a terminal)
@@ -99,7 +99,7 @@ install_or_upgrade_cli() {
 }
 
 # Pre-write config so agenthost login and agenthost setup both target
-# agenthost.kensink.com immediately — no extra flags needed.
+# agenthost.pro immediately — no extra flags needed.
 # Write to both ~/.multica and ~/.agenthost to cover the installed binary
 # (uses ~/.multica) and any future upgrade to our fork (uses ~/.agenthost).
 write_default_config() {

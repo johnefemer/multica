@@ -13,7 +13,7 @@ deployed, how to access it, and how to operate it day-to-day.
 | **Name** | agenthost |
 | **Provider** | AWS EC2 |
 | **IP** | `54.82.211.103` |
-| **Domain** | `agenthost.kensink.com` |
+| **Domain** | `agenthost.pro` |
 | **OS** | Ubuntu 24.04 LTS (kernel 6.17.0-aws) |
 | **SSH user** | `ubuntu` |
 | **PEM key** | `~/.ssh/agenthost.pem` |
@@ -25,7 +25,7 @@ deployed, how to access it, and how to operate it day-to-day.
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103
 # or via domain
-ssh -i ~/.ssh/agenthost.pem ubuntu@agenthost.kensink.com
+ssh -i ~/.ssh/agenthost.pem ubuntu@agenthost.pro
 ```
 
 ---
@@ -37,18 +37,18 @@ and terminates HTTPS — no TLS config needed on the server.
 
 | Service | Public URL |
 |---------|-----------|
-| **Web app** | https://agenthost.kensink.com |
-| **Backend API** | https://agenthost.kensink.com/api/ |
-| **API health** | https://agenthost.kensink.com/health |
-| **WebSocket** | `wss://agenthost.kensink.com/ws` |
+| **Web app** | https://agenthost.pro |
+| **Backend API** | https://agenthost.pro/api/ |
+| **API health** | https://agenthost.pro/health |
+| **WebSocket** | `wss://agenthost.pro/ws` |
 
 ### nginx routing (port 80)
 
 ```
-agenthost.kensink.com/ws       → localhost:8080/ws   (WebSocket, 1h timeout)
-agenthost.kensink.com/api/*    → localhost:8080/api/  (REST)
-agenthost.kensink.com/health   → localhost:8080/health
-agenthost.kensink.com/*        → localhost:3000       (Next.js frontend)
+agenthost.pro/ws       → localhost:8080/ws   (WebSocket, 1h timeout)
+agenthost.pro/api/*    → localhost:8080/api/  (REST)
+agenthost.pro/health   → localhost:8080/health
+agenthost.pro/*        → localhost:3000       (Next.js frontend)
 ```
 
 Config file on server: `/etc/nginx/sites-available/multica`
@@ -107,12 +107,12 @@ PORT=8080
 JWT_SECRET=<generate with: openssl rand -hex 32>
 
 # ── App URLs ──────────────────────────────────────────────────
-MULTICA_APP_URL=https://agenthost.kensink.com
-FRONTEND_ORIGIN=https://agenthost.kensink.com
-CORS_ALLOWED_ORIGINS=https://agenthost.kensink.com,http://agenthost.kensink.com
-NEXT_PUBLIC_API_URL=https://agenthost.kensink.com
-NEXT_PUBLIC_WS_URL=wss://agenthost.kensink.com/ws
-MULTICA_SERVER_URL=wss://agenthost.kensink.com/ws
+MULTICA_APP_URL=https://agenthost.pro
+FRONTEND_ORIGIN=https://agenthost.pro
+CORS_ALLOWED_ORIGINS=https://agenthost.pro,http://agenthost.pro
+NEXT_PUBLIC_API_URL=https://agenthost.pro
+NEXT_PUBLIC_WS_URL=wss://agenthost.pro/ws
+MULTICA_SERVER_URL=wss://agenthost.pro/ws
 
 # ── Email (Resend) ────────────────────────────────────────────
 RESEND_API_KEY=<set on server — not committed>
@@ -121,7 +121,7 @@ RESEND_FROM_EMAIL=noreply@kensink.com
 # ── Google OAuth (optional) ───────────────────────────────────
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=https://agenthost.kensink.com/auth/callback
+GOOGLE_REDIRECT_URI=https://agenthost.pro/auth/callback
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 
 # ── Storage (local upload mode) ───────────────────────────────
@@ -377,7 +377,7 @@ To enable HTTPS via Cloudflare proxy:
    (Cloudflare handles HTTPS externally; sends plain HTTP to your server on port 80)
 4. Optionally enable **Always Use HTTPS** under SSL/TLS → Edge Certificates
 
-After this, `https://agenthost.kensink.com` and `wss://agenthost.kensink.com/ws`
+After this, `https://agenthost.pro` and `wss://agenthost.pro/ws`
 will work automatically — no cert needed on the server.
 
 > **WebSocket note:** Cloudflare proxies WebSocket connections on port 80/443

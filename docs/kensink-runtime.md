@@ -2,7 +2,7 @@
 
 > **Audience:** Kensink Labs operators and developers setting up agent runtimes on Agenthost.
 >
-> **Server:** `https://agenthost.kensink.com`
+> **Server:** `https://agenthost.pro`
 
 ---
 
@@ -13,7 +13,7 @@ A **runtime** is a daemon process that runs on a developer's machine (laptop, de
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    User's Browser / App                      │
-│            https://agenthost.kensink.com                    │
+│            https://agenthost.pro                    │
 └──────────────────────────┬──────────────────────────────────┘
                            │  HTTPS / WebSocket
                            ▼
@@ -27,7 +27,7 @@ A **runtime** is a daemon process that runs on a developer's machine (laptop, de
 │          │ PostgreSQL (pgvector) :5432                       │
 └──────────┼──────────────────────────────────────────────────┘
            │
-           │  WebSocket (wss://agenthost.kensink.com/ws)
+           │  WebSocket (wss://agenthost.pro/ws)
            │  Long-lived, authenticated
            ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -68,8 +68,8 @@ The `multica` binary is the single entrypoint for everything runtime-related:
 
 ```json
 {
-  "server_url": "https://agenthost.kensink.com",
-  "app_url":    "https://agenthost.kensink.com",
+  "server_url": "https://agenthost.pro",
+  "app_url":    "https://agenthost.pro",
   "token":      "<jwt — set during login>"
 }
 ```
@@ -78,7 +78,7 @@ The `multica` binary is the single entrypoint for everything runtime-related:
 
 The daemon is a long-running background process spawned by `agenthost daemon start`. It:
 
-- Opens a **WebSocket connection** to `wss://agenthost.kensink.com/ws`
+- Opens a **WebSocket connection** to `wss://agenthost.pro/ws`
 - Authenticates using the JWT token stored in the config file
 - Receives agent task payloads from the backend
 - Invokes the configured AI tool (Claude Code, Cursor, Codex) in a subprocess
@@ -90,9 +90,9 @@ The daemon runs as the **user's own process** — it has full access to the loca
 ### 3. Authentication Flow
 
 ```
-1. User runs: multica setup self-host --server-url https://agenthost.kensink.com
+1. User runs: multica setup self-host --server-url https://agenthost.pro
 2. CLI writes server_url + app_url to ~/.multica/config.json
-3. CLI opens browser → https://agenthost.kensink.com/auth/cli-callback
+3. CLI opens browser → https://agenthost.pro/auth/cli-callback
 4. User logs in via email code (Resend → noreply@kensink.com)
 5. Backend issues a JWT; CLI polls localhost callback server to receive it
 6. JWT stored in ~/.multica/config.json
@@ -101,7 +101,7 @@ The daemon runs as the **user's own process** — it has full access to the loca
 
 ### 4. WebSocket Protocol
 
-The daemon connects to: `wss://agenthost.kensink.com/ws`
+The daemon connects to: `wss://agenthost.pro/ws`
 
 - **Auth:** JWT passed as `Authorization: Bearer <token>` on the upgrade request
 - **Messages:** JSON-framed task payloads (`task_start`, `task_output`, `task_done`, `ping/pong`)
@@ -120,12 +120,12 @@ curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scrip
 
 This downloads the official Multica CLI binary and prints the setup command for Agenthost.
 
-> The CLI binary is the standard upstream release from `multica-ai/multica` — the same binary works with any self-hosted backend. The kensink install script just pre-configures it for `agenthost.kensink.com`.
+> The CLI binary is the standard upstream release from `multica-ai/multica` — the same binary works with any self-hosted backend. The kensink install script just pre-configures it for `agenthost.pro`.
 
 ### Step 2 — Connect to Agenthost
 
 ```bash
-multica setup self-host --server-url https://agenthost.kensink.com
+multica setup self-host --server-url https://agenthost.pro
 ```
 
 This will:
@@ -142,7 +142,7 @@ agenthost daemon status
 Expected output when healthy:
 ```
 daemon: running
-server: https://agenthost.kensink.com
+server: https://agenthost.pro
 workspace: <your workspace name>
 connected: yes
 ```
@@ -153,7 +153,7 @@ connected: yes
 
 | Requirement | Details |
 |-------------|---------|
-| Outbound HTTPS | Port 443 to `agenthost.kensink.com` |
+| Outbound HTTPS | Port 443 to `agenthost.pro` |
 | Outbound WSS | Port 443 (WebSocket upgrade on same host) |
 | Email domain | Must be `@kensink.com` (set by `ALLOWED_EMAIL_DOMAINS`) |
 | AI tool | Claude Code, Cursor, Codex, or compatible tool installed locally |
@@ -178,7 +178,7 @@ Step 3 · Runtime
 
 Clicking **Show steps** opens a dialog with the two commands:
 1. `curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash`
-2. `multica setup self-host --server-url https://agenthost.kensink.com`
+2. `multica setup self-host --server-url https://agenthost.pro`
 
 The dialog listens for an active runtime — once `multica setup` completes and the daemon connects, the backend notifies the frontend over WebSocket and the **"Connect & continue"** button activates.
 
@@ -231,7 +231,7 @@ Common patterns at Kensink Labs:
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| `server not reachable` | Server down or DNS not resolving | Check `https://agenthost.kensink.com/health` |
+| `server not reachable` | Server down or DNS not resolving | Check `https://agenthost.pro/health` |
 | `token expired` | JWT has 24h lifetime | Run `multica login` |
 | `daemon: not running` | Process crashed or not started | Run `agenthost daemon start` |
 | WebSocket reconnects in loop | Auth failure (bad token) | Run `multica login` then `agenthost daemon restart` |

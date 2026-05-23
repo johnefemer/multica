@@ -10,8 +10,8 @@
 > | | |
 > |---|---|
 > | **Status** | Phase 1 shipped on `kensink-v2` (May 2026) |
-> | **Live URL** | https://agenthost.kensink.com/build-your-team |
-> | **Hotlink shape** | https://agenthost.kensink.com/plan/&lt;10-char-hash&gt; |
+> | **Live URL** | https://agenthost.pro/build-your-team |
+> | **Hotlink shape** | https://agenthost.pro/plan/&lt;10-char-hash&gt; |
 > | **Active model** | Claude Opus 4.7 (`claude-opus-4-7`) with adaptive thinking |
 > | **Owner** | Marketing + Platform |
 > | **Last updated** | 2026-05-06 |
@@ -149,7 +149,7 @@ Once name + email are collected and teammates list (or empty) is known, the agen
 
 The agent's final chat turn includes the hotlink inline:
 
-> *Sent — check mei@studio.com. Your private plan link: https://agenthost.kensink.com/plan/abc123def0*
+> *Sent — check mei@studio.com. Your private plan link: https://agenthost.pro/plan/abc123def0*
 
 ### 9. Reading the full plan
 
@@ -386,7 +386,7 @@ All set in `/opt/multica/.env` on the agenthost EC2 box. The compose file passes
 | `DATABASE_URL` | yes | Same Postgres as the Go backend. The chat container needs its own connection pool (`pg`, max 5 — see `lib/db.ts`) |
 | `RESEND_API_KEY` | yes | Same key the Go backend uses for verification emails. If unset, the lead is still saved but no emails go out (logged as a warning). |
 | `RESEND_FROM_EMAIL` | optional | Defaults to `Agenthost <noreply@kensink.com>` |
-| `AGENTHOST_APP_URL` | recommended | Used to build absolute hotlink URLs. Defaults to `https://agenthost.kensink.com` |
+| `AGENTHOST_APP_URL` | recommended | Used to build absolute hotlink URLs. Defaults to `https://agenthost.pro` |
 | `MULTICA_APP_URL` | legacy | Same as above; both are checked, AGENTHOST_APP_URL wins |
 
 ### Schema migration
