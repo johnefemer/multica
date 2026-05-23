@@ -41,16 +41,38 @@ const nextConfig: NextConfig = {
   // and shared `/docs/...` links land cleanly on docs.agenthost.pro and
   // stay there. `[workspaceSlug]` dynamic segments won't shadow because
   // redirects run before file-system routing.
+  //
+  // The docs app uses static export with explicit /en/ + /zh/ locale
+  // directories (middleware-based locale stripping was dropped when
+  // moving to CF Pages). To keep external `/docs/:path*` links working,
+  // map them onto the correct locale prefix:
+  //   /docs              → docs.agenthost.pro/en/
+  //   /docs/zh           → docs.agenthost.pro/zh/
+  //   /docs/zh/foo       → docs.agenthost.pro/zh/foo
+  //   /docs/foo          → docs.agenthost.pro/en/foo   (default locale)
+  // Next.js evaluates redirects in declaration order — list the more
+  // specific Chinese paths first so they aren't shadowed by the generic
+  // English fallback.
   async redirects() {
     return [
       {
         source: "/docs",
-        destination: `${docsOrigin}/`,
+        destination: `${docsOrigin}/en/`,
+        permanent: true,
+      },
+      {
+        source: "/docs/zh",
+        destination: `${docsOrigin}/zh/`,
+        permanent: true,
+      },
+      {
+        source: "/docs/zh/:path*",
+        destination: `${docsOrigin}/zh/:path*`,
         permanent: true,
       },
       {
         source: "/docs/:path*",
-        destination: `${docsOrigin}/:path*`,
+        destination: `${docsOrigin}/en/:path*`,
         permanent: true,
       },
     ];
