@@ -1,0 +1,9 @@
+# Cloudflare Pages edge redirects. Copied verbatim into apps/docs/out/
+# by Next.js's static-export step, then read by CF Pages at deploy time.
+#
+# The docs Next.js app has no app/page.tsx (only [lang]/page.tsx), so
+# without a redirect docs.agenthost.pro/ would 404. fumadocs sets
+# `hideLocale: "default-locale"` on i18n, but that only applies inside
+# the app — at the static-hosting layer we still need to point bare /
+# at /en/ explicitly.
+/    /en/    302
