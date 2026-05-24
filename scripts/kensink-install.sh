@@ -98,25 +98,23 @@ install_or_upgrade_cli() {
     || fail "'agenthost' not found on PATH. Run: export PATH=\"\$HOME/.local/bin:\$PATH\""
 }
 
-# Pre-write config so agenthost login and agenthost setup both target
-# agenthost.pro immediately — no extra flags needed.
-# Write to both ~/.multica and ~/.agenthost to cover the installed binary
-# (uses ~/.multica) and any future upgrade to our fork (uses ~/.agenthost).
+# Pre-write config so `agenthost login` and `agenthost setup` both target
+# agenthost.pro immediately — no extra flags needed. The CLI reads
+# ~/.agenthost/config.json (see server/internal/cli/config.go).
 write_default_config() {
+  local config_dir="$HOME/.agenthost"
+  local config_file="$config_dir/config.json"
   local config_json
   config_json="$(printf '{\n  "server_url": "%s",\n  "app_url": "%s"\n}\n' \
     "$AGENTHOST_SERVER_URL" "$AGENTHOST_SERVER_URL")"
 
-  for config_dir in "$HOME/.multica" "$HOME/.agenthost"; do
-    local config_file="$config_dir/config.json"
-    mkdir -p "$config_dir"
-    if [ ! -f "$config_file" ] || grep -q 'localhost\|multica\.ai\|api\.multica' "$config_file" 2>/dev/null; then
-      printf '%s\n' "$config_json" > "$config_file"
-      ok "Config written → $config_file"
-    else
-      ok "Existing config kept → $config_file"
-    fi
-  done
+  mkdir -p "$config_dir"
+  if [ ! -f "$config_file" ] || grep -q 'localhost\|multica\.ai\|api\.multica\|agenthost\.kensink\.com\|app\.kensink\.com' "$config_file" 2>/dev/null; then
+    printf '%s\n' "$config_json" > "$config_file"
+    ok "Config written → $config_file"
+  else
+    ok "Existing config kept → $config_file"
+  fi
 }
 
 main() {
@@ -133,12 +131,10 @@ main() {
   printf "${BOLD}${GREEN}  ✓ agenthost CLI installed!${RESET}\n"
   printf "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n"
   printf "\n"
-  printf "  Connect to Agenthost by Kensink Labs:\n"
+  printf "  ${BOLD}Log in:${RESET}\n"
   printf "\n"
-  printf "     ${CYAN}agenthost setup self-host${RESET}\n"
-  printf "\n"
-  printf "  Or log in directly if already configured:\n"
-  printf "     ${CYAN}agenthost login${RESET}\n"
+  printf "     ${CYAN}agenthost login${RESET}           ${BOLD}# browser-based (recommended)${RESET}\n"
+  printf "     ${CYAN}agenthost login --manual${RESET}  ${BOLD}# headless / SSH (paste a code)${RESET}\n"
   printf "\n"
   printf "  ${BOLD}Requirements:${RESET}\n"
   printf "  • An AI coding tool: Claude Code, Cursor, Codex, or similar\n"
