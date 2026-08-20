@@ -115,6 +115,7 @@ func main() {
 	go runRuntimeSweeper(sweepCtx, queries, taskSvc, bus)
 	go runAutopilotScheduler(autopilotCtx, queries, autopilotSvc)
 	go runDBStatsLogger(sweepCtx, pool)
+	go runAICoachSync(sweepCtx, pool)
 
 	// Graceful shutdown
 	go func() {

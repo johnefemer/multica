@@ -373,6 +373,9 @@ func (h *Handler) DeleteSkill(w http.ResponseWriter, r *http.Request) {
 
 type ImportSkillRequest struct {
 	URL string `json:"url"`
+	// AutoSync tracks the skill against its source so later versions are pulled
+	// automatically. Only supported for AI Coach, which publishes revisions.
+	AutoSync bool `json:"auto_sync"`
 }
 
 // importedSkill holds the data extracted from an external source.
@@ -473,6 +476,7 @@ type importSource int
 const (
 	sourceClawHub importSource = iota
 	sourceSkillsSh
+	sourceAICoach
 )
 
 // detectImportSource determines the source from a URL.
@@ -499,12 +503,14 @@ func detectImportSource(raw string) (importSource, string, error) {
 		return sourceSkillsSh, normalized, nil
 	case host == "clawhub.ai" || host == "www.clawhub.ai":
 		return sourceClawHub, normalized, nil
+	case host == "aicoach.pw" || host == "www.aicoach.pw" || host == "skill.fish" || host == "www.skill.fish":
+		return sourceAICoach, normalized, nil
 	default:
 		// If no host (bare slug), default to clawhub
 		if !strings.Contains(raw, "/") || !strings.Contains(raw, ".") {
 			return sourceClawHub, raw, nil
 		}
-		return 0, "", fmt.Errorf("unsupported source: %s (supported: clawhub.ai, skills.sh)", host)
+		return 0, "", fmt.Errorf("unsupported source: %s (supported: aicoach.pw, clawhub.ai, skills.sh)", host)
 	}
 }
 
@@ -1087,6 +1093,11 @@ func (h *Handler) ImportSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpClient := &http.Client{Timeout: 30 * time.Second}
+
+	if source == sourceAICoach {
+		h.importFromAICoach(w, r, workspaceID, creatorID, normalized, req.AutoSync)
+		return
+	}
 
 	var imported *importedSkill
 	switch source {
