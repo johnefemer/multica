@@ -1274,6 +1274,29 @@ type PinnedItem struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type PlanningLead struct {
+	ID                pgtype.UUID        `json:"id"`
+	Hash              string             `json:"hash"`
+	PrimaryEmail      string             `json:"primary_email"`
+	PrimaryName       string             `json:"primary_name"`
+	CcEmails          []string           `json:"cc_emails"`
+	RecommendedTier   string             `json:"recommended_tier"`
+	ProjectSummary    string             `json:"project_summary"`
+	Conversation      []byte             `json:"conversation"`
+	PlanMarkdown      string             `json:"plan_markdown"`
+	EditVersion       int32              `json:"edit_version"`
+	EditedAt          pgtype.Timestamptz `json:"edited_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	AgentRoster       []byte             `json:"agent_roster"`
+	StarterSkills     []byte             `json:"starter_skills"`
+	AutopilotRoutines []byte             `json:"autopilot_routines"`
+	Milestones        []byte             `json:"milestones"`
+	WontFix           []byte             `json:"wont_fix"`
+	LeadScoreSignals  []byte             `json:"lead_score_signals"`
+	LeadScore         pgtype.Int2        `json:"lead_score"`
+	PriorityLead      bool               `json:"priority_lead"`
+}
+
 type PluginHookSchedule struct {
 	ID             pgtype.UUID        `json:"id"`
 	InstallationID pgtype.UUID        `json:"installation_id"`
@@ -1482,6 +1505,14 @@ type Skill struct {
 	CreatedBy            pgtype.UUID        `json:"created_by"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	Source               string             `json:"source"`
+	SourceRef            pgtype.Text        `json:"source_ref"`
+	SourceUrl            pgtype.Text        `json:"source_url"`
+	SourceRev            pgtype.Text        `json:"source_rev"`
+	AutoSync             bool               `json:"auto_sync"`
+	SyncedAt             pgtype.Timestamptz `json:"synced_at"`
+	SyncState            string             `json:"sync_state"`
+	SyncError            pgtype.Text        `json:"sync_error"`
 	PluginInstallationID pgtype.UUID        `json:"plugin_installation_id"`
 }
 

@@ -871,6 +871,8 @@ func main() {
 			slog.Error("pprof server disabled after startup error", "error", err)
 		}
 	}()
+	// Kensink: background re-pull of AI Coach skills imported with auto-sync.
+	go runAICoachSync(sweepCtx, pool)
 
 	go func() {
 		slog.Info("server starting", "port", port)

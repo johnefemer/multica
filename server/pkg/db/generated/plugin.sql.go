@@ -1066,7 +1066,7 @@ func (q *Queries) ListPluginSecretKeys(ctx context.Context, installationID pgtyp
 }
 
 const listPluginSkills = `-- name: ListPluginSkills :many
-SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at, plugin_installation_id FROM skill WHERE plugin_installation_id = $1 ORDER BY name ASC
+SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at, source, source_ref, source_url, source_rev, auto_sync, synced_at, sync_state, sync_error, plugin_installation_id FROM skill WHERE plugin_installation_id = $1 ORDER BY name ASC
 `
 
 func (q *Queries) ListPluginSkills(ctx context.Context, pluginInstallationID pgtype.UUID) ([]Skill, error) {
@@ -1088,6 +1088,14 @@ func (q *Queries) ListPluginSkills(ctx context.Context, pluginInstallationID pgt
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Source,
+			&i.SourceRef,
+			&i.SourceUrl,
+			&i.SourceRev,
+			&i.AutoSync,
+			&i.SyncedAt,
+			&i.SyncState,
+			&i.SyncError,
 			&i.PluginInstallationID,
 		); err != nil {
 			return nil, err
@@ -1577,7 +1585,7 @@ ON CONFLICT (workspace_id, name) DO UPDATE SET
     content = EXCLUDED.content,
     updated_at = now()
 WHERE skill.plugin_installation_id = EXCLUDED.plugin_installation_id
-RETURNING id, workspace_id, name, description, content, config, created_by, created_at, updated_at, plugin_installation_id
+RETURNING id, workspace_id, name, description, content, config, created_by, created_at, updated_at, source, source_ref, source_url, source_rev, auto_sync, synced_at, sync_state, sync_error, plugin_installation_id
 `
 
 type UpsertPluginSkillParams struct {
@@ -1616,6 +1624,14 @@ func (q *Queries) UpsertPluginSkill(ctx context.Context, arg UpsertPluginSkillPa
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Source,
+		&i.SourceRef,
+		&i.SourceUrl,
+		&i.SourceRev,
+		&i.AutoSync,
+		&i.SyncedAt,
+		&i.SyncState,
+		&i.SyncError,
 		&i.PluginInstallationID,
 	)
 	return i, err
