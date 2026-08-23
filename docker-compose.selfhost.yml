@@ -66,6 +66,12 @@ services:
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       APP_ENV: ${APP_ENV:-production}
       APP_NAME: ${APP_NAME:-Agenthost by Kensink Labs}
+      # AGENTHOST_APP_URL is the preferred name and MULTICA_APP_URL the
+      # fallback, matching appURL() in internal/handler/integration.go. Both
+      # must be forwarded or setting only the preferred one in .env does
+      # nothing here, which is how OAuth callbacks end up on a stale host.
+      # Empty default so an existing MULTICA_APP_URL-only setup is unchanged.
+      AGENTHOST_APP_URL: ${AGENTHOST_APP_URL:-}
       MULTICA_APP_URL: ${MULTICA_APP_URL:-http://localhost:3000}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
