@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -210,10 +210,13 @@ export function LoginPage({
   const { t } = useT("auth");
   const qc = useQueryClient();
   const [step, setStep] = useState<
-    "email" | "code" | "cli_confirm" | "cli_show_code"
+    "email" | "password" | "code" | "cli_confirm" | "cli_show_code"
   >("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  // Kensink: email + password sign-in.
+  const [password, setPassword] = useState("");
+  const [passwordRevealed, setPasswordRevealed] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -351,6 +354,49 @@ export function LoginPage({
       }
     },
     [email, onSuccess, cliCallback, onTokenObtained, qc, t],
+  );
+
+  // Kensink: email + password sign-in. Mirrors handleVerify's CLI and normal
+  // paths; only the credential exchange differs.
+  const handlePasswordLogin = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (!email || !password) return;
+      setLoading(true);
+      setError("");
+      try {
+        if (cliCallback) {
+          const { token } = await api.passwordLogin(email, password);
+          localStorage.setItem("multica_token", token);
+          api.setToken(token);
+          onTokenObtained?.();
+          if (cliCallback.url) {
+            redirectToCliCallback(cliCallback.url, token, cliCallback.state);
+          } else {
+            const { code: cc } = await api.issueCliAuthCode(cliCallback.state);
+            setCliAuthCode(cc);
+            setStep("cli_show_code");
+            setLoading(false);
+          }
+          return;
+        }
+
+        await useAuthStore.getState().loginWithPassword(email, password);
+        const wsList = await api.listWorkspaces();
+        qc.setQueryData(workspaceKeys.list(), wsList);
+        onTokenObtained?.();
+        onSuccess();
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : t(($) => $.errors.password_invalid),
+        );
+        setPassword("");
+        setLoading(false);
+      }
+    },
+    [email, password, onSuccess, cliCallback, onTokenObtained, qc, t],
   );
 
   const handleResend = async () => {
@@ -520,6 +566,92 @@ export function LoginPage({
   // Code verification step
   // -------------------------------------------------------------------------
 
+  // Kensink: password step — email + password sign-in.
+  if (step === "password") {
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            {logo && <div className="mx-auto mb-4">{logo}</div>}
+            <CardTitle className="text-display-sm">
+              {t(($) => $.password.title)}
+            </CardTitle>
+            <CardDescription>
+              {t(($) => $.password.description, { email })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form id="password-form" onSubmit={handlePasswordLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-password">{t(($) => $.password.label)}</Label>
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={passwordRevealed ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    autoFocus
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPasswordRevealed((v) => !v)}
+                    aria-label={passwordRevealed ? t(($) => $.password.hide) : t(($) => $.password.show)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {passwordRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              {error && (
+                <p className="text-body text-destructive">{error}</p>
+              )}
+            </form>
+            {/* Doubles as the password reset path: a one-time code signs the
+                user in, and they can set a new password from settings. */}
+            <button
+              type="button"
+              onClick={() => {
+                setPassword("");
+                setError("");
+                void handleSendCode();
+              }}
+              disabled={loading}
+              className="text-body text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground"
+            >
+              {t(($) => $.password.forgot)}
+            </button>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              type="submit"
+              form="password-form"
+              className="w-full"
+              size="lg"
+              disabled={!password || loading}
+            >
+              {loading ? t(($) => $.password.submitting) : t(($) => $.password.submit)}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                setStep("email");
+                setPassword("");
+                setError("");
+              }}
+            >
+              {t(($) => $.common.back)}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
   if (step === "code") {
     return (
       <div className="flex min-h-svh items-center justify-center">
@@ -641,6 +773,23 @@ export function LoginPage({
             {loading
               ? t(($) => $.signin.sending)
               : t(($) => $.signin.continue)}
+          </Button>
+          {/* Kensink: switch to email + password sign-in. */}
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => {
+              if (!email) {
+                setError(t(($) => $.common.email_required));
+                return;
+              }
+              setError("");
+              setStep("password");
+            }}
+            disabled={loading}
+          >
+            {t(($) => $.password.use_password)}
           </Button>
           {(google || onGoogleLogin) && (
             <Button

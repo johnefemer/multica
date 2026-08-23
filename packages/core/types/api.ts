@@ -612,6 +612,12 @@ export interface UpdateMeRequest {
   timezone?: string;
 }
 
+export interface SetPasswordRequest {
+  /** Required only when the account already has a password. */
+  current_password?: string;
+  new_password: string;
+}
+
 export interface CreateMemberRequest {
   email: string;
   role?: MemberRole;

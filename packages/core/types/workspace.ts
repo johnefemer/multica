@@ -85,6 +85,12 @@ export interface User {
   profile_description: string;
   /** Pinned IANA tz; null means "use browser-detected tz at render time". */
   timezone: string | null;
+  /**
+   * Whether the account can sign in with a password. False for accounts that
+   * only ever used the email-code or Google flow. Drives the "Set a password"
+   * vs "Change password" branch in account settings.
+   */
+  has_password?: boolean;
   created_at: string;
   updated_at: string;
 }

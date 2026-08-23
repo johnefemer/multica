@@ -20,6 +20,7 @@ import type {
   SearchIndexSnapshotPage,
   SearchIndexChanges,
   UpdateMeRequest,
+  SetPasswordRequest,
   CreateMemberRequest,
   UpdateMemberRequest,
   ListIssuesParams,
@@ -992,6 +993,15 @@ export class ApiClient {
     });
   }
 
+  /** Email + password sign-in. Never creates an account: signup stays on the
+   *  email-code and Google flows, which verify the address first. */
+  async passwordLogin(email: string, password: string): Promise<LoginResponse> {
+    return this.fetch("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
   async googleLogin(code: string, redirectUri: string): Promise<LoginResponse> {
     return this.fetch("/auth/google", {
       method: "POST",
@@ -1089,6 +1099,15 @@ export class ApiClient {
     });
     return parseWithFallback(raw, UserSchema, EMPTY_USER, {
       endpoint: "PATCH /api/me",
+    });
+  }
+
+  /** Sets or replaces the current user's password. `current_password` is
+   *  required only when the account already has one. */
+  async setPassword(data: SetPasswordRequest): Promise<User> {
+    return this.fetch("/api/me/password", {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
   }
 
