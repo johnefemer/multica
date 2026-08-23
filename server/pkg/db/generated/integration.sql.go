@@ -220,6 +220,50 @@ func (q *Queries) GetIntegrationConnection(ctx context.Context, arg GetIntegrati
 	return i, err
 }
 
+const getIntegrationConnectionByProviderAccount = `-- name: GetIntegrationConnectionByProviderAccount :one
+SELECT id, workspace_id, connected_by, provider, provider_account_id, provider_account_name, provider_account_avatar, access_token, refresh_token, token_expires_at, scope, meta, status, error_message, created_at, updated_at, disconnected_at FROM integration_connection
+WHERE provider            = $1
+  AND provider_account_id = $2
+  AND disconnected_at IS NULL
+ORDER BY created_at ASC
+LIMIT 1
+`
+
+type GetIntegrationConnectionByProviderAccountParams struct {
+	Provider          string `json:"provider"`
+	ProviderAccountID string `json:"provider_account_id"`
+}
+
+// Reverse lookup: which workspace owns the connection for a given external
+// account? Slack webhooks arrive keyed by team id with no workspace context,
+// so this is how an unbound-channel hint finds a bot token to reply with.
+// Multiple workspaces can install the same Slack team; the oldest connection
+// wins because any of them can post the "ask an admin to bind" ephemeral.
+func (q *Queries) GetIntegrationConnectionByProviderAccount(ctx context.Context, arg GetIntegrationConnectionByProviderAccountParams) (IntegrationConnection, error) {
+	row := q.db.QueryRow(ctx, getIntegrationConnectionByProviderAccount, arg.Provider, arg.ProviderAccountID)
+	var i IntegrationConnection
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ConnectedBy,
+		&i.Provider,
+		&i.ProviderAccountID,
+		&i.ProviderAccountName,
+		&i.ProviderAccountAvatar,
+		&i.AccessToken,
+		&i.RefreshToken,
+		&i.TokenExpiresAt,
+		&i.Scope,
+		&i.Meta,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisconnectedAt,
+	)
+	return i, err
+}
+
 const getIssueByIntegration = `-- name: GetIssueByIntegration :one
 SELECT id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, integration_provider, integration_external_id, integration_external_url, integration_repo, integration_synced_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id FROM issue
 WHERE workspace_id       = $1

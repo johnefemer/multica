@@ -46,6 +46,22 @@ export interface ChatChannelBinding {
   external_team_id: string;
   external_channel_id: string;
   external_channel_name: string | null;
+  /** Workspace events that post into this channel. Empty means no notifications. */
+  event_filters: string[];
+  /** Agent used for new threads here, skipping the ephemeral picker. */
+  default_agent_id: string | null;
   created_at: string;
   created_by?: string;
+}
+
+/** One subscribable event type, as advertised by the server. */
+export interface SlackNotifyEventType {
+  value: string;
+  label: string;
+}
+
+export interface UpdateSlackBindingArgs {
+  event_filters?: string[];
+  /** Empty string clears the default agent. */
+  default_agent_id?: string;
 }

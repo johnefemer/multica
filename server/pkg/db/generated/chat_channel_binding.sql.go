@@ -143,3 +143,116 @@ func (q *Queries) ListChatChannelBindings(ctx context.Context, arg ListChatChann
 	}
 	return items, nil
 }
+
+const listChatChannelBindingsForNotify = `-- name: ListChatChannelBindingsForNotify :many
+SELECT id, workspace_id, platform, external_team_id, external_channel_id, external_channel_name, default_agent_id, event_filters, created_by, created_at FROM chat_channel_binding
+WHERE workspace_id = $1
+  AND platform     = $2
+  AND $3::text = ANY(event_filters)
+ORDER BY created_at ASC
+`
+
+type ListChatChannelBindingsForNotifyParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Platform    string      `json:"platform"`
+	EventType   string      `json:"event_type"`
+}
+
+// All bindings in a workspace whose event_filters include the given event
+// type. Drives outbound issue notifications.
+func (q *Queries) ListChatChannelBindingsForNotify(ctx context.Context, arg ListChatChannelBindingsForNotifyParams) ([]ChatChannelBinding, error) {
+	rows, err := q.db.Query(ctx, listChatChannelBindingsForNotify, arg.WorkspaceID, arg.Platform, arg.EventType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ChatChannelBinding{}
+	for rows.Next() {
+		var i ChatChannelBinding
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Platform,
+			&i.ExternalTeamID,
+			&i.ExternalChannelID,
+			&i.ExternalChannelName,
+			&i.DefaultAgentID,
+			&i.EventFilters,
+			&i.CreatedBy,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateChatChannelBindingDefaultAgent = `-- name: UpdateChatChannelBindingDefaultAgent :one
+UPDATE chat_channel_binding
+SET default_agent_id = $1
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, platform, external_team_id, external_channel_id, external_channel_name, default_agent_id, event_filters, created_by, created_at
+`
+
+type UpdateChatChannelBindingDefaultAgentParams struct {
+	DefaultAgentID pgtype.UUID `json:"default_agent_id"`
+	ID             pgtype.UUID `json:"id"`
+	WorkspaceID    pgtype.UUID `json:"workspace_id"`
+}
+
+// Sets (or clears, when NULL) the agent used for new threads in this channel,
+// which lets the app_mention handler skip the ephemeral agent picker.
+func (q *Queries) UpdateChatChannelBindingDefaultAgent(ctx context.Context, arg UpdateChatChannelBindingDefaultAgentParams) (ChatChannelBinding, error) {
+	row := q.db.QueryRow(ctx, updateChatChannelBindingDefaultAgent, arg.DefaultAgentID, arg.ID, arg.WorkspaceID)
+	var i ChatChannelBinding
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Platform,
+		&i.ExternalTeamID,
+		&i.ExternalChannelID,
+		&i.ExternalChannelName,
+		&i.DefaultAgentID,
+		&i.EventFilters,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateChatChannelBindingFilters = `-- name: UpdateChatChannelBindingFilters :one
+UPDATE chat_channel_binding
+SET event_filters = $1
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, platform, external_team_id, external_channel_id, external_channel_name, default_agent_id, event_filters, created_by, created_at
+`
+
+type UpdateChatChannelBindingFiltersParams struct {
+	EventFilters []string    `json:"event_filters"`
+	ID           pgtype.UUID `json:"id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+}
+
+// Sets which workspace events post into this channel. An empty array means
+// "no notifications"; the outbound listener treats it as opt-out.
+func (q *Queries) UpdateChatChannelBindingFilters(ctx context.Context, arg UpdateChatChannelBindingFiltersParams) (ChatChannelBinding, error) {
+	row := q.db.QueryRow(ctx, updateChatChannelBindingFilters, arg.EventFilters, arg.ID, arg.WorkspaceID)
+	var i ChatChannelBinding
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Platform,
+		&i.ExternalTeamID,
+		&i.ExternalChannelID,
+		&i.ExternalChannelName,
+		&i.DefaultAgentID,
+		&i.EventFilters,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}

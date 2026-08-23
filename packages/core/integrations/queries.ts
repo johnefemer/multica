@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import type { ChatChannelBinding, UpdateSlackBindingArgs } from "../types/integration";
 
 export const integrationKeys = {
   all: (wsId: string) => ["integrations", wsId] as const,
@@ -8,6 +9,7 @@ export const integrationKeys = {
   githubWebhooks: (wsId: string) => ["integrations", wsId, "github", "webhooks"] as const,
   slackChannels: (wsId: string) => ["integrations", wsId, "slack", "channels"] as const,
   slackBindings: (wsId: string) => ["integrations", wsId, "slack", "bindings"] as const,
+  slackEventTypes: (wsId: string) => ["integrations", wsId, "slack", "event-types"] as const,
 };
 
 export function useIntegrations(wsId: string) {
@@ -108,6 +110,60 @@ export function useSlackBindings(wsId: string, enabled = true) {
 export interface CreateSlackBindingArgs {
   external_channel_id: string;
   external_channel_name: string;
+}
+
+export function useSlackNotifyEventTypes(wsId: string, enabled = true) {
+  return useQuery({
+    queryKey: integrationKeys.slackEventTypes(wsId),
+    queryFn: () => api.listSlackNotifyEventTypes(wsId),
+    enabled: !!wsId && enabled,
+    // A server-side constant; no reason to refetch it during a session.
+    staleTime: Infinity,
+  });
+}
+
+export interface UpdateSlackBindingVars {
+  bindingId: string;
+  args: UpdateSlackBindingArgs;
+}
+
+export function useUpdateSlackBinding(wsId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bindingId, args }: UpdateSlackBindingVars) =>
+      api.updateSlackBinding(wsId, bindingId, args),
+    // Optimistic: toggling a notification checkbox should feel instant, and a
+    // failed write rolls the checkbox back rather than leaving it half-applied.
+    onMutate: async ({ bindingId, args }) => {
+      const key = integrationKeys.slackBindings(wsId);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<ChatChannelBinding[]>(key);
+      qc.setQueryData<ChatChannelBinding[]>(key, (old) =>
+        old?.map((b) =>
+          b.id === bindingId
+            ? {
+                ...b,
+                ...(args.event_filters !== undefined
+                  ? { event_filters: args.event_filters }
+                  : {}),
+                ...(args.default_agent_id !== undefined
+                  ? { default_agent_id: args.default_agent_id || null }
+                  : {}),
+              }
+            : b,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(integrationKeys.slackBindings(wsId), context.previous);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: integrationKeys.slackBindings(wsId) });
+    },
+  });
 }
 
 export function useCreateSlackBinding(wsId: string) {
