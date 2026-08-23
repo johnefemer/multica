@@ -2,7 +2,7 @@
 
 How to create the Slack app on Slack's side, wire it to your Agenthost instance, and install it to a Slack workspace.
 
-This guide covers what's working in **Phase 1** of [docs/slack-integration.md](slack-integration.md): OAuth install, the bot lands in your Slack workspace, the connection appears in Agenthost integration settings. Slash commands, events, interactivity, and chat mirroring are wired in later phases — but the Slack app you set up here is configured for them too, so you won't need to revisit this guide when those land.
+This guide sets up the Slack app end to end: OAuth install, channel binding, `@agenthost` chat threads, `/agenthost` slash commands, interactivity, and channel notifications. All of it is live, so configure every section rather than skipping ahead.
 
 ---
 
@@ -45,6 +45,7 @@ Under **Scopes → Bot Token Scopes**, add the following. Agenthost requests all
 |---|---|
 | `app_mentions:read` | Receive `@agenthost` mentions in bound channels |
 | `channels:history` | Read public-channel messages for chat mirroring |
+| `channels:join` | Let the bot join a public channel when an admin binds it |
 | `channels:read` | List channels in the binding picker |
 | `chat:write` | Post agent replies and notifications |
 | `commands` | Execute `/agenthost` slash commands |
@@ -62,7 +63,7 @@ Under **Scopes → Bot Token Scopes**, add the following. Agenthost requests all
 
 ## 3. Configure Event Subscriptions (Phase 3+ — optional now)
 
-Required when slash commands and chat mirroring land. You can skip this for Phase 1 (OAuth-install-only), but configuring it now means no second visit.
+Required for `@agenthost` mentions and thread replies.
 
 Open **Event Subscriptions** in the left sidebar and toggle **Enable Events** on.
 
@@ -87,7 +88,7 @@ Add these events:
 
 ## 4. Configure Slash Commands (Phase 3+ — optional now)
 
-Required for `/agenthost ...` commands. Skip for Phase 1.
+Required for `/agenthost ...` commands.
 
 Open **Slash Commands** → **Create New Command**.
 
@@ -167,14 +168,18 @@ After completing the steps above on a Phase 1 build, the following is true:
 - The Agenthost workspace shows **Connected** for Slack with the team name + icon.
 - Disconnecting from Agenthost removes the OAuth grant on Agenthost's side (the bot remains in the Slack workspace until you uninstall it from Slack's app management page).
 
-The following is **not yet wired** (later phases):
+Also working once the app is fully configured:
 
-- Channel binding UI — picking which Slack channels mirror to which Agenthost workspaces (Phase 2).
-- Auto-onboarding when a Slack user first interacts (Phase 3).
-- `/agenthost` slash commands (Phase 3 + 5).
-- Chat mirroring between Slack threads and Agenthost chat sessions (Phase 4).
-- Issue notifications posted to Slack channels (Phase 6).
-- Coding agent ownership approvals via Slack DM (Phase 7).
+- Channel binding, including the bot self-joining public channels on bind.
+- Auto-onboarding when a Slack user first interacts.
+- `@agenthost <message>` chat threads, with agent replies posted back into the thread.
+- `/agenthost` slash commands: `chat`, `issue new/show/assign/status`, `dispatch`, `agents`, `link`, `help`.
+- Issue notifications posted to bound channels, opt-in per channel under Settings → Integrations → Slack.
+
+Not wired:
+
+- Coding agent ownership *approvals* via Slack DM. Ownership is managed in the web UI; see the deviation note in [docs/slack-integration.md](slack-integration.md).
+- Sign in with Slack on the web app.
 
 ---
 
@@ -184,7 +189,7 @@ The following is **not yet wired** (later phases):
 `SLACK_CLIENT_ID` is not visible to the backend. Restart the backend after setting the env var. For Docker: `docker compose -f docker-compose.selfhost.yml up -d --force-recreate backend` then check `/api/config` returns `slack_client_id`.
 
 **Slack redirects with `error=invalid_redirect_uri`.**
-The Redirect URL on Slack's app config doesn't match exactly what Agenthost is generating. Check `MULTICA_APP_URL` matches the public host that Slack will redirect back to (scheme + host + port). Trailing slashes matter.
+The Redirect URL on Slack's app config doesn't match exactly what Agenthost is generating. Check `AGENTHOST_APP_URL` (or the legacy `MULTICA_APP_URL`) matches the public host that Slack will redirect back to (scheme + host + port). Trailing slashes matter. The callback URL is built as `{AGENTHOST_APP_URL}/auth/slack/callback`, so if that env var still points at an old domain, Slack redirects users there and the OAuth state cookie — set on the host that served `/auth/slack/start` — will not be sent back.
 
 **Slack redirects with `error=invalid_client_id` or `bad_client_secret`.**
 Credentials don't match. Re-copy from Slack's **Basic Information → App Credentials** page; whitespace at the end of the env var is a common culprit.

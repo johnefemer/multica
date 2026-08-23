@@ -34,6 +34,7 @@ const (
 	//
 	//   app_mentions:read   — Events API: receive @mentions in bound channels.
 	//   channels:history    — read public-channel messages for chat mirroring.
+	//   channels:join       — self-join a public channel when an admin binds it.
 	//   channels:read       — list channels for the binding picker.
 	//   chat:write          — post agent replies and notifications.
 	//   commands            — execute /agenthost slash commands.
@@ -44,7 +45,7 @@ const (
 	//   team:read           — fetch team metadata for FetchAccount.
 	//   users:read          — resolve Slack user → profile.
 	//   users:read.email    — required for seamless onboarding (email match).
-	defaultBotScope = "app_mentions:read,channels:history,channels:read,chat:write,commands,groups:history,groups:read,im:history,im:write,team:read,users:read,users:read.email"
+	defaultBotScope = "app_mentions:read,channels:history,channels:join,channels:read,chat:write,commands,groups:history,groups:read,im:history,im:write,team:read,users:read,users:read.email"
 )
 
 // Provider implements integration.Provider for Slack OAuth v2.

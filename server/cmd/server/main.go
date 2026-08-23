@@ -96,6 +96,7 @@ func main() {
 	registerActivityListeners(bus, queries)
 	registerNotificationListeners(bus, queries)
 	registerSlackChatListener(bus, queries)
+	registerSlackNotifyListeners(bus, queries)
 
 	r := NewRouter(pool, hub, bus, analyticsClient, rdb)
 

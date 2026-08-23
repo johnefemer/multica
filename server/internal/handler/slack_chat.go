@@ -418,13 +418,27 @@ func (h *Handler) startSlackChatSession(ctx context.Context, args slackChatStart
 }
 
 // lookupSlackTeamConnection finds the (workspace, integration_connection)
-// for a Slack team. Used by the unbound-channel ephemeral hint where we
-// don't yet know the workspace from a binding.
+// for a Slack team. Used where we have no binding to derive workspace context
+// from: the unbound-channel ephemeral hint, and slash commands in channels
+// that were never bound.
+//
+// A Slack team can be installed into several Agenthost workspaces. Any of
+// their bot tokens can post the reply (Slack issues one token per team), so
+// the oldest connection wins. Callers that need real workspace context must
+// resolve it from a binding instead.
 func (h *Handler) lookupSlackTeamConnection(ctx context.Context, teamID string) (db.IntegrationConnection, db.Workspace, error) {
-	// We'd add a query for ListIntegrationConnectionsByProviderAccount
-	// later; for now, no hint is fine when there's no binding context.
-	_ = teamID
-	return db.IntegrationConnection{}, db.Workspace{}, errors.New("not implemented")
+	if teamID == "" {
+		return db.IntegrationConnection{}, db.Workspace{}, errors.New("empty slack team id")
+	}
+	conn, err := h.Queries.GetIntegrationConnectionByProviderAccount(ctx, "slack", teamID)
+	if err != nil {
+		return db.IntegrationConnection{}, db.Workspace{}, fmt.Errorf("lookup slack connection by team: %w", err)
+	}
+	ws, err := h.Queries.GetWorkspace(ctx, conn.WorkspaceID)
+	if err != nil {
+		return conn, db.Workspace{}, fmt.Errorf("lookup workspace: %w", err)
+	}
+	return conn, ws, nil
 }
 
 // filterUsableAgents drops archived agents and agents without a runtime.
@@ -525,11 +539,13 @@ func decodePickerValue(value string) (pickID, agentID string, ok bool) {
 }
 
 // SlackInteractivityPayload mirrors the slim shape we read from a Slack
-// interactivity webhook payload. Phase 4 only uses block_actions for the
-// agent picker; future shapes (modal view_submission etc.) extend this.
+// interactivity webhook payload. It covers both interaction families we
+// handle: block_actions (agent picker, issue card buttons) and
+// view_submission (the issue-creation and dispatch modals).
 type SlackInteractivityPayload struct {
-	Type string `json:"type"`
-	User struct {
+	Type      string `json:"type"`
+	TriggerID string `json:"trigger_id"`
+	User      struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"user"`
@@ -540,6 +556,13 @@ type SlackInteractivityPayload struct {
 		ChannelID string `json:"channel_id"`
 		ThreadTS  string `json:"thread_ts"`
 	} `json:"container"`
+	// Channel is populated on block_actions from a posted message. The
+	// container carries it too, but only for some interaction sources, so we
+	// read both and prefer whichever is non-empty.
+	Channel struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"channel"`
 	Actions []struct {
 		ActionID       string `json:"action_id"`
 		BlockID        string `json:"block_id"`
@@ -548,6 +571,24 @@ type SlackInteractivityPayload struct {
 			Value string `json:"value"`
 		} `json:"selected_option"`
 	} `json:"actions"`
+	View struct {
+		ID              string `json:"id"`
+		CallbackID      string `json:"callback_id"`
+		PrivateMetadata string `json:"private_metadata"`
+		State           struct {
+			Values slackViewState `json:"values"`
+		} `json:"state"`
+	} `json:"view"`
+}
+
+// ChannelID returns the channel the interaction came from, preferring the
+// container (set for message-attached actions) and falling back to the
+// top-level channel object.
+func (p SlackInteractivityPayload) ChannelID() string {
+	if p.Container.ChannelID != "" {
+		return p.Container.ChannelID
+	}
+	return p.Channel.ID
 }
 
 // parseSlackInteractivityPayload unmarshals the form-encoded `payload`

@@ -65,9 +65,17 @@ import {
   useSlackChannels,
   useSlackBindings,
   useCreateSlackBinding,
+  useUpdateSlackBinding,
   useDeleteSlackBinding,
+  useSlackNotifyEventTypes,
 } from "@multica/core/integrations";
-import type { IntegrationConnection, GitHubRepo, Project } from "@multica/core/types";
+import type {
+  IntegrationConnection,
+  GitHubRepo,
+  Project,
+  ChatChannelBinding,
+  SlackNotifyEventType,
+} from "@multica/core/types";
 
 // ── Provider catalog definition ──────────────────────────────────────────────
 
@@ -896,9 +904,11 @@ function SlackManagePanel({
   canManage: boolean;
 }) {
   const scopes = conn.scope ? conn.scope.split(",").filter(Boolean) : [];
+  // Open the Slack workspace itself, not the admin "manage apps" console —
+  // that page 404s for anyone who isn't a Slack workspace admin.
   const slackAppsURL = conn.provider_account_id
-    ? `https://app.slack.com/manage/${conn.provider_account_id}/integrations/installed`
-    : "https://app.slack.com/manage";
+    ? `https://app.slack.com/client/${conn.provider_account_id}`
+    : "https://app.slack.com";
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const { data: bindings = [] } = useSlackBindings(wsId);
@@ -910,18 +920,34 @@ function SlackManagePanel({
     refetch: refetchChannels,
   } = useSlackChannels(wsId, pickerOpen);
   const createBinding = useCreateSlackBinding(wsId);
+  const updateBinding = useUpdateSlackBinding(wsId);
   const deleteBinding = useDeleteSlackBinding(wsId);
+  const { data: eventTypes = [] } = useSlackNotifyEventTypes(wsId);
 
   const boundChannelIds = new Set(bindings.map((b) => b.external_channel_id));
-  // Only surface channels the bot has actually been added to. Slack returns
-  // every public channel from conversations.list (whether the bot is in it
-  // or not) but only delivers app_mention events for channels with
-  // is_member=true. Showing the rest in the picker is a footgun: the user
-  // binds the channel, the row writes, but @-mentions silently never fire
-  // because Slackbot intercepts them with "they're not in this channel".
-  const availableChannels = channels.filter(
-    (c) => c.is_member && !boundChannelIds.has(c.id),
-  );
+
+  // `is_member` says whether the bot has joined the channel, and membership is
+  // what makes a binding actually work: app_mention only fires and
+  // chat.postMessage only succeeds in channels the bot is in.
+  //
+  // With the channels:join scope the server joins public channels for us
+  // during the bind, so non-member public channels are offered normally.
+  // Without it (connections installed before that scope existed) only channels
+  // someone already invited the bot to can be bound, so we filter and explain.
+  const canAutoJoin = scopes.includes("channels:join");
+  const availableChannels = channels
+    .filter((c) => !boundChannelIds.has(c.id))
+    .filter((c) => c.is_member || (canAutoJoin && !c.is_private))
+    .sort(
+      (a, b) =>
+        Number(b.is_member) - Number(a.is_member) || a.name.localeCompare(b.name),
+    );
+  // Public channels we could offer if the connection were re-authorized.
+  const joinableAfterReconnect = canAutoJoin
+    ? 0
+    : channels.filter(
+        (c) => !c.is_member && !c.is_private && !boundChannelIds.has(c.id),
+      ).length;
 
   const handleBind = async (channelId: string, channelName: string) => {
     try {
@@ -999,11 +1025,21 @@ function SlackManagePanel({
                     <div className="flex-1 min-w-0">
                       <DialogTitle>Bind a Slack channel</DialogTitle>
                       <DialogDescription>
-                        Routes messages from this channel to the current workspace.
-                        Only channels the bot has been added to are shown — invite
-                        the bot via Slack&apos;s &quot;Add apps to channel&quot; menu
-                        (or by mentioning <code>@agenthost</code> in the channel and
-                        accepting the prompt) before binding here.
+                        {canAutoJoin ? (
+                          <>
+                            Routes messages from this channel to the current
+                            workspace. The bot joins public channels automatically
+                            when you bind them. Private channels need{" "}
+                            <code>/invite @agenthost</code> in Slack first.
+                          </>
+                        ) : (
+                          <>
+                            Routes messages from this channel to the current
+                            workspace. Only channels the bot has already been added
+                            to can be bound. Run <code>/invite @agenthost</code> in
+                            the channel, then click ↻ to refresh.
+                          </>
+                        )}
                       </DialogDescription>
                     </div>
                     <Button
@@ -1021,6 +1057,21 @@ function SlackManagePanel({
                   </div>
                 </DialogHeader>
                 <div className="py-2 max-h-80 overflow-y-auto">
+                  {joinableAfterReconnect > 0 && (
+                    <div className="mb-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground">
+                        {joinableAfterReconnect} more channel
+                        {joinableAfterReconnect === 1 ? "" : "s"} available after
+                        reconnecting
+                      </p>
+                      <p className="mt-1">
+                        This connection was installed before the{" "}
+                        <code className="font-mono">channels:join</code> scope, so the
+                        bot can&apos;t add itself to channels. Disconnect and
+                        reconnect Slack to bind any public channel in one click.
+                      </p>
+                    </div>
+                  )}
                   {channelsLoading ? (
                     <p className="text-sm text-muted-foreground">Loading channels…</p>
                   ) : channelsError ? (
@@ -1029,10 +1080,11 @@ function SlackManagePanel({
                     <div className="text-sm text-muted-foreground space-y-2">
                       <p>No channels available to bind.</p>
                       <p className="text-xs">
-                        The bot needs to be added to a Slack channel before it can
-                        be bound. Open Slack, type <code>@agenthost</code> in the
-                        channel and click <strong>Add Them</strong> when Slackbot
-                        prompts you, then click ↻ to refresh this list.
+                        {channels.length === 0
+                          ? "The bot can't see any channels in this Slack workspace yet."
+                          : canAutoJoin
+                            ? "Every channel the bot can see is already bound to a workspace. Private channels need /invite @agenthost in Slack before they show up here."
+                            : "Open Slack, run /invite @agenthost in the channel you want, then click ↻ to refresh this list."}
                       </p>
                     </div>
                   ) : (
@@ -1051,12 +1103,23 @@ function SlackManagePanel({
                               <span className="font-mono text-xs mr-2 text-muted-foreground">
                                 {c.is_private ? <Lock className="size-3 inline" /> : "#"}
                               </span>
-                              {c.name}
-                              {c.is_private && (
-                                <Badge variant="outline" className="ml-auto text-[10px]">
-                                  private
-                                </Badge>
-                              )}
+                              <span className="truncate">{c.name}</span>
+                              <span className="ml-auto flex items-center gap-1 shrink-0">
+                                {c.is_private && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    private
+                                  </Badge>
+                                )}
+                                {!c.is_member && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] text-muted-foreground"
+                                    title="The bot will join this channel when you bind it"
+                                  >
+                                    bot will join
+                                  </Badge>
+                                )}
+                              </span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -1074,32 +1137,26 @@ function SlackManagePanel({
             No channels bound yet. Bind a channel to route Slack messages to this workspace.
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {bindings.map((b) => (
-              <div
+              <BoundChannelRow
                 key={b.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md border text-sm"
-              >
-                <span className="text-muted-foreground">#</span>
-                <span className="flex-1 truncate">
-                  {b.external_channel_name ?? b.external_channel_id}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {b.external_channel_id}
-                </span>
-                {canManage && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    onClick={() => handleUnbind(b.id, b.external_channel_name)}
-                    disabled={deleteBinding.isPending}
-                    title="Unbind"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                )}
-              </div>
+                binding={b}
+                eventTypes={eventTypes}
+                canManage={canManage}
+                onUnbind={() => handleUnbind(b.id, b.external_channel_name)}
+                onToggleEvent={(value, enabled) =>
+                  updateBinding.mutate({
+                    bindingId: b.id,
+                    args: {
+                      event_filters: enabled
+                        ? [...b.event_filters, value]
+                        : b.event_filters.filter((f) => f !== value),
+                    },
+                  })
+                }
+                unbindPending={deleteBinding.isPending}
+              />
             ))}
           </div>
         )}
@@ -1121,35 +1178,111 @@ function SlackManagePanel({
         </div>
       )}
 
-      {/* Phase status */}
+      {/* Capability summary */}
       <div className="rounded-lg border p-3 space-y-2 text-xs text-muted-foreground">
         <p className="font-medium text-foreground">What&apos;s wired up</p>
         <ul className="space-y-1">
-          <li className="flex items-start gap-1.5">
-            <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-emerald-500" />
-            OAuth install — bot is added to the Slack workspace
-          </li>
-          <li className="flex items-start gap-1.5">
-            <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-emerald-500" />
-            Channel binding — pick which channels route to this workspace
-          </li>
+          {SLACK_CAPABILITIES.map((c) => (
+            <li key={c} className="flex items-start gap-1.5">
+              <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-emerald-500" />
+              <span>{c}</span>
+            </li>
+          ))}
         </ul>
-        <p className="font-medium text-foreground pt-1">Coming next</p>
-        <ul className="space-y-1">
-          <li className="flex items-start gap-1.5">
-            <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
-            <code className="font-mono">@agenthost</code> mentions in bound channels (Phase 4)
-          </li>
-          <li className="flex items-start gap-1.5">
-            <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
-            <code className="font-mono">/agenthost</code> slash commands (Phase 5)
-          </li>
-          <li className="flex items-start gap-1.5">
-            <AlertCircle className="size-3 mt-0.5 shrink-0 text-muted-foreground/60" />
-            Channel notifications on issue events (Phase 6)
-          </li>
-        </ul>
+        <p className="pt-1">
+          In a bound channel, mention <code className="font-mono">@agenthost</code> to start a
+          thread, or run <code className="font-mono">/agenthost help</code> for the full command
+          list.
+        </p>
       </div>
+    </div>
+  );
+}
+
+// SLACK_CAPABILITIES is prose, not a feature flag: keep it honest about what
+// the server actually does, since a settings panel that overstates the surface
+// is how users end up reporting "notifications are broken" for something that
+// was never switched on.
+const SLACK_CAPABILITIES = [
+  "OAuth install — the bot joins your Slack workspace",
+  "Channel binding — bound channels route to this workspace",
+  "@agenthost mentions start an agent chat thread, replies stream both ways",
+  "/agenthost slash commands for issue create, show, assign, status, and dispatch",
+  "Per-channel notifications on the events you pick below",
+];
+
+// ── Bound channel row ────────────────────────────────────────────────────────
+
+function BoundChannelRow({
+  binding,
+  eventTypes,
+  canManage,
+  onUnbind,
+  onToggleEvent,
+  unbindPending,
+}: {
+  binding: ChatChannelBinding;
+  eventTypes: SlackNotifyEventType[];
+  canManage: boolean;
+  onUnbind: () => void;
+  onToggleEvent: (value: string, enabled: boolean) => void;
+  unbindPending: boolean;
+}) {
+  const enabled = new Set(binding.event_filters);
+
+  return (
+    <div className="rounded-md border text-sm">
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <span className="text-muted-foreground">#</span>
+        <span className="flex-1 truncate">
+          {binding.external_channel_name ?? binding.external_channel_id}
+        </span>
+        <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+          {binding.external_channel_id}
+        </span>
+        {canManage && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-destructive hover:text-destructive shrink-0"
+            onClick={onUnbind}
+            disabled={unbindPending}
+            title="Unbind"
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        )}
+      </div>
+
+      {eventTypes.length > 0 && (
+        <div className="border-t px-2 py-2 space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            Post to this channel when
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {eventTypes.map((et) => (
+              <label
+                key={et.value}
+                className={`flex items-center gap-1.5 text-xs ${
+                  canManage ? "cursor-pointer" : "cursor-default opacity-70"
+                }`}
+              >
+                <Checkbox
+                  checked={enabled.has(et.value)}
+                  disabled={!canManage}
+                  onCheckedChange={(checked) => onToggleEvent(et.value, checked === true)}
+                />
+                <span>{et.label}</span>
+              </label>
+            ))}
+          </div>
+          {enabled.size === 0 && (
+            <p className="text-[11px] text-muted-foreground italic">
+              Nothing selected, so this channel only receives chat replies.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

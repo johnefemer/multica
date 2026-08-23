@@ -114,3 +114,16 @@ INSERT INTO issue (
 )
 RETURNING *;
 
+
+-- name: GetIntegrationConnectionByProviderAccount :one
+-- Reverse lookup: which workspace owns the connection for a given external
+-- account? Slack webhooks arrive keyed by team id with no workspace context,
+-- so this is how an unbound-channel hint finds a bot token to reply with.
+-- Multiple workspaces can install the same Slack team; the oldest connection
+-- wins because any of them can post the "ask an admin to bind" ephemeral.
+SELECT * FROM integration_connection
+WHERE provider            = @provider
+  AND provider_account_id = @provider_account_id
+  AND disconnected_at IS NULL
+ORDER BY created_at ASC
+LIMIT 1;

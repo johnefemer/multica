@@ -89,6 +89,39 @@ func (q *Queries) GetChatUserLink(ctx context.Context, arg GetChatUserLinkParams
 	return i, err
 }
 
+const getChatUserLinkByUser = `-- name: GetChatUserLinkByUser :one
+SELECT id, workspace_id, user_id, platform, external_team_id, external_user_id, external_email, external_name, linked_at FROM chat_user_link
+WHERE workspace_id = $1
+  AND platform     = $2
+  AND user_id      = $3
+`
+
+type GetChatUserLinkByUserParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Platform    string      `json:"platform"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+// Forward lookup: which external chat account belongs to this Agenthost user?
+// Used when Agenthost needs to reach a specific member on Slack (ownership
+// approval DMs, assignment pings).
+func (q *Queries) GetChatUserLinkByUser(ctx context.Context, arg GetChatUserLinkByUserParams) (ChatUserLink, error) {
+	row := q.db.QueryRow(ctx, getChatUserLinkByUser, arg.WorkspaceID, arg.Platform, arg.UserID)
+	var i ChatUserLink
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Platform,
+		&i.ExternalTeamID,
+		&i.ExternalUserID,
+		&i.ExternalEmail,
+		&i.ExternalName,
+		&i.LinkedAt,
+	)
+	return i, err
+}
+
 const listChatUserLinks = `-- name: ListChatUserLinks :many
 SELECT id, workspace_id, user_id, platform, external_team_id, external_user_id, external_email, external_name, linked_at FROM chat_user_link
 WHERE workspace_id = $1

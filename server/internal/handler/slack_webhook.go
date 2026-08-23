@@ -183,25 +183,31 @@ func (h *Handler) HandleSlackCommands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	command := form.Get("command")
-	text := form.Get("text")
-	userID := form.Get("user_id")
-	teamID := form.Get("team_id")
-	channelID := form.Get("channel_id")
+	req := slackCommandRequest{
+		Command:     form.Get("command"),
+		Text:        form.Get("text"),
+		TeamID:      form.Get("team_id"),
+		ChannelID:   form.Get("channel_id"),
+		ChannelName: form.Get("channel_name"),
+		SlackUserID: form.Get("user_id"),
+		TriggerID:   form.Get("trigger_id"),
+		ResponseURL: form.Get("response_url"),
+	}
 
-	slog.Info("slack slash command received (Phase 3 — placeholder)",
-		"command", command, "text", text,
-		"user_id", userID, "team_id", teamID, "channel_id", channelID,
+	slog.Info("slack slash command received",
+		"command", req.Command, "text", req.Text,
+		"user_id", req.SlackUserID, "team_id", req.TeamID, "channel_id", req.ChannelID,
 	)
 
-	// Phase 3 placeholder reply. Phase 5 will route to real subcommands.
-	resp := map[string]any{
-		"response_type": "ephemeral",
-		"text": fmt.Sprintf(
-			"Got `%s %s` — slash commands are wiring up in an upcoming phase. "+
-				"For now this just confirms the integration round-trip works.",
-			command, text,
-		),
+	// Slack allows three seconds. Every command path is local DB work plus at
+	// most one Slack API call, so we answer inline; the reply body is the
+	// command's whole response.
+	resp := h.routeSlackCommand(r.Context(), req)
+	if resp == nil {
+		// Nil means the command already produced its own UI (a modal opened,
+		// or a message was posted). Slack shows nothing extra for an empty 200.
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -246,9 +252,20 @@ func (h *Handler) HandleSlackInteractivity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 200 ack within Slack's 3s window. Real work happens in a goroutine
-	// — picker selection eventually posts a threaded "Working on it…" via
-	// chat.postMessage, so the user sees the result asynchronously.
+	// Modal submissions must answer synchronously: the response body is what
+	// tells Slack to close the view or show a validation error, and there is
+	// no second chance to send it. Everything else acks immediately and does
+	// its work in the background, posting results via chat.postMessage.
+	if parsed.Type == "view_submission" {
+		resp := h.handleSlackViewSubmission(r.Context(), parsed)
+		if resp == nil {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 
 	go func() {
@@ -257,7 +274,7 @@ func (h *Handler) HandleSlackInteractivity(w http.ResponseWriter, r *http.Reques
 
 		switch parsed.Type {
 		case "block_actions":
-			if err := h.HandleSlackPickerSelection(bgCtx, parsed); err != nil {
+			if err := h.handleSlackBlockActions(bgCtx, parsed); err != nil {
 				slog.Error("slack interactivity dispatch failed",
 					"type", parsed.Type, "user_id", parsed.User.ID, "error", err)
 			}

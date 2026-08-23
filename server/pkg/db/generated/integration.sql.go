@@ -85,6 +85,33 @@ func (q *Queries) GetIntegrationConnection(ctx context.Context, workspaceID pgty
 	return i, err
 }
 
+const getIntegrationConnectionByProviderAccount = `-- name: GetIntegrationConnectionByProviderAccount :one
+SELECT id, workspace_id, connected_by, provider, provider_account_id, provider_account_name, provider_account_avatar, access_token, refresh_token, token_expires_at, scope, meta, status, error_message, created_at, updated_at, disconnected_at
+FROM integration_connection
+WHERE provider            = $1
+  AND provider_account_id = $2
+  AND disconnected_at IS NULL
+ORDER BY created_at ASC
+LIMIT 1
+`
+
+// Reverse lookup: which workspace owns the connection for a given external
+// account? Slack webhooks arrive keyed by team id with no workspace context,
+// so this is how an unbound-channel hint finds a bot token to reply with.
+// Multiple workspaces can install the same Slack team; the oldest connection
+// wins because any of them can post the "ask an admin to bind" ephemeral.
+func (q *Queries) GetIntegrationConnectionByProviderAccount(ctx context.Context, provider string, providerAccountID string) (IntegrationConnection, error) {
+	row := q.db.QueryRow(ctx, getIntegrationConnectionByProviderAccount, provider, providerAccountID)
+	var i IntegrationConnection
+	err := row.Scan(
+		&i.ID, &i.WorkspaceID, &i.ConnectedBy, &i.Provider,
+		&i.ProviderAccountID, &i.ProviderAccountName, &i.ProviderAccountAvatar,
+		&i.AccessToken, &i.RefreshToken, &i.TokenExpiresAt, &i.Scope, &i.Meta,
+		&i.Status, &i.ErrorMessage, &i.CreatedAt, &i.UpdatedAt, &i.DisconnectedAt,
+	)
+	return i, err
+}
+
 const listIntegrationConnections = `-- name: ListIntegrationConnections :many
 SELECT id, workspace_id, connected_by, provider, provider_account_id, provider_account_name, provider_account_avatar, access_token, refresh_token, token_expires_at, scope, meta, status, error_message, created_at, updated_at, disconnected_at
 FROM integration_connection

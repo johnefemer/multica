@@ -1,10 +1,13 @@
-# Slack Integration — Plan
+# Slack Integration
 
-Status: Draft. Implementation not yet started.
+Status: Phases 1-6 shipped. Phase 7 partially shipped (dispatch and agent
+listing); the ownership *approval* workflow is deliberately unbuilt, see
+[Ownership: deviation from the original plan](#ownership-deviation-from-the-original-plan).
+Phase 8 not started.
 
 ## Goals
 
-- Install an Agenthost Slack app to a Slack workspace and bind individual channels to individual Agenthost workspaces (channel ↔ workspace is 1:1).
+- Install an Agenthost Slack app to a Slack workspace and bind individual channels to individual Agenthost workspaces (channel ↔ workspace is 1:1). Binding a public channel makes the bot join it (`channels:join`); private channels need a human `/invite` first because bots cannot self-join them.
 - **Make a Slack thread a first-class Agenthost chat session.** Each thread in a bound channel mirrors a `chat_session` in Agenthost; replies flow both ways.
 - **Map Slack users to Agenthost users seamlessly** — no manual link step. First contact in a bound channel resolves the Agenthost user via Slack profile email and creates one if needed.
 - Let Slack users work on issues (create, assign, change status, dispatch to agents) via slash commands and structured interactivity.
@@ -337,6 +340,39 @@ Each phase is independently shippable. Chat mirroring is the centerpiece — pha
 6. **Outbound issue notifications.** Listener subscribed to `EventIssueCreated/Updated/Assigned/TaskCompleted`, Block Kit issue cards with action buttons. ~3 days.
 7. **Coding agent ownership + dispatch.** `agent` table changes, request/approval flow, `/agenthost dispatch/agents`. ~3 days.
 8. **(Stretch) Sign in with Slack on web.** So auto-onboarded users have a password-less login path. ~1 day.
+
+### Status
+
+| Phase | State | Notes |
+|---|---|---|
+| 1. Foundation + OAuth install | Shipped | |
+| 2. Channel binding | Shipped | The bot now self-joins public channels on bind via `channels:join`, so any public channel is bindable in one click. Private channels still need `/invite @agenthost` first. |
+| 3. Seamless identity | Shipped | |
+| 4. Chat mirroring | Shipped | |
+| 5. Issue commands | Shipped | `chat`, `issue new/show/assign/status`, `dispatch`, `agents`, `link`, `help`, `whoami`. Creation and dispatch both use modals. |
+| 6. Outbound notifications | Shipped | `cmd/server/slack_notify_listeners.go`, opt-in per binding via `event_filters`, configured from the integrations settings panel. |
+| 7. Agent ownership + dispatch | Partial | Dispatch and listing shipped on the existing ownership model. The request/approval state machine is not built, see below. |
+| 8. Sign in with Slack | Not started | |
+
+### Ownership: deviation from the original plan
+
+The plan called for new `agent.ownership_status` / `ownership_requested_at` /
+`ownership_approved_by` columns driving an `unowned → pending → approved`
+approval flow. That was not built, because the schema already models the same
+thing: `agent.owner_id` gives a user 1:N agents, and `agent.visibility`
+(`workspace` | `private`) plus `canAssignAgent` already decides who may hand
+work to which agent. Adding a second ownership state machine alongside the one
+the web UI enforces would mean two sources of truth for the same question.
+
+So `/agenthost dispatch` reuses `canAssignAgent`'s rule verbatim: a
+workspace-visible agent is dispatchable by any member, a private one by its
+owner or a workspace admin. `/agenthost agents` shows that state, and
+`/agenthost agents request` points at the existing owner field in the web UI
+rather than opening a Slack approval flow.
+
+Building the approval workflow properly is still worth doing, but it should
+either extend `owner_id` (a pending-owner column plus admin approval) or
+replace it — deciding that is a schema question, not a Slack question.
 
 Total: ~21 working days for a single engineer; phases 5/6/7 can run in parallel after phase 4.
 

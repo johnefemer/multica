@@ -74,6 +74,8 @@ import type {
   ImportIssuesResult,
   GitHubWebhookRegistration,
   SlackChannel,
+  SlackNotifyEventType,
+  UpdateSlackBindingArgs,
   ChatChannelBinding,
 } from "../types/integration";
 import type { OnboardingCompletionPath } from "../onboarding/types";
@@ -1191,11 +1193,26 @@ export class ApiClient {
     });
   }
 
+  async updateSlackBinding(
+    workspaceId: string,
+    bindingId: string,
+    args: UpdateSlackBindingArgs,
+  ): Promise<ChatChannelBinding> {
+    return this.fetch(
+      `/api/workspaces/${workspaceId}/integrations/slack/bindings/${bindingId}`,
+      { method: "PATCH", body: JSON.stringify(args) },
+    );
+  }
+
   async deleteSlackBinding(workspaceId: string, bindingId: string): Promise<void> {
     await this.fetch(
       `/api/workspaces/${workspaceId}/integrations/slack/bindings/${bindingId}`,
       { method: "DELETE" },
     );
+  }
+
+  async listSlackNotifyEventTypes(workspaceId: string): Promise<SlackNotifyEventType[]> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/slack/event-types`);
   }
 
   async getProjectByIntegrationRepo(

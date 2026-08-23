@@ -18,40 +18,10 @@ type mention struct {
 	ID   string // user_id, agent_id, issue_id, or "all"
 }
 
-
-// statusLabels maps DB status values to human-readable labels for notifications.
-var statusLabels = map[string]string{
-	"backlog":     "Backlog",
-	"todo":        "Todo",
-	"in_progress": "In Progress",
-	"in_review":   "In Review",
-	"done":        "Done",
-	"blocked":     "Blocked",
-	"cancelled":   "Cancelled",
-}
-
-// priorityLabels maps DB priority values to human-readable labels for notifications.
-var priorityLabels = map[string]string{
-	"urgent": "Urgent",
-	"high":   "High",
-	"medium": "Medium",
-	"low":    "Low",
-	"none":   "No priority",
-}
-
-func statusLabel(s string) string {
-	if l, ok := statusLabels[s]; ok {
-		return l
-	}
-	return s
-}
-
-func priorityLabel(p string) string {
-	if l, ok := priorityLabels[p]; ok {
-		return l
-	}
-	return p
-}
+// Status and priority labels are shared with the Slack Block Kit renderer;
+// the single copy lives in internal/util so the two surfaces can't drift.
+func statusLabel(s string) string   { return util.StatusLabel(s) }
+func priorityLabel(p string) string { return util.PriorityLabel(p) }
 
 var emptyDetails = []byte("{}")
 

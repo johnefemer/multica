@@ -463,7 +463,9 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 				r.Get("/slack/channels", h.ListSlackChannels)
 				r.Get("/slack/bindings", h.ListChatChannelBindings)
 				r.Post("/slack/bindings", h.CreateChatChannelBinding)
+				r.Patch("/slack/bindings/{bindingId}", h.UpdateChatChannelBinding)
 				r.Delete("/slack/bindings/{bindingId}", h.DeleteChatChannelBinding)
+				r.Get("/slack/event-types", h.ListSlackNotifyEventTypes)
 			})
 
 			// Tasks (user-facing, with ownership check)

@@ -21,3 +21,12 @@ SELECT * FROM chat_user_link
 WHERE workspace_id = @workspace_id
   AND platform     = @platform
 ORDER BY linked_at ASC;
+
+-- name: GetChatUserLinkByUser :one
+-- Forward lookup: which external chat account belongs to this Agenthost user?
+-- Used when Agenthost needs to reach a specific member on Slack (ownership
+-- approval DMs, assignment pings).
+SELECT * FROM chat_user_link
+WHERE workspace_id = @workspace_id
+  AND platform     = @platform
+  AND user_id      = @user_id;
