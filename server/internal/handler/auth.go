@@ -44,8 +44,12 @@ type UserResponse struct {
 	OnboardedAt             *string         `json:"onboarded_at"`
 	OnboardingQuestionnaire json.RawMessage `json:"onboarding_questionnaire"`
 	StarterContentState     *string         `json:"starter_content_state"`
-	CreatedAt               string          `json:"created_at"`
-	UpdatedAt               string          `json:"updated_at"`
+	// HasPassword drives the account settings UI: "Set a password" for
+	// accounts created through the email-code or Google flow, "Change
+	// password" once one exists. The hash itself is never serialised.
+	HasPassword bool   `json:"has_password"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 func userToResponse(u db.User) UserResponse {
@@ -64,6 +68,7 @@ func userToResponse(u db.User) UserResponse {
 		OnboardedAt:             timestampToPtr(u.OnboardedAt),
 		OnboardingQuestionnaire: json.RawMessage(q),
 		StarterContentState:     textToPtr(u.StarterContentState),
+		HasPassword:             u.PasswordHash.Valid && u.PasswordHash.String != "",
 		CreatedAt:               timestampToString(u.CreatedAt),
 		UpdatedAt:               timestampToString(u.UpdatedAt),
 	}
@@ -101,6 +106,40 @@ func (h *Handler) issueJWT(user db.User) (string, error) {
 		"iat":   time.Now().Unix(),
 	})
 	return token.SignedString(auth.JWTSecret())
+}
+
+// finishLogin issues the session JWT, sets the browser auth + CSRF cookies
+// and (when configured) the CloudFront signed cookies, then writes the login
+// payload. Shared by every entry point that mints a session: verification
+// code, Google OAuth and password.
+//
+// cfCookieTTL is per-caller because the CDN cookie lifetime differs by entry
+// point. method is recorded on the log line only.
+func (h *Handler) finishLogin(w http.ResponseWriter, r *http.Request, user db.User, method string, cfCookieTTL time.Duration) {
+	tokenString, err := h.issueJWT(user)
+	if err != nil {
+		slog.Warn("login failed", append(logger.RequestAttrs(r), "error", err, "email", user.Email, "method", method)...)
+		writeError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	// Set HttpOnly auth cookie (browser clients) + CSRF cookie.
+	if err := auth.SetAuthCookies(w, tokenString); err != nil {
+		slog.Warn("failed to set auth cookies", "error", err)
+	}
+
+	// Set CloudFront signed cookies for CDN access.
+	if h.CFSigner != nil {
+		for _, cookie := range h.CFSigner.SignedCookies(time.Now().Add(cfCookieTTL)) {
+			http.SetCookie(w, cookie)
+		}
+	}
+
+	slog.Info("user logged in", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email, "method", method)...)
+	writeJSON(w, http.StatusOK, LoginResponse{
+		Token: tokenString,
+		User:  userToResponse(user),
+	})
 }
 
 // findOrCreateUser returns the existing user for an email, or creates one if
@@ -337,30 +376,7 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 		h.Analytics.Capture(analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r)))
 	}
 
-	tokenString, err := h.issueJWT(user)
-	if err != nil {
-		slog.Warn("login failed", append(logger.RequestAttrs(r), "error", err, "email", req.Email)...)
-		writeError(w, http.StatusInternalServerError, "failed to generate token")
-		return
-	}
-
-	// Set HttpOnly auth cookie (browser clients) + CSRF cookie.
-	if err := auth.SetAuthCookies(w, tokenString); err != nil {
-		slog.Warn("failed to set auth cookies", "error", err)
-	}
-
-	// Set CloudFront signed cookies for CDN access.
-	if h.CFSigner != nil {
-		for _, cookie := range h.CFSigner.SignedCookies(time.Now().Add(30 * 24 * time.Hour)) {
-			http.SetCookie(w, cookie)
-		}
-	}
-
-	slog.Info("user logged in", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email)...)
-	writeJSON(w, http.StatusOK, LoginResponse{
-		Token: tokenString,
-		User:  userToResponse(user),
-	})
+	h.finishLogin(w, r, user, "verification_code", 30*24*time.Hour)
 }
 
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -529,28 +545,7 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tokenString, err := h.issueJWT(user)
-	if err != nil {
-		slog.Warn("google login failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
-		writeError(w, http.StatusInternalServerError, "failed to generate token")
-		return
-	}
-
-	if err := auth.SetAuthCookies(w, tokenString); err != nil {
-		slog.Warn("failed to set auth cookies", "error", err)
-	}
-
-	if h.CFSigner != nil {
-		for _, cookie := range h.CFSigner.SignedCookies(time.Now().Add(72 * time.Hour)) {
-			http.SetCookie(w, cookie)
-		}
-	}
-
-	slog.Info("user logged in via google", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email)...)
-	writeJSON(w, http.StatusOK, LoginResponse{
-		Token: tokenString,
-		User:  userToResponse(user),
-	})
+	h.finishLogin(w, r, user, "google", 72*time.Hour)
 }
 
 // IssueCliToken returns a fresh JWT for the authenticated user.

@@ -9,6 +9,8 @@ This document maps **user-visible capabilities** to **implementation loci** (HTT
 | Capability | API / mechanism | Notes |
 |------------|-----------------|-------|
 | Email magic link / code login | `POST /auth/send-code`, `POST /auth/verify-code` | Resend integration; dev fallback logs codes. |
+| Password login | `POST /auth/login` | Existing accounts only; never creates a user. Rate-limited per email+IP, generic failure message. |
+| Set / change password | `PUT /api/me/password` | Current password required only once the account has one. `has_password` on the user payload drives the settings UI. |
 | Google OAuth | `POST /auth/google` | Social login path. |
 | Logout | `POST /auth/logout` | Session invalidation pattern in handler layer. |
 | Current user + profile | `GET/PATCH /api/me` | |

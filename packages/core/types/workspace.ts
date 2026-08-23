@@ -50,6 +50,12 @@ export interface User {
    * 'retry_after_error') can be added without churning this type.
    */
   starter_content_state: string | null;
+  /**
+   * Whether the account can sign in with a password. False for accounts that
+   * only ever used the email-code or Google flow. Drives the "Set a password"
+   * vs "Change password" branch in account settings.
+   */
+  has_password: boolean;
   created_at: string;
   updated_at: string;
 }

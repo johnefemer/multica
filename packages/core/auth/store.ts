@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { User, StorageAdapter } from "../types";
 import { identify as identifyAnalytics, resetAnalytics } from "../analytics";
-import { ApiError, type ApiClient } from "../api/client";
+import { ApiError, type ApiClient, type LoginResponse } from "../api/client";
 import { setCurrentWorkspace } from "../platform/workspace-storage";
 
 export interface AuthStoreOptions {
@@ -20,6 +20,7 @@ export interface AuthState {
   initialize: () => Promise<void>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<User>;
+  loginWithPassword: (email: string, password: string) => Promise<User>;
   loginWithGoogle: (code: string, redirectUri: string) => Promise<User>;
   loginWithToken: (token: string) => Promise<User>;
   logout: () => void;
@@ -30,56 +31,11 @@ export interface AuthState {
 export function createAuthStore(options: AuthStoreOptions) {
   const { api, storage, onLogin, onLogout, cookieAuth } = options;
 
-  return create<AuthState>((set) => ({
-    user: null,
-    isLoading: true,
-
-    initialize: async () => {
-      if (cookieAuth) {
-        // In cookie mode, the HttpOnly cookie is sent automatically.
-        // Try to fetch the current user — if the cookie exists the server will accept it.
-        try {
-          const user = await api.getMe();
-          set({ user, isLoading: false });
-        } catch {
-          set({ user: null, isLoading: false });
-        }
-        return;
-      }
-
-      // Token mode: read from localStorage (Electron / legacy).
-      const token = storage.getItem("multica_token");
-      if (!token) {
-        set({ isLoading: false });
-        return;
-      }
-
-      api.setToken(token);
-
-      try {
-        const user = await api.getMe();
-        set({ user, isLoading: false });
-      } catch (err) {
-        // Only clear the stored token on a genuine auth failure (401). For
-        // transient errors — network blips, backend rolling restarts, 5xx,
-        // aborted fetches — keep the token so the next initialize() (next
-        // page load or focus-refresh) can retry. The 401 path's token
-        // cleanup is handled upstream by ApiClient.handleUnauthorized via
-        // the onUnauthorized callback; we only need to reset the in-memory
-        // user + workspace state here.
-        if (err instanceof ApiError && err.status === 401) {
-          setCurrentWorkspace(null, null);
-        }
-        set({ user: null, isLoading: false });
-      }
-    },
-
-    sendCode: async (email: string) => {
-      await api.sendCode(email);
-    },
-
-    verifyCode: async (email: string, code: string) => {
-      const { token, user } = await api.verifyCode(email, code);
+  return create<AuthState>((set) => {
+    // Shared tail of every login path (verification code, password, Google):
+    // persist the token in token mode, notify the host app, identify for
+    // analytics, publish the user.
+    const applyLogin = ({ token, user }: LoginResponse): User => {
       if (!cookieAuth) {
         // Token mode: persist for Electron / legacy.
         storage.setItem("multica_token", token);
@@ -89,50 +45,99 @@ export function createAuthStore(options: AuthStoreOptions) {
       identifyAnalytics(user.id, { email: user.email, name: user.name });
       set({ user });
       return user;
-    },
+    };
 
-    loginWithGoogle: async (code: string, redirectUri: string) => {
-      const { token, user } = await api.googleLogin(code, redirectUri);
-      if (!cookieAuth) {
+    return {
+      user: null,
+      isLoading: true,
+
+      initialize: async () => {
+        if (cookieAuth) {
+          // In cookie mode, the HttpOnly cookie is sent automatically.
+          // Try to fetch the current user — if the cookie exists the server will accept it.
+          try {
+            const user = await api.getMe();
+            set({ user, isLoading: false });
+          } catch {
+            set({ user: null, isLoading: false });
+          }
+          return;
+        }
+
+        // Token mode: read from localStorage (Electron / legacy).
+        const token = storage.getItem("multica_token");
+        if (!token) {
+          set({ isLoading: false });
+          return;
+        }
+
+        api.setToken(token);
+
+        try {
+          const user = await api.getMe();
+          set({ user, isLoading: false });
+        } catch (err) {
+          // Only clear the stored token on a genuine auth failure (401). For
+          // transient errors — network blips, backend rolling restarts, 5xx,
+          // aborted fetches — keep the token so the next initialize() (next
+          // page load or focus-refresh) can retry. The 401 path's token
+          // cleanup is handled upstream by ApiClient.handleUnauthorized via
+          // the onUnauthorized callback; we only need to reset the in-memory
+          // user + workspace state here.
+          if (err instanceof ApiError && err.status === 401) {
+            setCurrentWorkspace(null, null);
+          }
+          set({ user: null, isLoading: false });
+        }
+      },
+
+      sendCode: async (email: string) => {
+        await api.sendCode(email);
+      },
+
+      verifyCode: async (email: string, code: string) => {
+        return applyLogin(await api.verifyCode(email, code));
+      },
+
+      loginWithPassword: async (email: string, password: string) => {
+        return applyLogin(await api.passwordLogin(email, password));
+      },
+
+      loginWithGoogle: async (code: string, redirectUri: string) => {
+        return applyLogin(await api.googleLogin(code, redirectUri));
+      },
+
+      loginWithToken: async (token: string) => {
         storage.setItem("multica_token", token);
         api.setToken(token);
-      }
-      onLogin?.();
-      identifyAnalytics(user.id, { email: user.email, name: user.name });
-      set({ user });
-      return user;
-    },
+        const user = await api.getMe();
+        onLogin?.();
+        identifyAnalytics(user.id, { email: user.email, name: user.name });
+        set({ user, isLoading: false });
+        return user;
+      },
 
-    loginWithToken: async (token: string) => {
-      storage.setItem("multica_token", token);
-      api.setToken(token);
-      const user = await api.getMe();
-      onLogin?.();
-      identifyAnalytics(user.id, { email: user.email, name: user.name });
-      set({ user, isLoading: false });
-      return user;
-    },
+      logout: () => {
+        if (cookieAuth) {
+          // Clear server-side HttpOnly cookie.
+          api.logout().catch(() => {});
+        }
+        storage.removeItem("multica_token");
+        api.setToken(null);
+        setCurrentWorkspace(null, null);
+        resetAnalytics();
+        onLogout?.();
+        set({ user: null });
+      },
 
-    logout: () => {
-      if (cookieAuth) {
-        // Clear server-side HttpOnly cookie.
-        api.logout().catch(() => {});
-      }
-      storage.removeItem("multica_token");
-      api.setToken(null);
-      setCurrentWorkspace(null, null);
-      resetAnalytics();
-      onLogout?.();
-      set({ user: null });
-    },
+      setUser: (user: User) => {
+        set({ user });
+      },
 
-    setUser: (user: User) => {
-      set({ user });
-    },
-
-    refreshMe: async () => {
-      const user = await api.getMe();
-      set({ user });
-    },
-  }));
+      refreshMe: async () => {
+        const user = await api.getMe();
+        set({ user });
+      },
+    };
+  });
 }

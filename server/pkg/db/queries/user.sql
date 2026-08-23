@@ -55,3 +55,12 @@ UPDATE "user" SET
     updated_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: SetUserPassword :one
+-- Sets or clears the bcrypt password hash. Straight assignment (not
+-- COALESCE) so passing NULL disables password login for the account.
+UPDATE "user" SET
+    password_hash = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING *;

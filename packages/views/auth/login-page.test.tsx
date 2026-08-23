@@ -8,6 +8,8 @@ import userEvent from "@testing-library/user-event";
 
 const mockSendCode = vi.hoisted(() => vi.fn());
 const mockVerifyCode = vi.hoisted(() => vi.fn());
+const mockLoginWithPassword = vi.hoisted(() => vi.fn());
+const mockApiPasswordLogin = vi.hoisted(() => vi.fn());
 const mockApiListWorkspaces = vi.hoisted(() => vi.fn());
 const mockApiVerifyCode = vi.hoisted(() => vi.fn());
 const mockApiSetToken = vi.hoisted(() => vi.fn());
@@ -26,13 +28,18 @@ vi.mock("@multica/core/auth", () => ({
   useAuthStore: Object.assign(
     // Zustand hook form — component may call useAuthStore(selector)
     (selector?: (s: unknown) => unknown) => {
-      const state = { sendCode: mockSendCode, verifyCode: mockVerifyCode };
+      const state = {
+        sendCode: mockSendCode,
+        verifyCode: mockVerifyCode,
+        loginWithPassword: mockLoginWithPassword,
+      };
       return selector ? selector(state) : state;
     },
     {
       getState: () => ({
         sendCode: mockSendCode,
         verifyCode: mockVerifyCode,
+        loginWithPassword: mockLoginWithPassword,
       }),
     },
   ),
@@ -42,6 +49,7 @@ vi.mock("@multica/core/api", () => ({
   api: {
     listWorkspaces: mockApiListWorkspaces,
     verifyCode: mockApiVerifyCode,
+    passwordLogin: mockApiPasswordLogin,
     setToken: mockApiSetToken,
     getMe: mockApiGetMe,
     issueCliToken: mockApiIssueCliToken,
@@ -657,6 +665,152 @@ describe("LoginPage", () => {
     expect(
       screen.getByText(/sign in to agenthost/i),
     ).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Password sign-in
+  // -------------------------------------------------------------------------
+
+  async function goToPasswordStep(email = "test@example.com") {
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/email/i), email);
+    await user.click(
+      screen.getByRole("button", { name: /sign in with password/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
+    });
+    return user;
+  }
+
+  it("requires an email before switching to the password step", async () => {
+    render(<LoginPage onSuccess={onSuccess} />);
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole("button", { name: /sign in with password/i }),
+    );
+
+    expect(screen.getByText("Email is required")).toBeInTheDocument();
+    expect(screen.queryByText(/enter your password/i)).not.toBeInTheDocument();
+  });
+
+  it("carries the typed email into the password step", async () => {
+    render(<LoginPage onSuccess={onSuccess} />);
+    await goToPasswordStep("carried@example.com");
+
+    expect(screen.getByText(/carried@example.com/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+  });
+
+  it("logs in with password, seeds workspace list cache, then onSuccess", async () => {
+    mockLoginWithPassword.mockResolvedValueOnce(undefined);
+    mockApiListWorkspaces.mockResolvedValueOnce([{ id: "ws-1" }]);
+
+    render(<LoginPage onSuccess={onSuccess} />);
+    const user = await goToPasswordStep();
+
+    await user.type(screen.getByLabelText("Password"), "hunter2hunter2");
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    await waitFor(() => {
+      expect(mockLoginWithPassword).toHaveBeenCalledWith(
+        "test@example.com",
+        "hunter2hunter2",
+      );
+      expect(mockSetQueryData).toHaveBeenCalledWith(
+        expect.arrayContaining(["workspaces", "list"]),
+        [{ id: "ws-1" }],
+      );
+      expect(onSuccess).toHaveBeenCalled();
+    });
+  });
+
+  it("shows the server error and clears the field on a bad password", async () => {
+    mockLoginWithPassword.mockRejectedValueOnce(
+      new Error("invalid email or password"),
+    );
+
+    render(<LoginPage onSuccess={onSuccess} />);
+    const user = await goToPasswordStep();
+
+    const field = screen.getByLabelText("Password") as HTMLInputElement;
+    await user.type(field, "wrong password");
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("invalid email or password"),
+      ).toBeInTheDocument();
+    });
+    expect(field.value).toBe("");
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("masks the password until the reveal toggle is used", async () => {
+    render(<LoginPage onSuccess={onSuccess} />);
+    const user = await goToPasswordStep();
+
+    const field = screen.getByLabelText("Password") as HTMLInputElement;
+    expect(field.type).toBe("password");
+
+    await user.click(screen.getByRole("button", { name: /show password/i }));
+    expect(field.type).toBe("text");
+
+    await user.click(screen.getByRole("button", { name: /hide password/i }));
+    expect(field.type).toBe("password");
+  });
+
+  it("falls back to the email code flow from the password step", async () => {
+    mockSendCode.mockResolvedValueOnce(undefined);
+
+    render(<LoginPage onSuccess={onSuccess} />);
+    const user = await goToPasswordStep();
+
+    await user.click(
+      screen.getByRole("button", { name: /forgot password\? email me a code/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/check your email/i)).toBeInTheDocument();
+    });
+    expect(mockSendCode).toHaveBeenCalledWith("test@example.com");
+  });
+
+  it("hands the CLI a token minted by the password login", async () => {
+    mockApiPasswordLogin.mockResolvedValueOnce({ token: "jwt-from-password" });
+
+    render(
+      <LoginPage
+        onSuccess={onSuccess}
+        cliCallback={{ url: "http://localhost:9876/callback", state: "st8" }}
+      />,
+    );
+    const user = await goToPasswordStep();
+
+    await user.type(screen.getByLabelText("Password"), "hunter2hunter2");
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    await waitFor(() => {
+      expect(mockApiPasswordLogin).toHaveBeenCalledWith(
+        "test@example.com",
+        "hunter2hunter2",
+      );
+      expect(window.location.href).toContain("token=jwt-from-password");
+      expect(window.location.href).toContain("state=st8");
+    });
+    // The CLI path must not go through the app-entry flow.
+    expect(mockLoginWithPassword).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("returns to the email step from the password step", async () => {
+    render(<LoginPage onSuccess={onSuccess} />);
+    const user = await goToPasswordStep();
+
+    await user.click(screen.getByRole("button", { name: /back/i }));
+
+    expect(screen.getByText(/sign in to agenthost/i)).toBeInTheDocument();
   });
 
 });

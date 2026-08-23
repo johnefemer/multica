@@ -8,7 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, Copy, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  Loader2,
+} from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
@@ -157,7 +165,7 @@ function AuthShell({ children }: { children: ReactNode }) {
         <div className="w-full max-w-[480px]">{children}</div>
       </main>
       <footer className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-[#26303a] px-6 py-3 text-[10px] tracking-[0.12em] text-[#6b7780] sm:px-10">
-        <span>{"// SECURE_AUTH · 6-DIGIT_CODE_OVER_EMAIL"}</span>
+        <span>{"// SECURE_AUTH · EMAIL_CODE_OR_PASSWORD"}</span>
         <span>{`// KENSINK_LABS · ${new Date().getFullYear()}`}</span>
       </footer>
     </div>
@@ -251,6 +259,86 @@ function OutlineButton({
   );
 }
 
+/** Accent text link used for the flow switches (password <-> email code). */
+function SwitchLink({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#7cf29c] transition-colors duration-150 hover:text-[#a4f5ba] disabled:cursor-not-allowed disabled:text-[#6b7780]"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Password input with a reveal toggle. `autoComplete` distinguishes the
+ *  sign-in field from the two change-password fields for password managers. */
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  autoComplete,
+  autoFocus,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: "current-password" | "new-password";
+  autoFocus?: boolean;
+  disabled?: boolean;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={id}
+        className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#9aa6af]"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={revealed ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
+          disabled={disabled}
+          required
+          className="w-full border border-[#26303a] bg-[#0f1318] px-4 py-3 pr-12 text-[14px] text-[#d4dde4] placeholder:text-[#6b7780] focus:border-[#7cf29c] focus:outline-none focus:ring-0"
+        />
+        <button
+          type="button"
+          onClick={() => setRevealed((v) => !v)}
+          aria-label={revealed ? "Hide password" : "Show password"}
+          className="absolute inset-y-0 right-0 flex items-center px-4 text-[#6b7780] transition-colors duration-150 hover:text-[#d4dde4]"
+        >
+          {revealed ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ErrorLine({ children }: { children: ReactNode }) {
   return (
     <p className="mt-3 border-l-2 border-[#ff6363] bg-[rgba(255,99,99,0.06)] px-3 py-2 text-[12px] text-[#ff6363]">
@@ -274,9 +362,10 @@ export function LoginPage({
 }: LoginPageProps) {
   const qc = useQueryClient();
   const [step, setStep] = useState<
-    "email" | "code" | "cli_confirm" | "cli_show_code"
+    "email" | "password" | "code" | "cli_confirm" | "cli_show_code"
   >("email");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -359,6 +448,38 @@ export function LoginPage({
     [email],
   );
 
+  // CLI path: hand the freshly minted JWT to the CLI session. Shared by the
+  // verification-code and password flows.
+  const handOffToCli = useCallback(
+    async (token: string, cli: CliCallbackConfig) => {
+      localStorage.setItem("multica_token", token);
+      api.setToken(token);
+      onTokenObtained?.();
+      if (cli.url) {
+        // Browser flow: redirect to the CLI's local callback listener.
+        redirectToCliCallback(cli.url, token, cli.state);
+        return;
+      }
+      // Device flow: stash JWT under a one-shot opaque code paired to the
+      // CLI's verifier, then render the code for the user to paste.
+      const { code: cc } = await api.issueCliAuthCode(cli.state);
+      setCliAuthCode(cc);
+      setStep("cli_show_code");
+      setLoading(false);
+    },
+    [onTokenObtained],
+  );
+
+  // Normal path: seed the workspace list into the Query cache so the caller's
+  // onSuccess can read it synchronously to compute a destination URL (first
+  // workspace's slug, or /workspaces/new for zero-workspace users).
+  const enterApp = useCallback(async () => {
+    const wsList = await api.listWorkspaces();
+    qc.setQueryData(workspaceKeys.list(), wsList);
+    onTokenObtained?.();
+    onSuccess();
+  }, [onSuccess, onTokenObtained, qc]);
+
   const handleVerify = useCallback(
     async (value: string) => {
       if (value.length !== 6) return;
@@ -366,34 +487,13 @@ export function LoginPage({
       setError("");
       try {
         if (cliCallback) {
-          // CLI path: mint a token for the CLI session.
           const { token } = await api.verifyCode(email, value);
-          localStorage.setItem("multica_token", token);
-          api.setToken(token);
-          onTokenObtained?.();
-          if (cliCallback.url) {
-            // Browser flow: redirect to the CLI's local callback listener.
-            redirectToCliCallback(cliCallback.url, token, cliCallback.state);
-          } else {
-            // Device flow: stash JWT under a one-shot opaque code paired to
-            // the CLI's verifier, then render the code for the user to paste.
-            const { code: cc } = await api.issueCliAuthCode(cliCallback.state);
-            setCliAuthCode(cc);
-            setStep("cli_show_code");
-            setLoading(false);
-          }
+          await handOffToCli(token, cliCallback);
           return;
         }
 
-        // Normal path: seed the workspace list into the Query cache so the
-        // caller's onSuccess can read it synchronously to compute a destination
-        // URL (first workspace's slug, or /workspaces/new for zero-workspace
-        // users).
         await useAuthStore.getState().verifyCode(email, value);
-        const wsList = await api.listWorkspaces();
-        qc.setQueryData(workspaceKeys.list(), wsList);
-        onTokenObtained?.();
-        onSuccess();
+        await enterApp();
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Invalid or expired code",
@@ -402,7 +502,36 @@ export function LoginPage({
         setLoading(false);
       }
     },
-    [email, onSuccess, cliCallback, onTokenObtained, qc],
+    [email, cliCallback, enterApp, handOffToCli],
+  );
+
+  const handlePasswordLogin = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (!email || !password) {
+        setError("Email and password are required");
+        return;
+      }
+      setLoading(true);
+      setError("");
+      try {
+        if (cliCallback) {
+          const { token } = await api.passwordLogin(email, password);
+          await handOffToCli(token, cliCallback);
+          return;
+        }
+
+        await useAuthStore.getState().loginWithPassword(email, password);
+        await enterApp();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Invalid email or password",
+        );
+        setPassword("");
+        setLoading(false);
+      }
+    },
+    [email, password, cliCallback, enterApp, handOffToCli],
   );
 
   const handleResend = async () => {
@@ -556,6 +685,67 @@ export function LoginPage({
   }
 
   // -------------------------------------------------------------------------
+  // Password step
+  // -------------------------------------------------------------------------
+
+  if (step === "password") {
+    return (
+      <AuthShell>
+        {logo && <div className="mb-6">{logo}</div>}
+        <Eyebrow>{"// PASSWORD"}</Eyebrow>
+        <Headline>Enter your password</Headline>
+        <Sub>
+          Signing in as <span className="text-[#d4dde4]">{email}</span>.
+        </Sub>
+        <form
+          id="password-form"
+          onSubmit={handlePasswordLogin}
+          className="flex flex-col gap-5"
+        >
+          <PasswordField
+            id="login-password"
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            autoFocus
+            disabled={loading}
+          />
+          {error && <ErrorLine>{error}</ErrorLine>}
+          <PrimaryButton
+            type="submit"
+            form="password-form"
+            disabled={!password || loading}
+          >
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {loading ? "Signing in..." : "Sign in"}
+            {!loading && <ArrowRight className="h-3.5 w-3.5" />}
+          </PrimaryButton>
+        </form>
+        <div className="mt-5 text-center">
+          {/* Doubles as the password reset path: a one-time code signs the
+              user in, and they can set a new password from settings. */}
+          <SwitchLink onClick={handleSendCode} disabled={loading}>
+            Forgot password? Email me a code
+          </SwitchLink>
+        </div>
+        <div className="mt-8">
+          <OutlineButton
+            onClick={() => {
+              setStep("email");
+              setPassword("");
+              setError("");
+            }}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </OutlineButton>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  // -------------------------------------------------------------------------
   // Code verification step
   // -------------------------------------------------------------------------
 
@@ -625,8 +815,8 @@ export function LoginPage({
       <Eyebrow>{"// SIGN_IN"}</Eyebrow>
       <Headline>Sign in to Agenthost</Headline>
       <Sub>
-        Enter your email to get a login code. We don&apos;t store passwords —
-        every sign-in is a one-shot 6-digit code.
+        Enter your email to get a login code, or sign in with your password if
+        you have set one.
       </Sub>
       <form id="login-form" onSubmit={handleSendCode} className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
@@ -658,6 +848,22 @@ export function LoginPage({
           {!loading && <ArrowRight className="h-3.5 w-3.5" />}
         </PrimaryButton>
       </form>
+
+      <div className="mt-5 text-center">
+        <SwitchLink
+          onClick={() => {
+            if (!email) {
+              setError("Email is required");
+              return;
+            }
+            setError("");
+            setStep("password");
+          }}
+          disabled={loading}
+        >
+          Sign in with password
+        </SwitchLink>
+      </div>
 
       {(google || onGoogleLogin) && (
         <>

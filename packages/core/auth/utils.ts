@@ -1,4 +1,11 @@
 /**
+ * Shortest password the server accepts. Mirrors `auth.PasswordMinLength` in
+ * `server/internal/auth/password.go` so the client can reject an obviously
+ * too-short password before spending a round trip. The server re-validates.
+ */
+export const PASSWORD_MIN_LENGTH = 10;
+
+/**
  * Validate a post-login redirect URL and return it only if safe to follow.
  *
  * Only single-slash relative paths (e.g. `/invite/abc`) are accepted. Returns

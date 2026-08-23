@@ -91,3 +91,64 @@ describe("authStore.initialize — token mode", () => {
     expect(storage.snapshot().multica_token).toBe("t");
   });
 });
+
+describe("authStore.loginWithPassword", () => {
+  function makeLoginApi(passwordLogin: ApiClient["passwordLogin"]): ApiClient {
+    return {
+      setToken: vi.fn(),
+      passwordLogin,
+    } as unknown as ApiClient;
+  }
+
+  it("persists the token and publishes the user in token mode", async () => {
+    const storage = makeStorage();
+    const api = makeLoginApi(() =>
+      Promise.resolve({ token: "fresh-jwt", user: fakeUser }),
+    );
+    const onLogin = vi.fn();
+    const store = createAuthStore({ api, storage, onLogin });
+
+    const user = await store
+      .getState()
+      .loginWithPassword("alice@example.com", "hunter2hunter2");
+
+    expect(user).toEqual(fakeUser);
+    expect(store.getState().user).toEqual(fakeUser);
+    expect(storage.snapshot().multica_token).toBe("fresh-jwt");
+    expect(api.setToken).toHaveBeenCalledWith("fresh-jwt");
+    expect(onLogin).toHaveBeenCalled();
+  });
+
+  it("does not touch storage in cookie mode", async () => {
+    const storage = makeStorage();
+    const api = makeLoginApi(() =>
+      Promise.resolve({ token: "fresh-jwt", user: fakeUser }),
+    );
+    const store = createAuthStore({ api, storage, cookieAuth: true });
+
+    await store
+      .getState()
+      .loginWithPassword("alice@example.com", "hunter2hunter2");
+
+    expect(store.getState().user).toEqual(fakeUser);
+    expect(storage.snapshot().multica_token).toBeUndefined();
+    expect(api.setToken).not.toHaveBeenCalled();
+  });
+
+  it("propagates the failure and leaves the session untouched", async () => {
+    const storage = makeStorage();
+    const api = makeLoginApi(() =>
+      Promise.reject(new ApiError("invalid email or password", 401, "Unauthorized")),
+    );
+    const onLogin = vi.fn();
+    const store = createAuthStore({ api, storage, onLogin });
+
+    await expect(
+      store.getState().loginWithPassword("alice@example.com", "nope"),
+    ).rejects.toThrow("invalid email or password");
+
+    expect(store.getState().user).toBeNull();
+    expect(storage.snapshot().multica_token).toBeUndefined();
+    expect(onLogin).not.toHaveBeenCalled();
+  });
+});

@@ -491,6 +491,7 @@ type User struct {
 	CloudWaitlistEmail      pgtype.Text        `json:"cloud_waitlist_email"`
 	CloudWaitlistReason     pgtype.Text        `json:"cloud_waitlist_reason"`
 	StarterContentState     pgtype.Text        `json:"starter_content_state"`
+	PasswordHash            pgtype.Text        `json:"password_hash"`
 }
 
 type VerificationCode struct {
