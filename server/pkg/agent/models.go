@@ -132,15 +132,28 @@ func cachedDiscovery(key string, fn func() ([]Model, error)) ([]Model, error) {
 
 // claudeStaticModels reflects the Claude Code CLI's accepted --model
 // values. Keep this list short and current; stale entries here
-// mislead users more than they help. Default = Sonnet because it's
-// the everyday workhorse (Opus is reserved for advisor-style flows).
+// mislead users more than they help.
+//
+// IDs are the full model names the CLI documents for --model (it also
+// accepts the "opus" / "sonnet" / "fable" aliases, which we don't list
+// because an alias hides which model an agent actually ran on). Write
+// them bare: a date suffix like "claude-haiku-4-5-20251001" is a
+// snapshot pin, and pinning a snapshot silently freezes an agent on an
+// old build long after the family has moved on.
+//
+// Default badges Opus 5, the current recommended model. Cosmetic only —
+// see the Model doc comment: an agent with an empty model sends "" and
+// lets the CLI resolve its own default.
 func claudeStaticModels() []Model {
 	return []Model{
-		{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic", Default: true},
+		{ID: "claude-opus-5", Label: "Claude Opus 5", Provider: "anthropic", Default: true},
+		{ID: "claude-fable-5", Label: "Claude Fable 5", Provider: "anthropic"},
+		{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic"},
 		{ID: "claude-opus-4-7", Label: "Claude Opus 4.7", Provider: "anthropic"},
-		{ID: "claude-haiku-4-5-20251001", Label: "Claude Haiku 4.5", Provider: "anthropic"},
 		{ID: "claude-opus-4-6", Label: "Claude Opus 4.6", Provider: "anthropic"},
-		{ID: "claude-sonnet-4-5", Label: "Claude Sonnet 4.5", Provider: "anthropic"},
+		{ID: "claude-sonnet-5", Label: "Claude Sonnet 5", Provider: "anthropic"},
+		{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic"},
+		{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
 	}
 }
 

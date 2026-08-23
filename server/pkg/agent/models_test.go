@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -24,6 +25,42 @@ func TestListModelsStaticProviders(t *testing.T) {
 				t.Errorf("ListModels(%q)[%d] has empty Label", provider, i)
 			}
 		}
+	}
+}
+
+func TestClaudeStaticModelsCoversCurrentFamily(t *testing.T) {
+	// The picker is fed straight from this catalog, so a model missing
+	// here is a model nobody can select. Regression guard for the
+	// picker sitting on Sonnet 4.6 / Opus 4.7 long after Opus 5 and
+	// Sonnet 5 shipped.
+	models := claudeStaticModels()
+	ids := map[string]Model{}
+	for _, m := range models {
+		ids[m.ID] = m
+	}
+	for _, want := range []string{
+		"claude-opus-5", "claude-fable-5",
+		"claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
+		"claude-sonnet-5", "claude-sonnet-4-6",
+		"claude-haiku-4-5",
+	} {
+		if _, ok := ids[want]; !ok {
+			t.Errorf("missing expected Claude model %q in: %+v", want, models)
+		}
+	}
+
+	// Bare family IDs only. A trailing -YYYYMMDD pins a snapshot, which
+	// freezes an agent on one build of the model forever.
+	dated := regexp.MustCompile(`-\d{8}$`)
+	for _, m := range models {
+		if dated.MatchString(m.ID) {
+			t.Errorf("Claude model %q pins a dated snapshot; use the bare family ID", m.ID)
+		}
+	}
+
+	opus5, ok := ids["claude-opus-5"]
+	if !ok || !opus5.Default {
+		t.Errorf("expected claude-opus-5 to be the default Claude entry, got %+v", opus5)
 	}
 }
 
