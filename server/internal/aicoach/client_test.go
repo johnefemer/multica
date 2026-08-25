@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -190,5 +193,79 @@ func TestManifestNotFound(t *testing.T) {
 	defer srv.Close()
 	if _, err := New(srv.URL, "").ManifestOne(context.Background(), "a/b"); err == nil {
 		t.Fatal("expected not-found error")
+	}
+}
+
+// The manifest's digest is the only link between the bytes we unpack and the
+// resolution step that sent us for them. Without this check a swapped object
+// in registry storage would be mirrored into a workspace and handed to an
+// agent as though the publisher had signed it.
+func TestFetchBundleRejectsDigestMismatch(t *testing.T) {
+	bundle := makeBundle(t, map[string]string{"SKILL.md": "---\nname: x\n---\nbody"})
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/skills/manifest" {
+			w.Write([]byte(`{"count":1,"skills":[{"ref":"pub/x","publisher":"pub","slug":"x","found":true,` +
+				`"name":"X","revision":"r1","sha256":"` + strings.Repeat("0", 64) + `",` +
+				`"contentUrl":"` + srv.URL + `/dl","contentType":"bundle","requiresAuth":true}]}`))
+			return
+		}
+		w.Write(bundle)
+	}))
+	defer srv.Close()
+
+	_, err := New(srv.URL, "key").Fetch(context.Background(), "pub/x")
+	if err == nil {
+		t.Fatal("expected a digest mismatch error")
+	}
+	if !strings.Contains(err.Error(), "digest mismatch") {
+		t.Errorf("expected a digest mismatch, got %v", err)
+	}
+}
+
+func TestFetchBundleAcceptsMatchingDigest(t *testing.T) {
+	bundle := makeBundle(t, map[string]string{"SKILL.md": "---\nname: x\ndescription: d\n---\nbody"})
+	sum := sha256.Sum256(bundle)
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/skills/manifest" {
+			w.Write([]byte(`{"count":1,"skills":[{"ref":"pub/x","publisher":"pub","slug":"x","found":true,` +
+				`"name":"X","revision":"r1","sha256":"` + hex.EncodeToString(sum[:]) + `",` +
+				`"contentUrl":"` + srv.URL + `/dl","contentType":"bundle","requiresAuth":true}]}`))
+			return
+		}
+		w.Write(bundle)
+	}))
+	defer srv.Close()
+
+	got, err := New(srv.URL, "key").Fetch(context.Background(), "pub/x")
+	if err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if got.Content != "---\nname: x\ndescription: d\n---\nbody" {
+		t.Errorf("content = %q", got.Content)
+	}
+}
+
+// A registry that publishes no digest (system skills carry one for their
+// markdown, not a bundle) must not be treated as a failure.
+func TestFetchBundleWithoutAdvertisedDigest(t *testing.T) {
+	bundle := makeBundle(t, map[string]string{"SKILL.md": "---\nname: x\n---\nbody"})
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/skills/manifest" {
+			w.Write([]byte(`{"count":1,"skills":[{"ref":"pub/x","publisher":"pub","slug":"x","found":true,` +
+				`"name":"X","revision":"r1","contentUrl":"` + srv.URL + `/dl","contentType":"bundle","requiresAuth":true}]}`))
+			return
+		}
+		w.Write(bundle)
+	}))
+	defer srv.Close()
+
+	if _, err := New(srv.URL, "key").Fetch(context.Background(), "pub/x"); err != nil {
+		t.Fatalf("Fetch: %v", err)
 	}
 }

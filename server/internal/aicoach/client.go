@@ -16,6 +16,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -191,6 +193,63 @@ func (c *Client) do(ctx context.Context, method, rawURL string, auth bool) (*htt
 
 // Manifest reports registry state for the given refs without fetching content.
 // Refs beyond the registry's batch limit are requested in successive calls.
+// Account identifies the AI Coach user an API key belongs to.
+//
+// username and displayName are both nullable upstream (a Google-only or
+// email-only account has no GitHub handle), so `id` is the only field safe to
+// key on. It is the integer primary key and does not change.
+type Account struct {
+	ID          int64  `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	AvatarURL   string `json:"avatarUrl"`
+}
+
+// Label is the best human-readable name for the account, falling back through
+// the nullable fields to the id so a connected account is never shown blank.
+func (a *Account) Label() string {
+	if n := strings.TrimSpace(a.DisplayName); n != "" {
+		return n
+	}
+	if u := strings.TrimSpace(a.Username); u != "" {
+		return u
+	}
+	return fmt.Sprintf("AI Coach user %d", a.ID)
+}
+
+// Account verifies the configured API key and reports who it belongs to. This
+// is what turns "the admin pasted something" into "the workspace is connected
+// to a known account", and it is the only way to fail a bad key at paste time
+// rather than at the first import.
+func (c *Client) Account(ctx context.Context) (*Account, error) {
+	if strings.TrimSpace(c.APIKey) == "" {
+		return nil, fmt.Errorf("no API key configured")
+	}
+
+	resp, err := c.do(ctx, http.MethodGet, c.BaseURL+"/api/v1/me", true)
+	if err != nil {
+		return nil, fmt.Errorf("could not reach AI Coach: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, fmt.Errorf("AI Coach rejected this API key")
+	default:
+		return nil, fmt.Errorf("AI Coach returned status %d", resp.StatusCode)
+	}
+
+	var acct Account
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&acct); err != nil {
+		return nil, fmt.Errorf("could not read the AI Coach account response")
+	}
+	if acct.ID == 0 {
+		return nil, fmt.Errorf("AI Coach returned an account with no id")
+	}
+	return &acct, nil
+}
+
 func (c *Client) Manifest(ctx context.Context, refs []string) ([]ManifestEntry, error) {
 	if len(refs) == 0 {
 		return nil, nil
@@ -296,6 +355,14 @@ func (c *Client) FetchEntry(ctx context.Context, entry *ManifestEntry) (*Skill, 
 	}
 
 	if entry.ContentType == "bundle" {
+		// The manifest publishes the digest the publisher signed the bundle
+		// with. Checking it here ties the bytes we are about to unpack to the
+		// resolution step that told us to fetch them, so a swapped or
+		// truncated object fails loudly instead of being mirrored into a
+		// workspace and handed to an agent.
+		if err := verifyDigest(body, entry.SHA256); err != nil {
+			return nil, fmt.Errorf("bundle for %s: %w", entry.Ref, err)
+		}
 		content, files, err := extractBundle(body)
 		if err != nil {
 			return nil, fmt.Errorf("bundle for %s: %w", entry.Ref, err)
@@ -318,6 +385,22 @@ func (c *Client) FetchEntry(ctx context.Context, entry *ManifestEntry) (*Skill, 
 		}
 	}
 	return skill, nil
+}
+
+// verifyDigest compares downloaded bytes against the digest the manifest
+// advertised. An empty expected digest means the registry published none, which
+// is not an error: system skills carry a digest of their markdown rather than a
+// bundle. Comparison is case-insensitive because hex casing is not meaningful.
+func verifyDigest(body []byte, expected string) error {
+	if strings.TrimSpace(expected) == "" {
+		return nil
+	}
+	sum := sha256.Sum256(body)
+	got := hex.EncodeToString(sum[:])
+	if !strings.EqualFold(got, expected) {
+		return fmt.Errorf("digest mismatch: manifest says %s, downloaded %s", expected, got)
+	}
+	return nil
 }
 
 // extractBundle pulls SKILL.md and supporting files out of a .tar.gz.
