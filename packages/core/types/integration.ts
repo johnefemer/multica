@@ -1,4 +1,4 @@
-export type IntegrationProvider = "github" | "slack" | "notion" | "email";
+export type IntegrationProvider = "github" | "slack" | "notion" | "email" | "aicoach";
 export type IntegrationStatus = "active" | "expired" | "error";
 
 export interface IntegrationConnection {

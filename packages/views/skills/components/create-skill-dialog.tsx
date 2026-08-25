@@ -82,7 +82,7 @@ function MethodChooser({ onChoose }: { onChoose: (m: Method) => void }) {
       key: "url",
       icon: Download,
       title: "Import from URL",
-      desc: "Pull a published skill from ClawHub or Skills.sh.",
+      desc: "Pull a published skill from AI Coach, ClawHub or Skills.sh.",
     },
     {
       key: "runtime",
@@ -253,13 +253,31 @@ function ManualForm({
 // URL import form
 // ---------------------------------------------------------------------------
 
-type DetectedSource = "clawhub" | "skills.sh" | null;
+type DetectedSource = "aicoach" | "clawhub" | "skills.sh" | null;
 
 function detectUrlSource(url: string): DetectedSource {
   const u = url.trim().toLowerCase();
+  if (u.includes("aicoach.pw")) return "aicoach";
   if (u.includes("clawhub.ai")) return "clawhub";
   if (u.includes("skills.sh")) return "skills.sh";
   return null;
+}
+
+/** AI Coach is the only source that publishes a revision per skill, so it is
+ *  the only one that can be kept up to date. The others are one-time copies. */
+function supportsAutoSync(source: DetectedSource): boolean {
+  return source === "aicoach";
+}
+
+/** The server reports a missing key as a plain message. Matching it lets the
+ *  dialog point at the fix (an admin connects AI Coach in settings) instead of
+ *  showing a dead end. */
+function isMissingAICoachKey(msg: string): boolean {
+  return /AI Coach API key/i.test(msg);
+}
+
+function isUnpurchased(msg: string): boolean {
+  return /has not purchased|is paid/i.test(msg);
 }
 
 function SourceCard({
@@ -303,6 +321,7 @@ function UrlForm({
   const qc = useQueryClient();
   const wsId = useWorkspaceId();
   const [url, setUrl] = useState("");
+  const [autoSync, setAutoSync] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const source = detectUrlSource(url);
@@ -315,7 +334,12 @@ function UrlForm({
     setLoading(true);
     setError("");
     try {
-      const skill = await api.importSkill({ url: trimmed });
+      const skill = await api.importSkill({
+        url: trimmed,
+        // Only AI Coach can be re-pulled, so never claim to track a source
+        // that has no revision to compare against.
+        auto_sync: supportsAutoSync(source) ? autoSync : false,
+      });
       seedAfterCreate(qc, wsId, skill);
       toast.success("Skill imported");
       onCreated(skill);
@@ -327,6 +351,7 @@ function UrlForm({
 
   const submittingLabel = (() => {
     if (!loading) return "Import";
+    if (source === "aicoach") return "Importing from AI Coach…";
     if (source === "clawhub") return "Importing from ClawHub…";
     if (source === "skills.sh") return "Importing from Skills.sh…";
     return "Importing…";
@@ -351,7 +376,7 @@ function UrlForm({
               setUrl(e.target.value);
               setError("");
             }}
-            placeholder="https://clawhub.ai/owner/skill"
+            placeholder="https://aicoach.pw/skills/code-review-coach"
             className="font-mono text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
@@ -363,7 +388,13 @@ function UrlForm({
           <p className="mb-2 text-xs text-muted-foreground">
             Supported sources
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <SourceCard
+              label="AI Coach"
+              exampleHost="aicoach.pw/skills/name"
+              browseUrl="https://aicoach.pw/skills"
+              active={source === "aicoach"}
+            />
             <SourceCard
               label="ClawHub"
               exampleHost="clawhub.ai/owner/skill"
@@ -379,6 +410,24 @@ function UrlForm({
           </div>
         </div>
 
+        {supportsAutoSync(source) && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-md border bg-card px-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={autoSync}
+              onChange={(e) => setAutoSync(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 accent-primary"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-medium">Keep up to date</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Pull new versions when the publisher releases them. Leave off to
+                import a fixed copy that never changes.
+              </span>
+            </span>
+          </label>
+        )}
+
         {error && (
           <div
             role="alert"
@@ -390,8 +439,22 @@ function UrlForm({
               {isNameConflictError(error) && (
                 <>
                   {" "}
-                  The imported skill&rsquo;s name already exists — delete the
+                  The imported skill&rsquo;s name already exists. Delete the
                   existing one before retrying.
+                </>
+              )}
+              {isMissingAICoachKey(error) && (
+                <>
+                  {" "}
+                  A workspace admin can add one under Settings, Integrations,
+                  AI Coach. Skills from the public catalog import without a key.
+                </>
+              )}
+              {isUnpurchased(error) && (
+                <>
+                  {" "}
+                  Buy it on AI Coach with the account this workspace is
+                  connected to, then import again.
                 </>
               )}
             </span>

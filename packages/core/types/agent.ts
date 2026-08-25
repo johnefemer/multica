@@ -114,6 +114,13 @@ export interface UpdateAgentRequest {
 
 // Skills
 
+/** Where a skill's content came from. "local" means it was written here. */
+export type SkillSource = "local" | "aicoach" | "clawhub" | "skills_sh";
+
+/** Sync health for a mirrored skill. "gone" means it was unpublished upstream;
+ *  the local copy is kept so an agent mid-task does not lose a skill. */
+export type SkillSyncState = "ok" | "syncing" | "error" | "gone";
+
 export interface Skill {
   id: string;
   workspace_id: string;
@@ -125,6 +132,17 @@ export interface Skill {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+
+  /** Provenance. Present on every skill; a hand-written one reports "local"
+   *  and omits the rest. */
+  source: SkillSource;
+  source_ref?: string;
+  source_url?: string;
+  source_rev?: string;
+  auto_sync: boolean;
+  sync_state?: SkillSyncState;
+  sync_error?: string;
+  synced_at?: string | null;
 }
 
 export interface SkillFile {

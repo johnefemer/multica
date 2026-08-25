@@ -559,6 +559,13 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
           ? `Local runtime · ${origin.provider}`
           : "Local runtime";
     }
+    if (origin.type === "aicoach") {
+      // Whether a mirrored skill tracks its source changes what editing it
+      // locally means, so it belongs in the header rather than buried.
+      return origin.auto_sync
+        ? "Imported · AI Coach · kept up to date"
+        : "Imported · AI Coach";
+    }
     if (origin.type === "clawhub") return "Imported · ClawHub";
     if (origin.type === "skills_sh") return "Imported · Skills.sh";
     return "Workspace";

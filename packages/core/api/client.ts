@@ -888,7 +888,10 @@ export class ApiClient {
     await this.fetch(`/api/skills/${id}`, { method: "DELETE" });
   }
 
-  async importSkill(data: { url: string }): Promise<Skill> {
+  /** Import a skill from a registry URL (ClawHub, Skills.sh or AI Coach).
+   *  `auto_sync` only applies to AI Coach, which is the one source that
+   *  publishes a revision per skill; the others are one-time copies. */
+  async importSkill(data: { url: string; auto_sync?: boolean }): Promise<Skill> {
     return this.fetch("/api/skills/import", {
       method: "POST",
       body: JSON.stringify(data),
@@ -1125,6 +1128,16 @@ export class ApiClient {
 
   async getIntegration(workspaceId: string, provider: string): Promise<IntegrationConnection | null> {
     return this.fetch(`/api/workspaces/${workspaceId}/integrations/${provider}`);
+  }
+
+  /** Attach an AI Coach API key to the workspace. The server validates it
+   *  against AI Coach before storing, so a bad key fails here rather than at
+   *  the first import. */
+  async connectAICoach(workspaceId: string, apiKey: string): Promise<IntegrationConnection> {
+    return this.fetch(`/api/workspaces/${workspaceId}/integrations/aicoach`, {
+      method: "PUT",
+      body: JSON.stringify({ api_key: apiKey }),
+    });
   }
 
   async disconnectIntegration(workspaceId: string, provider: string): Promise<IntegrationConnection> {

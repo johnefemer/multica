@@ -11,6 +11,8 @@ export type {
   UpdateAgentRequest,
   Skill,
   SkillFile,
+  SkillSource,
+  SkillSyncState,
   CreateSkillRequest,
   UpdateSkillRequest,
   SetAgentSkillsRequest,
