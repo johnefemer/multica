@@ -39,7 +39,7 @@ Off by default, so an install that mirrors nothing makes no outbound requests.
 |---|---|
 | `AICOACH_SYNC=1` | Enables the worker |
 | `AICOACH_SYNC_INTERVAL` | Poll interval, any Go duration (default `1h`) |
-| `AICOACH_API_KEY` | Needed only for skills published by users |
+| _(no env key)_ | Skills published by users need an API key connected per workspace in integration settings |
 | `AICOACH_BASE_URL` | Points at a self-hosted registry (default `https://aicoach.pw`) |
 
 ## Behaviour worth knowing
@@ -54,8 +54,8 @@ Off by default, so an install that mirrors nothing makes no outbound requests.
 - **Supporting files are replaced wholesale** on each pull, in one transaction,
   so a file deleted upstream disappears locally and a partial write cannot leave
   a half-updated set.
-- **Paid skills need a purchase on the key's account.** Without one the fetch
-  fails loudly instead of importing an empty skill.
+- **Paid skills need a purchase on the connected workspace's account.** Without
+  one the fetch fails loudly instead of importing an empty skill.
 
 ## Provenance
 
