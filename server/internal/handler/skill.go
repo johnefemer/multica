@@ -53,6 +53,90 @@ type SkillResponse struct {
 	CreatedBy   *string `json:"created_by"`
 	CreatedAt   string  `json:"created_at"`
 	UpdatedAt   string  `json:"updated_at"`
+
+	// Provenance, from migration 069. A hand-written skill reports
+	// source "local" and leaves the rest empty, so clients can treat the
+	// presence of a source_ref as "this is mirrored from somewhere".
+	Source    string  `json:"source"`
+	SourceRef string  `json:"source_ref,omitempty"`
+	SourceURL string  `json:"source_url,omitempty"`
+	SourceRev string  `json:"source_rev,omitempty"`
+	AutoSync  bool    `json:"auto_sync"`
+	SyncState string  `json:"sync_state,omitempty"`
+	SyncError string  `json:"sync_error,omitempty"`
+	SyncedAt  *string `json:"synced_at,omitempty"`
+}
+
+// skillProvenance carries the migration 069 columns the generated sqlc model
+// does not know about. Regenerating sqlc in this repo rewrites unrelated
+// packages, so list and get read these alongside the generated query rather
+// than through it.
+type skillProvenance struct {
+	Source    string
+	SourceRef string
+	SourceURL string
+	SourceRev string
+	AutoSync  bool
+	SyncState string
+	SyncError string
+	SyncedAt  *string
+}
+
+// provenanceForWorkspace loads every mirrored skill's origin in one query.
+// Returns an empty map on failure: provenance is decoration, and a skill list
+// that renders without badges beats one that 500s.
+func (h *Handler) provenanceForWorkspace(ctx context.Context, workspaceID string) map[string]skillProvenance {
+	out := map[string]skillProvenance{}
+	rows, err := h.DB.Query(ctx, `
+		SELECT id::text, source, COALESCE(source_ref,''), COALESCE(source_url,''),
+		       COALESCE(source_rev,''), auto_sync, sync_state, COALESCE(sync_error,''), synced_at
+		FROM skill WHERE workspace_id = $1::uuid`, workspaceID)
+	if err != nil {
+		slog.Warn("skill provenance lookup failed", "error", err, "workspace_id", workspaceID)
+		return out
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			id string
+			p  skillProvenance
+			at pgtype.Timestamptz
+		)
+		if err := rows.Scan(&id, &p.Source, &p.SourceRef, &p.SourceURL, &p.SourceRev,
+			&p.AutoSync, &p.SyncState, &p.SyncError, &at); err != nil {
+			slog.Warn("skill provenance scan failed", "error", err)
+			return out
+		}
+		if at.Valid {
+			p.SyncedAt = timestampToPtr(at)
+		}
+		out[id] = p
+	}
+	return out
+}
+
+// applySummaryProvenance is applyProvenance for list rows.
+func applySummaryProvenance(resp *SkillSummaryResponse, p skillProvenance) {
+	resp.Source = p.Source
+	resp.SourceRef = p.SourceRef
+	resp.SourceURL = p.SourceURL
+	resp.SourceRev = p.SourceRev
+	resp.AutoSync = p.AutoSync
+	resp.SyncState = p.SyncState
+	resp.SyncError = p.SyncError
+	resp.SyncedAt = p.SyncedAt
+}
+
+func applyProvenance(resp *SkillResponse, p skillProvenance) {
+	resp.Source = p.Source
+	resp.SourceRef = p.SourceRef
+	resp.SourceURL = p.SourceURL
+	resp.SourceRev = p.SourceRev
+	resp.AutoSync = p.AutoSync
+	resp.SyncState = p.SyncState
+	resp.SyncError = p.SyncError
+	resp.SyncedAt = p.SyncedAt
 }
 
 // SkillSummaryResponse is the list-endpoint shape: everything SkillResponse
@@ -77,6 +161,17 @@ type SkillSummaryResponse struct {
 	// always sets a non-nil slice (empty when none). Other summary
 	// producers leave this nil so the field is omitted.
 	Labels *[]LabelResponse `json:"labels,omitempty"`
+
+	// Kensink: provenance (migration 069), as on SkillResponse. Only ListSkills
+	// fills it; omitempty keeps other summary producers unchanged.
+	Source    string  `json:"source,omitempty"`
+	SourceRef string  `json:"source_ref,omitempty"`
+	SourceURL string  `json:"source_url,omitempty"`
+	SourceRev string  `json:"source_rev,omitempty"`
+	AutoSync  bool    `json:"auto_sync,omitempty"`
+	SyncState string  `json:"sync_state,omitempty"`
+	SyncError string  `json:"sync_error,omitempty"`
+	SyncedAt  *string `json:"synced_at,omitempty"`
 }
 
 // AgentSkillSummary is the still-narrower shape used for skills embedded in
@@ -360,6 +455,7 @@ func (h *Handler) ListSkills(w http.ResponseWriter, r *http.Request) {
 		ids[i] = s.ID
 	}
 	labelsMap := h.labelsBySkill(r.Context(), wsUUID, ids)
+	provenance := h.provenanceForWorkspace(r.Context(), workspaceID)
 
 	resp := make([]SkillSummaryResponse, len(skills))
 	for i, s := range skills {
@@ -371,6 +467,10 @@ func (h *Handler) ListSkills(w http.ResponseWriter, r *http.Request) {
 		// append(nil, xs...) keeps a nil header when xs is empty.
 		labels := append([]LabelResponse{}, labelsMap[resp[i].ID]...)
 		resp[i].Labels = &labels
+		// Kensink: provenance for skills mirrored from AI Coach and other sources.
+		if p, ok := provenance[resp[i].ID]; ok {
+			applySummaryProvenance(&resp[i], p)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -491,10 +591,14 @@ func (h *Handler) GetSkill(w http.ResponseWriter, r *http.Request) {
 		fileResps[i] = skillFileToResponse(f)
 	}
 
-	writeJSON(w, http.StatusOK, SkillWithFilesResponse{
+	out := SkillWithFilesResponse{
 		SkillResponse: skillToResponse(skill),
 		Files:         fileResps,
-	})
+	}
+	if p, ok := h.provenanceForWorkspace(r.Context(), uuidToString(skill.WorkspaceID))[out.ID]; ok {
+		applyProvenance(&out.SkillResponse, p)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // writeSkillMetadata answers GET /api/skills/{id}?include=metadata. The skill
