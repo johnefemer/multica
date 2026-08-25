@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plug, GitBranch, Trash2, RefreshCw, Download } from "lucide-react";
+import { Plug, GitBranch, Trash2, RefreshCw, Download, GraduationCap } from "lucide-react";
 import { SlackLogo } from "../../integrations/logos/slack-logo";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
@@ -51,6 +51,12 @@ const PROVIDERS: Record<string, ProviderMeta> = {
     label: "GitHub",
     icon: GitBranch,
     description: "Sync issues, monitor Actions, and manage PRs from Agenthost.",
+  },
+  aicoach: {
+    label: "AI Coach",
+    icon: GraduationCap,
+    description:
+      "Import skills from aicoach.pw, including private and purchased ones. Connect from the Integrations page.",
   },
   slack: {
     label: "Slack",

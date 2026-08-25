@@ -44,6 +44,17 @@ export function useGitHubWebhooks(wsId: string, enabled = true) {
   });
 }
 
+export function useConnectAICoach(wsId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (apiKey: string) => api.connectAICoach(wsId, apiKey),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: integrationKeys.all(wsId) });
+      qc.invalidateQueries({ queryKey: integrationKeys.provider(wsId, "aicoach") });
+    },
+  });
+}
+
 export function useDisconnectIntegration(wsId: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -60,6 +60,7 @@
     "source_runtime_named": "From {{name}}",
     "source_runtime_provider": "From {{provider}} runtime",
     "source_runtime_unknown": "From a runtime",
+    "source_aicoach": "AI Coach",
     "source_clawhub": "From ClawHub",
     "source_skills_sh": "From Skills.sh",
     "source_github": "From GitHub"
@@ -138,6 +139,8 @@
       "origin_runtime_provider": "Local runtime · {{provider}}",
       "origin_runtime_unknown": "Local runtime",
       "origin_clawhub": "Imported · ClawHub",
+      "origin_aicoach": "Imported · AI Coach",
+      "origin_aicoach_synced": "Imported · AI Coach · kept up to date",
       "origin_skills_sh": "Imported · Skills.sh",
       "origin_github": "Imported · GitHub",
       "origin_workspace": "Created manually"
@@ -310,6 +313,7 @@
       "supported_sources": "Supported sources",
       "import": "Import",
       "importing": "Importing…",
+      "importing_aicoach": "Importing from AI Coach…",
       "importing_clawhub": "Importing from ClawHub…",
       "importing_skills_sh": "Importing from Skills.sh…",
       "importing_github": "Importing from GitHub…",

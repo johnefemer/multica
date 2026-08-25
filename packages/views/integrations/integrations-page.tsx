@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
+  GraduationCap,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -25,6 +26,7 @@ import { NotionLogo } from "./logos/notion-logo";
 import { EmailLogo } from "./logos/email-logo";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
+import { Input } from "@multica/ui/components/ui/input";
 import { Card, CardContent, CardHeader } from "@multica/ui/components/ui/card";
 import {
   Dialog,
@@ -52,11 +54,13 @@ import { useAuthStore } from "@multica/core/auth";
 import { memberListOptions } from "@multica/core/workspace/queries";
 import { projectListOptions, useCreateProject, useUpdateProject } from "@multica/core/projects";
 import { api } from "@multica/core/api";
+import { openExternal } from "../platform";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { AppLink } from "../navigation";
 import {
   useIntegrations,
   useDisconnectIntegration,
+  useConnectAICoach,
   useGitHubRepos,
   useGitHubWebhooks,
   useImportGitHubIssues,
@@ -114,6 +118,24 @@ const CATALOG: ProviderDef[] = [
       "PR merge notifications on linked issues",
       "GitHub Actions CI pass/fail activity",
       "Register webhooks automatically",
+    ],
+  },
+  {
+    key: "aicoach",
+    label: "AI Coach",
+    tagline: "Import and auto-update skills from aicoach.pw",
+    description:
+      "Connect an AI Coach account so this workspace can import skills from aicoach.pw, including private and purchased ones. Skills from the public catalog import without a connection.",
+    icon: GraduationCap,
+    iconBg: "bg-violet-600",
+    iconWhite: true,
+    category: "Dev",
+    docsUrl: "https://aicoach.pw/account/api-keys",
+    features: [
+      "Import any skill by URL from the skills page",
+      "Reach private and purchased skills, not just the public catalog",
+      "Keep imported skills current as publishers release new versions",
+      "One key per workspace, held by an admin",
     ],
   },
   {
@@ -1308,6 +1330,10 @@ function IntegrationCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [aicoachOpen, setAicoachOpen] = useState(false);
+  const [aicoachKey, setAicoachKey] = useState("");
+  const [aicoachError, setAicoachError] = useState("");
+  const connectAICoach = useConnectAICoach(wsId);
   const disconnect = useDisconnectIntegration(wsId);
   const isConnected = !!conn && conn.status === "active";
   const Icon = def.icon;
@@ -1317,6 +1343,28 @@ function IntegrationCard({
       window.location.href = api.getGitHubOAuthURL(wsSlug);
     } else if (def.key === "slack") {
       window.location.href = api.getSlackOAuthURL(wsSlug);
+    } else if (def.key === "aicoach") {
+      // AI Coach authenticates with a pasted key rather than an OAuth
+      // redirect, so it stays in the app instead of leaving for a consent
+      // screen. That also means it works identically on desktop, which has no
+      // browser origin to redirect back to.
+      setAicoachOpen(true);
+    }
+  };
+
+  const handleSaveAICoachKey = async () => {
+    const trimmed = aicoachKey.trim();
+    if (!trimmed) return;
+    setAicoachError("");
+    try {
+      await connectAICoach.mutateAsync(trimmed);
+      toast.success("AI Coach connected");
+      setAicoachOpen(false);
+      setAicoachKey("");
+    } catch (err) {
+      // The server validates the key against AI Coach before saving, so this
+      // message is about the key itself and is worth showing verbatim.
+      setAicoachError(err instanceof Error ? err.message : "Could not verify that key");
     }
   };
 
@@ -1450,12 +1498,68 @@ function IntegrationCard({
       )}
 
       {/* Disconnect dialog */}
+      <Dialog open={aicoachOpen} onOpenChange={setAicoachOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect AI Coach</DialogTitle>
+            <DialogDescription>
+              Paste an API key from your AI Coach account. It lets this
+              workspace import private and purchased skills. Public catalog
+              skills import without one.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Input
+              autoFocus
+              type="password"
+              value={aicoachKey}
+              onChange={(e) => {
+                setAicoachKey(e.target.value);
+                setAicoachError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveAICoachKey();
+              }}
+              placeholder="mcp_…"
+              className="font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => openExternal("https://aicoach.pw/account/api-keys")}
+              className="text-xs text-brand underline decoration-brand/40 underline-offset-2 hover:decoration-brand"
+            >
+              Create a key on aicoach.pw
+            </button>
+            {aicoachError && (
+              <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{aicoachError}</span>
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAicoachOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAICoachKey}
+              disabled={!aicoachKey.trim() || connectAICoach.isPending}
+            >
+              {connectAICoach.isPending ? "Verifying…" : "Connect"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Disconnect {def.label}?</DialogTitle>
             <DialogDescription>
-              This removes the OAuth connection. Existing imported issues are kept.
+              This removes the stored credential. Existing imported issues and
+              skills are kept.
               Any webhooks registered via Agenthost must be removed manually from {def.label}.
             </DialogDescription>
           </DialogHeader>

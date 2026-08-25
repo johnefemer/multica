@@ -32,6 +32,7 @@ export const SKILL_SORT_DEFAULT_DIRECTION: Record<
 export type SkillOriginType =
   | "manual"
   | "runtime_local"
+  | "aicoach"
   | "clawhub"
   | "skills_sh"
   | "github";

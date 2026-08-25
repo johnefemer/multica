@@ -864,6 +864,13 @@ export interface UpdateAgentEnvRequest {
 
 // Skills
 
+/** Where a skill's content came from. "local" means it was written here. */
+export type SkillSource = "local" | "aicoach" | "clawhub" | "skills_sh";
+
+/** Sync health for a mirrored skill. "gone" means it was unpublished upstream;
+ *  the local copy is kept so an agent mid-task does not lose a skill. */
+export type SkillSyncState = "ok" | "syncing" | "error" | "gone";
+
 /**
  * Lightweight skill shape returned by list endpoints (`GET /api/skills`,
  * `GET /api/agents/:id/skills`). The full SKILL.md `content` is intentionally
@@ -885,6 +892,16 @@ export interface SkillSummary {
   enabled?: boolean;
   /** Present on workspace skill lists after a backend that bulk-attaches labels. */
   labels?: Label[];
+  /** Provenance. Present on every skill; a hand-written one reports "local"
+   *  and omits the rest. */
+  source?: SkillSource;
+  source_ref?: string;
+  source_url?: string;
+  source_rev?: string;
+  auto_sync?: boolean;
+  sync_state?: SkillSyncState;
+  sync_error?: string;
+  synced_at?: string | null;
 }
 
 export interface Skill extends SkillSummary {

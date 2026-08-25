@@ -53,6 +53,8 @@ export type {
   DisabledRuntimeSkill,
   SetAgentRuntimeSkillEnabledRequest,
   SkillFile,
+  SkillSource,
+  SkillSyncState,
   CreateSkillRequest,
   SkillImportResult,
   UpdateSkillRequest,

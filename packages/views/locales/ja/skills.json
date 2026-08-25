@@ -60,6 +60,7 @@
     "source_runtime_named": "{{name}} から",
     "source_runtime_provider": "{{provider}} ランタイムから",
     "source_runtime_unknown": "ランタイムから",
+    "source_aicoach": "AI Coach",
     "source_clawhub": "ClawHub から",
     "source_skills_sh": "Skills.sh から",
     "source_github": "GitHub から"
@@ -130,6 +131,8 @@
       "origin_runtime_provider": "ローカルランタイム · {{provider}}",
       "origin_runtime_unknown": "ローカルランタイム",
       "origin_clawhub": "インポート済み · ClawHub",
+      "origin_aicoach": "インポート · AI Coach",
+      "origin_aicoach_synced": "インポート · AI Coach · 自動で最新化",
       "origin_skills_sh": "インポート済み · Skills.sh",
       "origin_github": "インポート済み · GitHub",
       "origin_workspace": "手動で作成"
@@ -294,6 +297,7 @@
       "supported_sources": "対応ソース",
       "import": "インポート",
       "importing": "インポート中…",
+      "importing_aicoach": "AI Coach からインポート中…",
       "importing_clawhub": "ClawHub からインポート中…",
       "importing_skills_sh": "Skills.sh からインポート中…",
       "importing_github": "GitHub からインポート中…",
