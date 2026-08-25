@@ -30,7 +30,10 @@ func (h *Handler) importFromAICoach(
 		return
 	}
 
-	client := aicoach.New(os.Getenv("AICOACH_BASE_URL"), os.Getenv("AICOACH_API_KEY"))
+	// The key belongs to the workspace, not the install: whoever connected AI
+	// Coach in settings is the account whose purchases this import can reach.
+	// Curated skills are public and import fine with no key at all.
+	client := aicoach.New(os.Getenv("AICOACH_BASE_URL"), h.aicoachKeyForWorkspace(ctx, workspaceID))
 	skill, err := client.Fetch(ctx, ref)
 	if err != nil {
 		// A missing key or an unpurchased paid skill is the caller's problem to
@@ -89,17 +92,10 @@ func skillName(s *aicoach.Skill) string {
 	return s.Ref
 }
 
-// ImportedSkillResponse is the mirrored skill plus where it came from, so a
-// client can show sync state without a second call.
-type ImportedSkillResponse struct {
-	SkillWithFilesResponse
-	Source    string `json:"source"`
-	SourceRef string `json:"source_ref"`
-	SourceURL string `json:"source_url"`
-	SourceRev string `json:"source_rev"`
-	AutoSync  bool   `json:"auto_sync"`
-	SyncState string `json:"sync_state"`
-}
+// ImportedSkillResponse is the mirrored skill with its provenance. The
+// provenance fields live on SkillResponse itself so an imported skill looks
+// identical whether it arrives from this endpoint or from a later list call.
+type ImportedSkillResponse = SkillWithFilesResponse
 
 // loadImportedSkill reads the row back with its provenance columns. It queries
 // directly rather than through the generated store, which does not yet know
