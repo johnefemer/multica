@@ -1,6 +1,12 @@
 # RFC: AI Coach skill import
 
-Status: Proposed. No code written yet.
+Status: Proposed. AI Coach side validated 2026-08-20, and five of its work
+items shipped on 2026-08-25 (commits `10f1ab7`, `186bcf4`, live in production).
+No Agenthost code written yet. Two AI Coach items still block: the partner app
+registration and production test fixtures. See [Validation](#validation) for
+what is proven, [What AI Coach shipped](#what-ai-coach-shipped-2026-08-25) for
+the contract changes, and [Development path](#development-path) for the
+breakdown.
 
 Scope: adds `aicoach.pw` as a third source in the workspace **Import from URL**
 flow, with an OAuth connection so private and purchased skills resolve against
@@ -66,6 +72,26 @@ implement the `Provider` interface in
 [router.go](server/cmd/server/router.go), Slack conditionally on
 `SLACK_CLIENT_ID` being set.
 
+### Latent issues this RFC has to handle
+
+A second read of the integration code turned up three things that are harmless
+while every provider is workspace-wide, and stop being harmless the moment a
+per-user provider exists. They are not hypothetical, they are work items.
+
+1. **`ListIntegrations` returns every row in the workspace.** It calls `ListIntegrationConnections(ctx, wsID)` with no user filter. Once user-scoped rows exist, every member sees every other member's connected AI Coach account name and avatar.
+2. **`DisconnectIntegration` keys on `(workspace_id, provider)` with no role check and no user filter.** Any member could disconnect another member's account. `SetIntegrationError` has the same shape and would clobber the wrong row.
+3. **`UpsertIntegrationConnection` uses `ON CONFLICT (workspace_id, provider)`.** Postgres matches that inference against a *total* unique index. Once the constraint is replaced by two partial indexes, the existing statement stops resolving and needs an index predicate.
+
+Separately, and outside the strict scope of this RFC: the Connect button sets
+`window.location.href` to the relative path returned by
+`api.getGitHubOAuthURL` / `getSlackOAuthURL`
+([client.ts](packages/core/api/client.ts)). That works on web, where
+[next.config.ts](apps/web/next.config.ts) rewrites `/auth/:path*` to the
+backend. On desktop the renderer has no such origin, so integration connect is
+effectively broken there today. GitHub and Slack are admin-only so it has gone
+unnoticed. AI Coach is member-level, so desktop users will hit it immediately,
+which is why the development path includes fixing it.
+
 ## What AI Coach exposes
 
 Verified against the AI Coach source (Astro on Cloudflare Workers, D1 + R2).
@@ -99,8 +125,9 @@ escape hatch for self-hosted installs.
 
 **Reading skills**
 
-- `GET /api/v1/skills/<slug>` returns curated metadata plus a `skillMdUrl` pointing at `/skills-md/<slug>.md`. Public, CORS-open, and it exposes SKILL.md only, no supporting files.
-- `GET /api/skills/<publisher>/<slug>/download?version=<semver>` streams the community skill bundle. This is the endpoint that matters. Auth comes from the standard middleware, which populates `locals.user` from a session cookie or from `Authorization: Bearer <api_key>` on `/api/` paths.
+- `GET /api/skills/manifest?refs=<publisher>/<slug>,...` is the resolver, added in `e6c4e6e` explicitly for "external agent hosts (Multica, CI jobs, any mirror)". Up to 100 refs per call. Anonymous callers get a public answer cached for a minute; authenticated callers get their own private skills resolved plus an `owned` flag, uncached. A key without `skills:read` is treated as anonymous rather than refused. Per skill it returns `name`, `description`, `isPaid`, `priceCents`, `version`, `sha256`, `revision`, `contentUrl`, `contentType` (`markdown` or `bundle`), `requiresAuth` and `detailUrl`. A bare slug resolves against publisher `aicoach`, which is where curated skills live. Private, taken-down and unknown refs all come back as `found: false`, so it never leaks existence.
+- `GET /api/v1/skills/<slug>` returns curated metadata plus a `skillMdUrl` pointing at `/skills-md/<slug>.md`. Public, CORS-open, and it exposes SKILL.md only, no supporting files. Superseded by the manifest for our purposes.
+- `GET /api/skills/<publisher>/<slug>/download?version=<semver>` streams the community skill bundle. This is the endpoint that matters. Auth comes from the standard middleware, which populates `locals.user` from a session cookie or from `Authorization: Bearer <api_key>` on `/api/` paths. Since 2026-08-25 an API-key caller must also carry the `skills:read` scope or the route answers 403 `insufficient_scope`.
 
 Its gate, in order: 401 when unauthenticated, 451 when `status = 'taken_down'`,
 404 when `visibility = 'private'` and the caller is not the owner (deliberately
@@ -115,6 +142,96 @@ Note for whoever picks this up: `src/lib/skills/entitlement.ts` declares itself
 "the SINGLE paywall gate" but currently has no callers. The download route
 implements the same rules inline via `buyerOwns`. We depend on the route, not on
 that helper.
+
+## Validation
+
+Run before writing any Agenthost code, against production and against the AI
+Coach source at `/Users/imran/htdocs/omazy/aicoach`.
+
+| Check | Result |
+|---|---|
+| `GET /api/skills/manifest?publisher=aicoach` | 200, 231 skills |
+| `GET /api/skills/manifest?refs=code-review-coach,johnefemer/does-not-exist` | 200, resolved one, `found:false` on the other |
+| `GET /api/v1/skills/code-review-coach` | 200 with `skillMdUrl` |
+| `GET /skills-md/code-review-coach.md` | 200 `text/markdown`, real frontmatter |
+| `GET /api/skills/<pub>/<slug>/download` unauthenticated | 401 from `download.ts` itself, so the route is deployed and gating |
+| `GET /api/v1/me` unauthenticated | 401 |
+| `GET /connect?client_id=bogus&…` | consent page renders, answers "Unknown or inactive application", so `partner_apps` exists in production |
+| `POST /api/v1/oauth/token` with a bad code | `{"error":"invalid_grant"}`, 400 |
+| `OPTIONS /api/v1/oauth/register` | 204, dynamic registration is live |
+| R2 binding `SKILL_BUNDLES` | present in `wrangler.toml` |
+| `user_skills` in production D1 | exists, `browse?origin=user` returns 200 |
+| Publish produces a real bundle | `build.ts` calls `publishAuthoredVersion`, which packs, uploads to R2 and finalizes |
+| Purchase unlocks download | covered by their own `e2e/specs/webhook.fresh.spec.ts` |
+
+**Tar round-trip, the one that mattered.** The bundle writer in
+`src/lib/skills/bundle.ts` is hand-rolled ustar, written by hand because the
+Workers runtime has no archiver, and nothing on their side had read it back with
+a real tar implementation. Built a bundle with their own `buildSkillBundle`
+through `tsx`, then read it with Go's `archive/tar`:
+
+```
+ok  typeflag='0'  size=72  format=USTAR  name=SKILL.md
+ok  typeflag='0'  size=25  format=USTAR  name=references/api.md
+entries read: 3
+```
+
+Valid gzip, valid ustar, correct checksums, **flat paths with no leading
+directory**, readable by both `bsdtar` and Go. The Go extraction in PR4 will
+work.
+
+### What is not proven
+
+Items 3 and 5 from the first pass were fixed on the AI Coach side on 2026-08-25.
+These three remain.
+
+1. **No community skill has ever been published in production.** `browse?origin=user` still returns `total: 0`. The download endpoint, the paywall and the bundle path have run in their local e2e suite and never against prod data. One free, one paid and one private fixture is a prerequisite for PR4, not a nice-to-have.
+2. **No partner app exists for Agenthost yet.** `client_id=bogus` proves the lookup works, nothing more. Until the app is registered with both redirect URIs and `allowed_scopes`, PR3 cannot be finished.
+3. **Bearer-key download against production is still unverified.** Their e2e now covers it locally, and the local seed bug that was masking it is fixed, but nothing has exercised the path against the deployment. An attempt from this side got a clean 401: the `AICOACH_API_KEY` in the shell environment hashes to a row that does not exist in production D1, so it is a local dev key, not a production one. Run this once a production key exists, before PR3:
+
+   ```bash
+   curl -sD- -o /dev/null -H "Authorization: Bearer $AICOACH_KEY" \
+     https://aicoach.pw/api/skills/<publisher>/<slug>/download
+   ```
+
+   200 with `X-Skill-Sha256` means the premise holds. A 403 `insufficient_scope`
+   means the key lacks `skills:read`, which is a key problem, not a design
+   problem. Anything else means this design needs revisiting.
+
+## What AI Coach shipped, 2026-08-25
+
+Five items from the handoff landed and are live. Each one changes what Agenthost
+has to build, so read this before the decisions below.
+
+| Shipped | Effect here |
+|---|---|
+| `/api/v1/me` returns a stable `id` | `provider_account_id` stores the integer id, not a mutable and sometimes-null username. The `username` fallback plan is dead. |
+| Partner Connect keys carry scopes | The connect start URL **must** request `scope=skills:read`, and the app's `allowed_scopes` caps what it can ever ask for. |
+| `download` enforces `skills:read` | A key without it gets 403 `insufficient_scope`, not 401. New error path. |
+| Manifest accepts a key | A private skill now resolves for its owner, and paid entries carry `owned: true|false`. This deletes the blind-download fallback D7 described. |
+| `GET /api/v1/purchases` | Scope `purchases:read`. Makes a "your AI Coach library" picker possible instead of URL paste. |
+
+**The landmine.** `resolveGrantedScopes` returns `null` when no `scope` is
+requested, and a null scope means the issued key falls back to `web:account`.
+So if Agenthost's `OAuthStartURL` omits `scope`, the connect flow succeeds, the
+integrations page shows a healthy green connection, and then **every single
+import fails at download with 403**. The failure is far from its cause. Assert
+on the granted scope at connect time rather than discovering it at first import.
+Both `/api/v1/oauth/authorize` and `/api/v1/oauth/token` echo back the `scope`
+actually granted, which can be narrower than what was asked for, so
+`ExchangeCode` can check it without a second request.
+
+Two things worth noting from how they got there. Their B4 work found that the
+seeded `user_skill_versions` rows carried a fake `sha256` pointing at R2 objects
+that were never created, so every seeded download returned 404 `bundle_missing`.
+That is exactly the failure the weak `not.toBe(402)` assertion was hiding, and
+it is the same failure mode [Bundle extraction limits](#bundle-extraction-limits)
+guards against on our side: verify the digest, never store unverified content.
+Their scope enforcement also covers key creation, not just reads, which closes
+the hole where a narrow key could `POST /api/publisher/keys` and mint itself a
+wide one. Broader `/api/publisher/*` and `/api/account/*` enforcement is
+deliberately not done on their side, so a `skills:read` key is narrow where it
+matters and not yet narrow everywhere.
 
 ## Decisions
 
@@ -161,12 +278,27 @@ credential. Requiring a connection for a public skill would be friction for no
 gain. Only the two-segment community form needs the connection, and only then do
 we ask for one.
 
-**D7. Metadata comes out of the bundle, not a new endpoint.** AI Coach has no
-public JSON detail endpoint for community skills. Rather than block on adding
-one, extract `SKILL.md` from the tarball and reuse
-[`parseSkillFrontmatter`](server/internal/handler/skill.go) for name and
-description, falling back to the slug. Zero cross-repo dependency for the happy
-path.
+**D7. Resolve through the manifest, then follow `contentUrl`.** `/api/skills/manifest`
+already exists and was built for exactly this. One unauthenticated call turns a
+pasted URL into name, description, paid or free, price, version, digest and
+where the content lives, before any credential is involved. Multica does not
+hardcode which URL shape needs auth, the manifest's `requiresAuth` says so.
+Frontmatter via [`parseSkillFrontmatter`](server/internal/handler/skill.go)
+stays as the fallback when a bundle's metadata disagrees or the manifest is
+unreachable.
+
+The manifest now accepts a key, so send one whenever the importer has a
+connection. An authenticated resolve returns the caller's own private skills and
+adds `owned: true|false` on paid entries, which means the import dialog can say
+"you already own this" or "this costs $5" before anything is downloaded. A key
+lacking `skills:read` is treated as anonymous rather than refused, so sending it
+is always safe.
+
+With that, `found: false` on an authenticated resolve is a terminal answer and
+the blind-download fallback this section used to describe is gone. It survives
+in one narrow case only: the importer has no connection at all, where a
+`found: false` two-segment ref may still be a private skill they own. That path
+ends at the connect prompt anyway, so no special handling.
 
 **D8. Provenance is written to `skill.config.origin`.** New `aicoach` variant,
 and while we are in there, fill in the `clawhub` and `skills_sh` origins that
@@ -181,9 +313,11 @@ and gets shipped to agent runtimes by `LoadAgentSkills`
 and we do not phone home. What we do owe AI Coach is honest provenance and no
 re-export path. See [Security and licensing](#security-and-licensing).
 
-**D10. Version is pinned and recorded, updates are manual.** The import records
-`X-Skill-Semver` and `X-Skill-Sha256`. Detecting a newer published version is a
-follow-up phase, not v1.
+**D10. Version is pinned and recorded, updates are manual for now.** The import
+records `X-Skill-Semver`, `X-Skill-Sha256` and the manifest's `revision` token.
+Update detection then costs one batched manifest call for up to 100 skills and
+zero downloads, which makes it cheap enough to schedule sooner than originally
+planned.
 
 ## Schema
 
@@ -212,10 +346,22 @@ The down migration drops both partial indexes, restores the plain unique
 constraint, and drops the column. Existing GitHub and Slack rows default to
 `workspace` and keep exactly the constraint they have now.
 
-New queries in [integration.sql](server/pkg/db/queries/integration.sql):
-`GetUserIntegrationConnection` (workspace + provider + user),
-`UpsertUserIntegrationConnection`, `ListUserIntegrationConnections`,
-`DeleteUserIntegrationConnection`.
+Query changes in [integration.sql](server/pkg/db/queries/integration.sql):
+
+| Query | Change |
+|---|---|
+| `UpsertIntegrationConnection` | `ON CONFLICT (workspace_id, provider) WHERE connection_scope = 'workspace'`. A bare `ON CONFLICT (workspace_id, provider)` no longer infers an index once the total unique constraint is gone. |
+| `UpsertUserIntegrationConnection` | New. Inserts with `connection_scope = 'user'` and `ON CONFLICT (workspace_id, provider, connected_by) WHERE connection_scope = 'user'`. |
+| `GetUserIntegrationConnection` | New. Workspace + provider + `connected_by`, `disconnected_at IS NULL`. |
+| `ListIntegrationConnections` | Add a `@user_id` parameter and `AND (connection_scope = 'workspace' OR connected_by = @user_id)`, so user-scoped rows never leak across members. |
+| `DisconnectUserIntegrationConnection` | New. Same as `DisconnectIntegration` plus `connected_by = @connected_by`. |
+| `SetUserIntegrationError` | New. Same as `SetIntegrationError` plus `connected_by = @connected_by`, used when AI Coach answers 401. |
+
+`IntegrationConnectionResponse` ([integration.go](server/internal/handler/integration.go))
+gains `connection_scope`, and so does `IntegrationConnection` in
+[integration.ts](packages/core/types/integration.ts), so the UI can tell a
+personal connection from a workspace one without hardcoding the provider name.
+`IntegrationProvider` in the same file gains `"aicoach"`.
 
 > **Do not run `make sqlc` for this.** Parts of `server/pkg/db/generated/` are
 > hand-edited and regenerating churns roughly 900 lines and breaks the build.
@@ -249,48 +395,77 @@ New queries in [integration.sql](server/pkg/db/queries/integration.sql):
 | Method | Behavior |
 |---|---|
 | `Name()` | `"aicoach"` |
-| `OAuthStartURL(state, redirectURI)` | `{base}/connect?client_id=…&redirect_uri=…&state=…` |
+| `OAuthStartURL(state, redirectURI)` | `{base}/connect?client_id=…&redirect_uri=…&state=…&scope=skills:read` . Omitting `scope` silently yields a `web:account` key that cannot download. |
 | `ExchangeCode(ctx, code, redirectURI)` | `POST {base}/api/v1/oauth/token`, maps `api_key` to `TokenResult.AccessToken`, leaves `RefreshToken` empty and `TokenExpiresInSec` zero |
-| `FetchAccount(ctx, token)` | `GET {base}/api/v1/me` with the bearer key |
+| `FetchAccount(ctx, token)` | `GET {base}/api/v1/me` with the bearer key. Use `id` for `provider_account_id`, `username` and `displayName` for display, both nullable. |
 | `VerifyWebhook` / `HandleEvent` | return `errors.New("aicoach: webhooks not supported")` |
 
-`FetchAccount` has a wrinkle: `/api/v1/me` returns `{ displayName, username }`
-and no stable identifier, while `integration_connection.provider_account_id` is
-`NOT NULL`. v1 stores `username` there and notes it in the code. Getting a
-numeric `id` added to that response is on the cross-repo list below.
+`ExchangeCode` should record the granted scope on the connection row's `scope`
+column and fail the connect loudly if `skills:read` is missing from it. A
+connection that cannot download is not a connection, and finding that out at
+import time turns a one-line config mistake into a support ticket.
 
-The callback URL is built by
-[`oauthCallbackURL`](server/internal/handler/integration.go) as
-`{APP_URL}/auth/aicoach/callback`, and every deployment origin using it has to be
-in the partner app's registered `redirect_uris`, since AI Coach compares them
-exactly.
+The callback URL is built by `oauthCallbackURL`
+([integration.go](server/internal/handler/integration.go)) from `appURL()`,
+which reads `AGENTHOST_APP_URL` and falls back to `MULTICA_APP_URL`, then to the
+request scheme and host. So the registered redirect is
+`https://agenthost.pro/auth/aicoach/callback` in production and
+`http://localhost:3000/auth/aicoach/callback` in dev. AI Coach compares
+`redirect_uri` by exact string match against the partner app's registered list,
+so every origin that will ever run this flow has to be registered up front.
+
+### Handler changes
+
+[integration.go](server/internal/handler/integration.go) learns the notion of a
+provider scope. A small `providerScope(name string) string` helper returns
+`"user"` for `aicoach` and `"workspace"` for everything else, and four call
+sites branch on it:
+
+- **`IntegrationOAuthCallback`**: workspace-scoped providers keep the `owner`/`admin` check; user-scoped providers require workspace membership only, and write through `UpsertUserIntegrationConnection` with `connected_by` set to the user recovered from the state cookie.
+- **`ListIntegrations`**: passes the requesting user id so user-scoped rows are filtered to that member.
+- **`GetIntegration`** and **`DisconnectIntegration`**: route to the user-scoped query when the provider is user-scoped, so one member cannot read or revoke another's connection.
+
+The state cookie already carries the user id across the redirect, so no new
+mechanism is needed for identity. The 10 minute state TTL is unchanged.
 
 ### URL detection
 
 `detectImportSource` gains `sourceAICoach` for hosts `aicoach.pw` and
-`www.aicoach.pw`. A new `parseAICoachURL` returns
-`{ kind: curated | community, publisher, slug }` from the path, rejecting
-anything that is not `/skills/<slug>` or `/skills/<publisher>/<slug>`. The
-existing bare-slug fallback keeps defaulting to ClawHub, unchanged.
+`www.aicoach.pw`. `parseAICoachRef` reduces the path to the ref the manifest
+speaks: `/skills/<slug>` becomes `<slug>`, `/skills/<publisher>/<slug>` becomes
+`<publisher>/<slug>`, anything else is rejected. Deciding curated versus
+community is not our job, the manifest's `contentType` and `requiresAuth`
+answer it. The existing bare-slug fallback in `detectImportSource` keeps
+defaulting to ClawHub, unchanged.
 
 ### Fetch pipeline
 
 ```
 POST /api/skills/import { url }
-  ├── curated  → GET {base}/api/v1/skills/{slug}            (anonymous)
-  │              GET {skillMdUrl}                           → SKILL.md only
-  └── community→ load connection (workspace, aicoach, importer)
-                 no connection?  → 428 aicoach_not_connected
-                 GET {base}/api/skills/{publisher}/{slug}/download
-                     Authorization: Bearer <api_key>
-                 → tar.gz → verify sha256 against X-Skill-Sha256
-                          → untar → SKILL.md + supporting files
-  → parseSkillFrontmatter for name/description (fallback: slug)
-  → createSkillWithFiles(config.origin = {…})
+  │
+  ├─ parseAICoachRef(url) → "<publisher>/<slug>" or bare "<slug>"
+  ├─ load connection (workspace, aicoach, importer)   [may be absent]
+  ├─ GET {base}/api/skills/manifest?refs=<ref>
+  │     with the key when connected  → private skills resolve, `owned` present
+  │     without                      → public answer, cached 60s
+  │
+  ├─ found && contentType=markdown  (curated, requiresAuth=false)
+  │     └─ GET contentUrl → SKILL.md, single file
+  │
+  ├─ found && contentType=bundle    (community)
+  │     ├─ isPaid && !owned → 402 purchase_required, with price and detailUrl
+  │     ├─ no connection    → 428 aicoach_not_connected
+  │     └─ GET contentUrl  Authorization: Bearer <api_key>
+  │        → tar.gz → sha256 vs X-Skill-Sha256 → untar
+  │
+  └─ !found → 404 skill_not_found
+
+  → name/description from the manifest, frontmatter as fallback
+  → createSkillWithFiles(config.origin = {…, revision})
 ```
 
 Curated imports land as a single `SKILL.md` with no supporting files, because
-that is all the public API exposes. Worth stating in the UI so nobody reports it
+that is all `/skills-md/` exposes. Worth stating in the UI so nobody reports it
 as data loss.
 
 ### Bundle extraction limits
@@ -303,7 +478,7 @@ not a warning:
 - 200 entries maximum, 1 MB per file, matching `fetchRawFile`'s existing limit.
 - Regular files only. Symlinks, hardlinks, devices and directories with content are skipped.
 - Every path passes `validateFilePath` after cleaning.
-- If every entry shares one leading directory component, strip it, since publish bundles are commonly rooted at `<slug>/`.
+- If every entry shares one leading directory component, strip it. Bundles built by AI Coach's own writer are flat, verified by round-tripping one through Go's `archive/tar`, but the `PUT /versions/:semver/bundle` route accepts a client-produced tarball that could be rooted anywhere.
 - SHA-256 of the received bytes must equal `X-Skill-Sha256`. Mismatch aborts the import rather than storing unverified content.
 
 ### Error mapping
@@ -317,6 +492,7 @@ global helper.
 |---|---|---|---|
 | No connection for this user | 428 | `aicoach_not_connected` | Inline "Connect AI Coach" button |
 | AI Coach returns 401 | 428 | `aicoach_token_invalid` | Same, plus mark connection `status = 'error'` |
+| AI Coach returns 403 `insufficient_scope` | 428 | `aicoach_scope_missing` | "Reconnect AI Coach to grant skill access". Distinct from a dead key: the credential is valid, the grant is too narrow. Read `required_scope` from the body, or the `WWW-Authenticate` header. |
 | AI Coach returns 402 | 402 | `purchase_required` | "Buy on AI Coach" linking to `action_url` |
 | AI Coach returns 404 | 404 | `skill_not_found` | "Not found, or private to another account" |
 | AI Coach returns 451 | 451 | `skill_taken_down` | Show the moderation reason |
@@ -341,10 +517,27 @@ prompt instead of the plain error block, sending the user to
 **Integrations page** ([integrations-page.tsx](packages/views/integrations/integrations-page.tsx)):
 a new `CATALOG` entry keyed `aicoach`, category `Dev`. Its card has to read
 differently from GitHub and Slack, because the connection is personal: it shows
-the connected AI Coach account of the *current user*, and disconnect only
-detaches that member's account. The Connect button gates on `aicoach_client_id`
-being present in `/api/config`, mirroring how Slack gates on `slack_client_id`
-([config.go](server/internal/handler/config.go)).
+the connected AI Coach account of the *current user*, disconnect detaches only
+that member's account, and the card is not gated on `canManage`, which currently
+disables Connect for non-admins. The Connect button gates instead on
+`aicoach_client_id` being present in `/api/config`, mirroring how Slack gates on
+`slack_client_id`. That means adding `AICoachClientID` to `AppConfig`
+([config.go](server/internal/handler/config.go)) and to the inline config type
+in [client.ts](packages/core/api/client.ts).
+
+There is a second integrations surface,
+[integrations-tab.tsx](packages/views/settings/components/integrations-tab.tsx),
+with its own `PROVIDERS` map. It needs the same entry. The duplication predates
+this work and folding the two catalogs into one shared definition would be the
+right cleanup, but it is not a prerequisite and should not be smuggled into this
+change.
+
+**Connect handoff.** `handleConnect` hardcodes two providers and assigns a
+relative URL to `window.location.href`. It becomes a shared helper that takes
+the provider key, and branches by platform: web keeps the same-origin
+navigation, desktop opens the absolute backend URL through `openExternal`
+([open-external.ts](packages/views/platform/open-external.ts)) and waits for the
+deep link back.
 
 **Skill detail** ([origin.ts](packages/views/skills/lib/origin.ts)): add
 `"aicoach"` to `OriginInfo["type"]` plus the new fields, and render a provenance
@@ -360,31 +553,173 @@ line with publisher, version, and a "Paid" badge when `pricing` is `one_time`.
 
 ## Cross-repo work items (AI Coach side)
 
-None of these block v1, but each removes a workaround:
+**Still blocking.** PR3 and PR4 cannot be finished without these two:
 
-1. **Add a stable id to `GET /api/v1/me`.** Today it returns display name and GitHub username only, so `provider_account_id` has to store a mutable username.
-2. **Honor requested scopes in the connect exchange.** `exchangeAuthCode` issues every partner key with `web:account`. It should accept a `scope` parameter through authorize and token, and issue keys limited to something like `purchases:read`, which is already in the scope vocabulary. A skill importer should not hold an account-wide key.
-3. **Enforce scopes on the download route.** It currently checks `locals.user` only, so any key works regardless of scope.
-4. **A JSON detail endpoint for community skills**, e.g. `GET /api/skills/{publisher}/{slug}`, returning name, description, pricing, visibility and latest semver without downloading the bundle. It would let us show a confirmation step before import and give a cheap "is this paid" probe.
-5. **Register Multica's redirect URIs** on the partner app for every deployment origin.
+1. **Register a partner app for Agenthost** with `https://agenthost.pro/auth/aicoach/callback` and `http://localhost:3000/auth/aicoach/callback` in `redirect_uris`, `allowed_scopes` of `skills:read,purchases:read`, and hand over the `client_id` and `client_secret`. `redirect_uri` is exact-matched, so every origin that will ever run the flow has to be listed up front.
+2. **Publish test fixtures in production.** One free, one paid, one private, under a known publisher handle. `browse?origin=user` is still `total: 0`, so there is nothing to import and no way to exercise the paywall against the real deployment.
 
-## Phasing
+**Shipped 2026-08-25**, see [What AI Coach shipped](#what-ai-coach-shipped-2026-08-25):
 
-| Phase | Contents |
+3. ~~Stable id on `/api/v1/me`~~. Done in `10f1ab7`.
+4. ~~Scopes honored through the connect exchange~~. Done in `186bcf4`, with `skills:read` added to the vocabulary and an `allowed_scopes` ceiling per app.
+5. ~~Scope enforcement on download~~. Done, plus on key creation, which is the one that mattered: without it a narrow key could mint itself a wide one.
+6. ~~Tar path truncation~~. Fixed with a ustar `prefix` split.
+7. ~~Two paywalls~~. `download.ts` now routes through `canAccess`.
+8. ~~Weak unlock assertion~~. Now asserts 200, gzip bytes, and a digest matching the row. Fixing it turned out to require fixing the seed, which had been writing version rows with a fake `sha256` pointing at R2 objects that were never created.
+
+## Development path
+
+Eight changes, each one landable on its own. The ordering exists because of two
+hard dependencies: nothing authenticated works before the schema and the
+provider are in, and the UI cannot show a real error state before the server
+emits structured codes.
+
+```
+PR1 curated import ──────────────────────────────┐
+                                                 ├── PR7 provenance UI
+PR2 schema ── PR3 provider ── PR4 auth import ───┤
+                    │              └── PR5 import dialog gate
+                    └── PR6 desktop connect (parallel)
+                                                  PR8 update detection (later)
+```
+
+PR1 and PR6 are independent of everything else and can start immediately. PR2
+through PR5 are a chain.
+
+### PR1: AI Coach URL detection and curated import
+
+No auth, no schema, ships value on its own.
+
+| File | Work |
 |---|---|
-| 1 | URL detection, curated import, origin metadata for aicoach plus the ClawHub and Skills.sh backfill, UI source card. No auth, no schema change. |
-| 2 | Provider, migration 069, member-level connect, community import through the download endpoint, structured error codes, connect prompt in the dialog. |
-| 3 | Integrations page card, per-user connection display, paid and version badges on skill detail. |
-| 4 | Update detection: compare recorded semver against the latest published, offer re-import. |
+| [skill.go](server/internal/handler/skill.go) | `aicoachBaseURL()` reading `AICOACH_BASE_URL` with the `https://aicoach.pw` default. `sourceAICoach` in `detectImportSource`. `parseAICoachRef` turning a URL into a `<publisher>/<slug>` ref. `resolveAICoachManifest(ref)` hitting `/api/skills/manifest`. `fetchFromAICoachMarkdown` following `contentUrl` when `contentType` is `markdown`, validating it is same-origin with the base. |
+| [skill.go](server/internal/handler/skill.go) | `ImportSkill` builds a `config.origin` for all three sources instead of passing `map[string]any{}`, which retires the "backend never writes this" note in origin.ts. |
+| [skill_test.go](server/internal/handler/skill_test.go) | Add `aicoach.pw` to the rewriting transport host set. Cases: curated happy path, 404, malformed path, origin recorded. |
+| [origin.ts](packages/views/skills/lib/origin.ts) | `"aicoach"` in `OriginInfo["type"]`, new fields, drop the stale NOTE comment. |
+| [create-skill-dialog.tsx](packages/views/skills/components/create-skill-dialog.tsx) | Third `SourceCard`, `detectUrlSource` returns `"aicoach"`, chooser copy names all three sources, `submittingLabel` handles it. |
 
-Phase 1 ships something useful on its own and carries no schema risk, which is
-why it is split out.
+Done when: `https://aicoach.pw/skills/code-review-coach` imports and the skill
+detail page shows where it came from. ClawHub and Skills.sh imports show their
+origin too. The manifest resolver is exercised by both PR1 and PR4, so it lands
+here where it is cheap to test.
+
+Verify: `cd server && go test ./internal/handler/` and
+`pnpm --filter @multica/views exec vitest run skills`.
+
+### PR2: connection scope in the schema
+
+Pure plumbing, no user-visible change, no new provider yet. Landing it alone
+keeps the migration reviewable and keeps a regression in GitHub or Slack from
+being attributed to AI Coach work.
+
+| File | Work |
+|---|---|
+| `server/migrations/069_integration_connection_user_scope.{up,down}.sql` | Column plus the two partial unique indexes, and the reverse. |
+| [integration.sql](server/pkg/db/queries/integration.sql) | The six query changes in [Schema](#schema). |
+| [integration.sql.go](server/pkg/db/generated/integration.sql.go) | Hand-written, matching the surrounding style. **Do not run `make sqlc`.** |
+| [integration.go](server/internal/handler/integration.go) | `providerScope()` helper, scope branching in callback, list, get and disconnect. `connection_scope` on the response. |
+| [integration.ts](packages/core/types/integration.ts) | `connection_scope` on `IntegrationConnection`, `"aicoach"` in `IntegrationProvider`. |
+| `server/internal/handler/integration_test.go` | Two members hold independent user-scoped rows. `ListIntegrations` hides the other member's. Disconnect cannot touch it. GitHub upsert still overwrites in place. |
+
+Done when: `make migrate-up` is clean, existing GitHub and Slack connect and
+disconnect flows behave exactly as before, and the new tests pass.
+
+Verify: `make migrate-up && make migrate-down && make migrate-up`, then
+`cd server && go test ./internal/handler/`.
+
+### PR3: the AI Coach provider and connect flow
+
+| File | Work |
+|---|---|
+| `server/internal/integration/aicoach/provider.go` | The five interface methods from [Provider](#provider). |
+| `server/internal/integration/aicoach/provider_test.go` | `ExchangeCode` maps `api_key` onto `AccessToken` with no expiry, `FetchAccount` parses `/api/v1/me`, webhook methods error. |
+| [router.go](server/cmd/server/router.go) | Register when `AICOACH_CLIENT_ID` is set, Slack's pattern. |
+| provider + callback | Request `scope=skills:read` at authorize, then assert it came back in the granted scope before writing the connection row. A connection without it looks healthy and fails at every import. |
+| [config.go](server/internal/handler/config.go) | `aicoach_client_id` in `AppConfig`. |
+| [client.ts](packages/core/api/client.ts) | `aicoach_client_id` in the config type, `getAICoachOAuthURL(wsSlug)`. |
+| [.env.example](.env.example) | The block from [Environment variables](#environment-variables). |
+
+Done when: a member completes the consent flow at aicoach.pw and lands back on
+the integrations page with an `active` row carrying their AI Coach username.
+
+Blocked on: the partner app existing on the AI Coach side with our redirect URIs
+registered. Do that before starting the PR, not during review.
+
+### PR4: authenticated community import
+
+The core of the feature.
+
+| File | Work |
+|---|---|
+| `server/internal/handler/skill_bundle.go` | `extractSkillBundle(r io.Reader, sha string)` doing gzip plus tar with every limit in [Bundle extraction limits](#bundle-extraction-limits). Separate file because it is self-contained and skill.go is already 1291 lines. |
+| [skill.go](server/internal/handler/skill.go) | `fetchFromAICoachCommunity` loading the connection, calling the download endpoint with the bearer key, mapping status codes. `writeImportError(w, status, code, msg, actionURL)`. |
+| [skill.go](server/internal/handler/skill.go) | On 401 from AI Coach, call `SetUserIntegrationError` so the integrations page reflects the dead key. |
+| `server/internal/handler/skill_bundle_test.go` | Golden tarball fixtures: happy path, sha mismatch, oversized, too many entries, `../` traversal, symlink entry, shared leading directory stripped. |
+| [skill_test.go](server/internal/handler/skill_test.go) | 401, 402, 404, 451 each map to the right code and status. Missing connection returns 428 without any outbound call. |
+
+Done when: a purchased skill imports for the buyer, returns
+`purchase_required` for anyone else, a private skill imports for its owner
+through the `found:false` fallback path, and returns `skill_not_found` to
+everyone else.
+
+Blocked on cross-repo items 1 and 2. There is nothing published on AI Coach to
+test against today, so this PR cannot be verified against production until the
+fixtures exist.
+
+### PR5: import dialog connect gate
+
+| File | Work |
+|---|---|
+| [create-skill-dialog.tsx](packages/views/skills/components/create-skill-dialog.tsx) | Read `code` off the error body. `aicoach_not_connected` and `aicoach_token_invalid` render an inline connect prompt, `purchase_required` renders a buy link to `action_url`. Preserve the typed URL across the round trip, sessionStorage keyed on the workspace is enough. |
+| [client.ts](packages/core/api/client.ts) | `importSkill` surfaces the structured body instead of flattening it to a message string. |
+| `packages/views/skills/components/create-skill-dialog.test.tsx` | Each code renders its own affordance. Mock `@multica/core/api`, never `next/*`. |
+
+Done when: pasting a community URL with no connection shows "Connect AI Coach",
+and after the round trip the import runs without retyping the URL.
+
+### PR6: desktop connect path
+
+Independent of the rest, and it fixes GitHub and Slack on desktop at the same
+time.
+
+| File | Work |
+|---|---|
+| [index.ts](apps/desktop/src/main/index.ts) | Handle `multica://integrations/connected?provider=<name>` in `handleDeepLink`, alongside the existing `auth/callback` and `invite` cases, and forward to the renderer over IPC. |
+| `apps/desktop/src/preload` + renderer | Surface the event, invalidate the integrations query, toast the result. |
+| [integrations-page.tsx](packages/views/integrations/integrations-page.tsx) | `handleConnect` branches: web navigates same-origin, desktop calls `openExternal` with the absolute backend URL. |
+| [integration.go](server/internal/handler/integration.go) | Accept a `client=desktop` hint on `/auth/{provider}/start`, carry it in the state cookie, and redirect the callback to `multica://integrations/connected?provider=…` instead of the web path. |
+
+Done when: a desktop member connects AI Coach through the system browser and the
+app reflects it without a restart.
+
+### PR7: provenance UI
+
+| File | Work |
+|---|---|
+| [skill-detail-page.tsx](packages/views/skills/components/skill-detail-page.tsx) | Origin line: publisher, version, source link, "Paid" badge when `pricing` is `one_time`. |
+| [skills-page.tsx](packages/views/skills/components/skills-page.tsx) | Source badge in the list. |
+
+### PR8: update detection (later)
+
+Compare each skill's recorded `revision` against the manifest and offer
+re-import where they differ. One batched call covers up to 100 skills and
+downloads nothing, so this is far cheaper than it looked when the RFC was
+first drafted. Worth scheduling once PR4 is in rather than leaving open-ended.
+
+### What has to be true before PR3 starts
+
+- **The bearer-key download probe returns 200.** The one command in [What is not proven](#what-is-not-proven). Everything downstream assumes it. Run it first, it costs a minute.
+- The partner app exists with both redirect URIs registered, and we hold the client id and secret.
+- Test fixtures are published on AI Coach: one free, one paid, one private.
+- The licence question in [Open questions](#open-questions) has an answer. If a purchase turns out to be per-seat, PR4's storage model changes, so ask before building it.
+- A stable id on `/api/v1/me` is either done or explicitly accepted as "store the username for now".
 
 ## Testing
 
 - **Go, `server/internal/handler/`**: extend the existing pattern in [skill_test.go](server/internal/handler/skill_test.go), which points a rewriting `http.Transport` at an `httptest` server. Add `aicoach.pw` to the rewritten host set and cover: curated fetch, community fetch with a valid bundle, sha256 mismatch, oversized and over-count bundles, path traversal entries, leading-directory stripping, and each of 401 / 402 / 404 / 451 mapping to the right code.
 - **Go, provider**: `ExchangeCode` mapping `api_key` onto `TokenResult`, `FetchAccount` parsing, webhook methods erroring.
 - **Views, `packages/views/skills/`**: `detectUrlSource` recognizing all three hosts, and the dialog rendering the connect prompt on `aicoach_not_connected` rather than a bare error. Mock `@multica/core/api`, never `next/*`.
+- **Go, bundle extraction**: `skill_bundle_test.go` with golden tarballs, listed under [PR4](#pr4-authenticated-community-import). These are the security-relevant tests, treat them as required, not nice to have.
 - **E2E**: skipped. It needs a live AI Coach account with a purchase, which is not reproducible in CI.
 
 ## Environment variables
@@ -405,7 +740,7 @@ and desktop clients can gate the Connect button without a round trip.
 
 ## Open questions
 
-- **Licence semantics for a purchased skill inside a shared workspace.** Needs an answer from the AI Coach side before phase 2 ships. If it turns out to be per-seat, the import has to become per-agent or carry a licence token, which changes the storage model.
-- **Self-hosted installs.** They cannot use our registered `client_id` because `redirect_uri` is exact-matched. Dynamic client registration at startup is the obvious fix, and it means holding a `client_id` in local state and using PKCE instead of a client secret. Worth doing, but it is a phase of its own.
+- **Licence semantics for a purchased skill inside a shared workspace.** Needs an answer from the AI Coach side before PR4 starts. If it turns out to be per-seat, the import has to become per-agent or carry a licence token, which changes the storage model.
+- **Self-hosted installs.** They cannot use our registered `client_id` because `redirect_uri` is exact-matched. Dynamic client registration at startup is the obvious fix, and it means holding a `client_id` in local state and using PKCE instead of a client secret. Worth doing, but it is its own piece of work, not a step in this one.
 - **What happens on disconnect.** Skills already imported stay, since they are copies. Should the UI mark them as "imported by an account no longer connected"? Leaning no for v1, on the grounds that it is noise.
 - **Multiple AI Coach accounts per user.** One row per `(workspace, provider, user)` allows exactly one. Nobody has asked for more.
