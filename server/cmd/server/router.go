@@ -466,6 +466,10 @@ func NewRouter(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus, analytics
 				r.Patch("/slack/bindings/{bindingId}", h.UpdateChatChannelBinding)
 				r.Delete("/slack/bindings/{bindingId}", h.DeleteChatChannelBinding)
 				r.Get("/slack/event-types", h.ListSlackNotifyEventTypes)
+				// AI Coach connects with a pasted API key rather than an OAuth
+				// redirect, so it has its own write route instead of going
+				// through /auth/{provider}/start.
+				r.Put("/aicoach", h.ConnectAICoach)
 			})
 
 			// Tasks (user-facing, with ownership check)
