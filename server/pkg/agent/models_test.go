@@ -390,3 +390,94 @@ func TestCachedDiscovery(t *testing.T) {
 		t.Errorf("expected 1 underlying call due to cache, got %d", calls)
 	}
 }
+
+// TestParseKimiCodeConfigOptionModels covers Kimi Code CLI 0.40.x,
+// which returns no `models` block at all and advertises its catalog
+// through the ACP session config options instead. Before this was
+// handled the runtime reported an empty list and the UI dropdown
+// rendered "No models available" with no error to explain why.
+func TestParseKimiCodeConfigOptionModels(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{
+		"sessionId": "session_abc",
+		"configOptions": [
+			{"type":"select","id":"model","name":"Model","category":"model",
+			 "currentValue":"moonshot-ai/kimi-k2.6",
+			 "options":[
+			   {"value":"moonshot-ai/kimi-k2.6","name":"kimi-k2.6"},
+			   {"value":"moonshot-ai/kimi-k3","name":"kimi-k3"},
+			   {"value":"moonshot-ai/kimi-k2.7-code","name":"kimi-k2.7-code"}
+			 ]},
+			{"type":"select","id":"thinking","name":"Thinking","category":"thought_level",
+			 "currentValue":"on",
+			 "options":[{"value":"off","name":"Thinking Off"},{"value":"on","name":"Thinking On"}]}
+		]
+	}`)
+	models := parseACPSessionNewModels(raw)
+	if len(models) != 3 {
+		t.Fatalf("expected 3 models, got %d: %+v", len(models), models)
+	}
+	if models[0].ID != "moonshot-ai/kimi-k2.6" || models[0].Label != "kimi-k2.6" {
+		t.Errorf("unexpected first model: %+v", models[0])
+	}
+	if !models[0].Default {
+		t.Errorf("currentValue entry must be marked default: %+v", models[0])
+	}
+	if models[1].Default || models[2].Default {
+		t.Errorf("only the currentValue entry may be default: %+v", models)
+	}
+	// The thinking/mode selects must not leak into the model list.
+	for _, m := range models {
+		if m.ID == "on" || m.ID == "off" {
+			t.Errorf("non-model config option leaked into catalog: %+v", m)
+		}
+	}
+}
+
+// TestParseACPModelsBlockWinsOverConfigOptions pins precedence: an
+// agent that emits both shapes (a transitional CLI build) is read
+// from the richer `models` block.
+func TestParseACPModelsBlockWinsOverConfigOptions(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{
+		"sessionId": "s",
+		"models": {"availableModels":[{"modelId":"a","name":"A"}],"currentModelId":"a"},
+		"configOptions":[{"type":"select","id":"model","category":"model",
+		  "currentValue":"b","options":[{"value":"b","name":"B"}]}]
+	}`)
+	models := parseACPSessionNewModels(raw)
+	if len(models) != 1 || models[0].ID != "a" {
+		t.Fatalf("expected the models block to win, got %+v", models)
+	}
+}
+
+// TestParseACPConfigOptionsNonStringValues guards the decode: a
+// config option whose value isn't a string (a boolean toggle, say)
+// must be skipped rather than failing the whole payload.
+func TestParseACPConfigOptionsNonStringValues(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{
+		"sessionId": "s",
+		"configOptions":[
+		  {"type":"toggle","id":"verbose","category":"output","currentValue":true,
+		   "options":[{"value":true,"name":"On"},{"value":false,"name":"Off"}]},
+		  {"type":"select","id":"model","category":"model","currentValue":"m1",
+		   "options":[{"value":"m1","name":"M1"},{"value":42,"name":"bad"}]}
+		]
+	}`)
+	models := parseACPSessionNewModels(raw)
+	if len(models) != 1 || models[0].ID != "m1" || !models[0].Default {
+		t.Fatalf("expected only the string-valued model, got %+v", models)
+	}
+}
+
+// TestParseACPConfigOptionsWithoutModelSelect returns nil so the
+// caller keeps treating it as "no catalog found" and the UI falls
+// back to manual entry.
+func TestParseACPConfigOptionsWithoutModelSelect(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{"sessionId":"s","configOptions":[{"type":"select","id":"mode","category":"mode","currentValue":"default","options":[{"value":"default","name":"Default"}]}]}`)
+	if got := parseACPSessionNewModels(raw); got != nil {
+		t.Errorf("expected nil, got %+v", got)
+	}
+}

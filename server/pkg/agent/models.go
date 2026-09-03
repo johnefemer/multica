@@ -354,10 +354,10 @@ func parsePiModels(output string) []Model {
 // creatable manual-entry input instead of blocking the form.
 func discoverHermesModels(ctx context.Context, executablePath string) ([]Model, error) {
 	return discoverACPModels(ctx, executablePath, acpDiscoveryProvider{
-		defaultBin:      "hermes",
-		clientName:      "agenthost-model-discovery",
-		extraEnv:        []string{"HERMES_YOLO_MODE=1"},
-		tmpdirPrefix:    "agenthost-hermes-discovery-",
+		defaultBin:   "hermes",
+		clientName:   "agenthost-model-discovery",
+		extraEnv:     []string{"HERMES_YOLO_MODE=1"},
+		tmpdirPrefix: "agenthost-hermes-discovery-",
 	})
 }
 
@@ -515,8 +515,10 @@ func discoverACPModels(ctx context.Context, executablePath string, p acpDiscover
 }
 
 // parseACPSessionNewModels extracts the model catalog from an ACP
-// `session/new` response. Both Hermes and Kimi (and any other ACP
-// agent that follows the standard schema) emit:
+// `session/new` response. Two shapes are in the wild and both are
+// read here, because "kimi" on a runtime host can be either CLI.
+//
+// Hermes and the Python kimi-cli use the `models` block:
 //
 //	{
 //	  "sessionId": "...",
@@ -528,7 +530,22 @@ func discoverACPModels(ctx context.Context, executablePath string, p acpDiscover
 //	  }
 //	}
 //
-// Returns nil (not an empty slice) when the payload is missing so
+// Kimi Code CLI (0.40.x) dropped that block and advertises the same
+// catalog through the ACP session config options instead:
+//
+//	{
+//	  "sessionId": "...",
+//	  "configOptions": [
+//	    {"type": "select", "id": "model", "category": "model",
+//	     "currentValue": "moonshot-ai/kimi-k2.6",
+//	     "options": [{"value": "moonshot-ai/kimi-k2.6", "name": "kimi-k2.6"}]}
+//	  ]
+//	}
+//
+// Execution is unaffected by which shape a CLI uses: both still take
+// the chosen ID through `session/set_model`.
+//
+// Returns nil (not an empty slice) when neither shape is present so
 // the caller can distinguish "parsed with no models" (valid but
 // empty catalog) from "couldn't find the structure at all".
 func parseACPSessionNewModels(raw json.RawMessage) []Model {
@@ -544,6 +561,9 @@ func parseACPSessionNewModels(raw json.RawMessage) []Model {
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil
+	}
+	if len(resp.Models.AvailableModels) == 0 {
+		return parseACPConfigOptionModels(raw)
 	}
 	models := make([]Model, 0, len(resp.Models.AvailableModels))
 	seen := map[string]bool{}
@@ -568,6 +588,69 @@ func parseACPSessionNewModels(raw json.RawMessage) []Model {
 		})
 	}
 	return models
+}
+
+// parseACPConfigOptionModels reads the model catalog out of the ACP
+// session config options, the shape Kimi Code CLI 0.40.x returns in
+// place of the `models` block. The model select is identified by
+// `category: "model"`, falling back to `id: "model"` for agents that
+// omit the category. `currentValue` marks the entry the CLI would
+// use on its own, which is what the UI badges as the default.
+//
+// Values are decoded as `any` rather than `string` so an unrelated
+// option with a non-string value (a boolean toggle, say) can't fail
+// the whole decode and wipe out the catalog. Returns nil when no
+// model select is present.
+func parseACPConfigOptionModels(raw json.RawMessage) []Model {
+	var resp struct {
+		ConfigOptions []struct {
+			ID           string `json:"id"`
+			Category     string `json:"category"`
+			CurrentValue any    `json:"currentValue"`
+			Options      []struct {
+				Value any    `json:"value"`
+				Name  string `json:"name"`
+			} `json:"options"`
+		} `json:"configOptions"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil
+	}
+
+	for _, opt := range resp.ConfigOptions {
+		if opt.Category != "model" && opt.ID != "model" {
+			continue
+		}
+		current, _ := opt.CurrentValue.(string)
+		models := make([]Model, 0, len(opt.Options))
+		seen := map[string]bool{}
+		for _, o := range opt.Options {
+			id, ok := o.Value.(string)
+			if !ok || id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			label := o.Name
+			if label == "" {
+				label = id
+			}
+			provider := ""
+			if idx := strings.Index(id, ":"); idx > 0 {
+				provider = id[:idx]
+			}
+			models = append(models, Model{
+				ID:       id,
+				Label:    label,
+				Provider: provider,
+				Default:  id == current,
+			})
+		}
+		if len(models) == 0 {
+			return nil
+		}
+		return models
+	}
+	return nil
 }
 
 // discoverCursorModels runs `cursor-agent --list-models` and parses
