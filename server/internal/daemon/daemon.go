@@ -701,8 +701,8 @@ type Daemon struct {
 	// ghTokenEnv is the P2 token from GH_TOKEN/GITHUB_TOKEN in the daemon's process environment.
 	// ghTokenCLI is the P3 token from `gh auth token` (detected once at startup).
 	// The resolved token is kept in repoCache (via SetToken) and injected into agentEnv.
-	tokenMu         sync.RWMutex // guards ghTokenSettings (others are write-once at startup)
-	ghTokenSettings string
+	tokenMu         sync.RWMutex      // guards ghTokenSettings (others are write-once at startup)
+	ghTokenSettings map[string]string // workspace ID -> settings PAT (P1); never shared across workspaces
 	ghTokenEnv      string
 	ghTokenCLI      string
 	// gh CLI metadata (populated by probeGHCLI at startup).
@@ -2168,6 +2168,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.ghTokenEnv = os.Getenv("GITHUB_TOKEN")
 	}
 
+	// Kensink: seed the repo cache's machine-wide fallback now that P2 and P3
+	// are known, so the first workspace sync is authenticated even if no
+	// workspace carries a token of its own.
+	if tc, ok := d.repoCache.(interface{ SetDefaultToken(string) }); ok {
+		tc.SetDefaultToken(d.machineGitHubToken())
+	}
+
 	// Renew the PAT before the first API call, then do the initial
 	// workspace sync. Both steps live in preflightAuth so the ordering
 	// invariant (renew first) is enforced at one site instead of
@@ -2318,13 +2325,19 @@ func (d *Daemon) probeGHCLI(ctx context.Context) {
 //	P2: GH_TOKEN / GITHUB_TOKEN in daemon process environment
 //	P3: `gh auth token` output (local gh CLI)
 //	P4: "" (no token — credential helpers in the system may still work)
-func (d *Daemon) resolveGitHubToken() string {
+func (d *Daemon) resolveGitHubToken(workspaceID string) string {
 	d.tokenMu.RLock()
-	settings := d.ghTokenSettings
+	settings := d.ghTokenSettings[workspaceID]
 	d.tokenMu.RUnlock()
 	if settings != "" {
 		return settings
 	}
+	return d.machineGitHubToken()
+}
+
+// machineGitHubToken returns the machine-level tiers (P2 daemon env, P3 gh
+// CLI). Unlike the settings PAT these legitimately apply to every workspace.
+func (d *Daemon) machineGitHubToken() string {
 	if d.ghTokenEnv != "" {
 		return d.ghTokenEnv
 	}
@@ -2334,21 +2347,48 @@ func (d *Daemon) resolveGitHubToken() string {
 	return ""
 }
 
+// workspaceForRuntime maps a heartbeating runtime back to its workspace, which
+// is what scopes a settings reload to the right tenant. "" when unknown.
+func (d *Daemon) workspaceForRuntime(runtimeID string) string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for wsID, ws := range d.workspaces {
+		for _, rid := range ws.runtimeIDs {
+			if rid == runtimeID {
+				return wsID
+			}
+		}
+	}
+	return ""
+}
+
 // applySettingsReload updates the cached settings token (and downstream repo
 // cache) when the server reports the user has changed runtime settings via
 // the UI. An empty token means the user cleared the value, in which case
 // resolveGitHubToken falls through to the lower-priority sources.
-func (d *Daemon) applySettingsReload(token string) {
+func (d *Daemon) applySettingsReload(workspaceID, token string) {
+	if workspaceID == "" {
+		d.logger.Warn("runtime settings reload without a workspace; ignoring")
+		return
+	}
 	d.tokenMu.Lock()
-	prevPreview := previewToken(d.ghTokenSettings)
-	d.ghTokenSettings = token
+	if d.ghTokenSettings == nil {
+		d.ghTokenSettings = map[string]string{}
+	}
+	prevPreview := previewToken(d.ghTokenSettings[workspaceID])
+	if token == "" {
+		delete(d.ghTokenSettings, workspaceID)
+	} else {
+		d.ghTokenSettings[workspaceID] = token
+	}
 	d.tokenMu.Unlock()
 
-	if tc, ok := d.repoCache.(interface{ SetToken(string) }); ok {
-		tc.SetToken(d.resolveGitHubToken())
+	if tc, ok := d.repoCache.(interface{ SetWorkspaceToken(string, string) }); ok {
+		tc.SetWorkspaceToken(workspaceID, token)
 	}
 
 	d.logger.Info("runtime settings reloaded",
+		"workspace_id", workspaceID,
 		"github_token_set", token != "",
 		"github_token_changed", previewToken(token) != prevPreview,
 	)
@@ -3187,9 +3227,10 @@ func (d *Daemon) registerBuiltinRuntimesForWorkspaceLocked(ctx context.Context, 
 	d.logger.Debug("builtin register response", "workspace_id", workspaceID, "runtimes", len(resp.Runtimes))
 	d.recordBuiltinVersionsSent(workspaceID, runtimes)
 
-	// Kensink: extract the P1 GitHub token from the registration response.
-	// We use the first non-empty token found across all runtimes for this
-	// workspace (all runtimes on a daemon share the same token pool).
+	// Kensink: extract the P1 token for *this* workspace. Runtimes within one
+	// workspace share a token pool, so the first non-empty one stands for the
+	// workspace; runtimes in other workspaces are registered by their own call
+	// and must not be reached by this one's credential.
 	var settingsTok string
 	for _, tok := range resp.GitHubTokens {
 		if tok != "" {
@@ -3197,15 +3238,27 @@ func (d *Daemon) registerBuiltinRuntimesForWorkspaceLocked(ctx context.Context, 
 			break
 		}
 	}
-	if settingsTok != "" {
-		d.tokenMu.Lock()
-		d.ghTokenSettings = settingsTok
-		d.tokenMu.Unlock()
+	d.tokenMu.Lock()
+	if d.ghTokenSettings == nil {
+		d.ghTokenSettings = map[string]string{}
 	}
+	if settingsTok != "" {
+		d.ghTokenSettings[workspaceID] = settingsTok
+	} else {
+		// Re-registration after the PAT was cleared upstream must drop the
+		// stale entry, not keep serving the old credential.
+		delete(d.ghTokenSettings, workspaceID)
+	}
+	d.tokenMu.Unlock()
 
-	// Resolve and push the current best token to the repo cache.
-	if tc, ok := d.repoCache.(interface{ SetToken(string) }); ok {
-		tc.SetToken(d.resolveGitHubToken())
+	// Push this workspace's token to the repo cache, plus the machine-wide
+	// fallback that covers workspaces with none of their own.
+	if tc, ok := d.repoCache.(interface {
+		SetWorkspaceToken(string, string)
+		SetDefaultToken(string)
+	}); ok {
+		tc.SetWorkspaceToken(workspaceID, settingsTok)
+		tc.SetDefaultToken(d.machineGitHubToken())
 	}
 	return resp, nil
 }
@@ -4752,7 +4805,7 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	}
 	// Kensink: the user updated runtime settings (GitHub PAT) in the UI.
 	if resp.PendingSettingsReload != nil {
-		d.applySettingsReload(resp.PendingSettingsReload.GitHubToken)
+		d.applySettingsReload(d.workspaceForRuntime(runtimeID), resp.PendingSettingsReload.GitHubToken)
 	}
 	if resp.PendingModelList != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
@@ -7987,7 +8040,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		IssueStatuses:                    convertIssueStatusesForEnv(task.IssueStatuses),
 		IssueStatusesOmitted:             task.IssueStatusesOmitted,
 		ConnectedApps:                    task.ConnectedApps,
-		GHAvailable:                      d.ghAvailable && d.resolveGitHubToken() != "",
+		GHAvailable:                      d.ghAvailable && d.resolveGitHubToken(task.WorkspaceID) != "",
 	}
 
 	// Mark candidate env roots as active before any env work so the GC loop
@@ -8670,7 +8723,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	}
 	// Inject the resolved GitHub token so the agent subprocess can use it for
 	// `gh` CLI calls and git operations without any manual configuration.
-	if tok := d.resolveGitHubToken(); tok != "" {
+	if tok := d.resolveGitHubToken(task.WorkspaceID); tok != "" {
 		agentEnv["GH_TOKEN"] = tok
 		agentEnv["GITHUB_TOKEN"] = tok
 	}

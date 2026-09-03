@@ -2,8 +2,9 @@ package repocache
 
 // Kensink fork: GitHub token injection for remote git operations.
 //
-// The daemon resolves one GitHub token (runtime settings → daemon env →
-// `gh auth token`) and hands it to the cache via SetToken. A repo checkout
+// The daemon resolves a GitHub token per workspace (runtime settings PAT) plus
+// a machine-wide fallback (daemon env → `gh auth token`) and hands them to the
+// cache via SetWorkspaceToken / SetDefaultToken. A repo checkout
 // request may also carry a per-task token, which wins for that checkout.
 // The token travels on the context, so every remote git call made through the
 // runGit*Context helpers picks it up without changing their signatures.
@@ -99,27 +100,52 @@ func applyGitHubToken(env []string, token string) []string {
 	)
 }
 
-// SetToken sets the daemon-level GitHub token used by remote git operations
-// that don't carry their own per-task token.
-func (c *Cache) SetToken(token string) {
+// SetDefaultToken sets the machine-wide fallback token (daemon environment /
+// gh CLI), used by workspaces that have no settings PAT of their own.
+func (c *Cache) SetDefaultToken(token string) {
 	c.tokenMu.Lock()
 	defer c.tokenMu.Unlock()
-	c.token = token
+	c.defaultToken = token
 }
 
-func (c *Cache) getToken() string {
+// SetWorkspaceToken sets a workspace's settings PAT. An empty token clears it,
+// so a PAT removed upstream stops being served. Tokens never cross
+// workspaces: one workspace's PAT must not reach another's remotes.
+func (c *Cache) SetWorkspaceToken(workspaceID, token string) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	if token == "" {
+		delete(c.wsTokens, workspaceID)
+		return
+	}
+	if c.wsTokens == nil {
+		c.wsTokens = map[string]string{}
+	}
+	c.wsTokens[workspaceID] = token
+}
+
+// tokenFor returns the workspace's own token, else the machine-wide default.
+func (c *Cache) tokenFor(workspaceID string) string {
 	c.tokenMu.RLock()
 	defer c.tokenMu.RUnlock()
-	return c.token
+	if tok := c.wsTokens[workspaceID]; tok != "" {
+		return tok
+	}
+	return c.defaultToken
 }
 
-// withCacheToken attaches the daemon-level token unless ctx already carries a
+// env is the git subprocess environment for a workspace's remote operations.
+func (c *Cache) env(workspaceID string) []string {
+	return applyGitHubToken(gitEnv(), c.tokenFor(workspaceID))
+}
+
+// withCacheToken attaches the workspace's token unless ctx already carries a
 // per-task token, which takes priority.
-func (c *Cache) withCacheToken(ctx context.Context) context.Context {
+func (c *Cache) withCacheToken(ctx context.Context, workspaceID string) context.Context {
 	if gitHubTokenFrom(ctx) != "" {
 		return ctx
 	}
-	return ContextWithGitHubToken(ctx, c.getToken())
+	return ContextWithGitHubToken(ctx, c.tokenFor(workspaceID))
 }
 
 // CreateWorktreeWithToken is CreateWorktree using token for this checkout's

@@ -177,10 +177,12 @@ type Cache struct {
 	// repo. Separate repos are independent and run concurrently.
 	repoLocks sync.Map // barePath -> *repoLock
 
-	// Kensink: daemon-level GitHub token for remote git operations
-	// (see github_token.go). Guarded by tokenMu.
-	tokenMu sync.RWMutex
-	token   string
+	// Kensink: GitHub tokens for remote git operations (see github_token.go).
+	// Settings PATs are per workspace; defaultToken is the machine-wide
+	// fallback (daemon env / gh CLI). Guarded by tokenMu.
+	tokenMu      sync.RWMutex
+	defaultToken string
+	wsTokens     map[string]string
 }
 
 // ErrRepoBusy means a foreground checkout could not acquire its repository
@@ -365,7 +367,7 @@ func (c *Cache) Sync(workspaceID string, repos []RepoInfo) error {
 // SyncContext is Sync with cancellation propagated through repo lock waits,
 // clone, fetch, and ref-layout migration.
 func (c *Cache) SyncContext(ctx context.Context, workspaceID string, repos []RepoInfo) error {
-	ctx = c.withCacheToken(ctx)
+	ctx = c.withCacheToken(ctx, workspaceID)
 	wsDir := filepath.Join(c.root, workspaceID)
 	if err := os.MkdirAll(wsDir, 0o755); err != nil {
 		return fmt.Errorf("create workspace cache dir: %w", err)
@@ -506,7 +508,7 @@ func (c *Cache) WithRepoMaintenance(ctx context.Context, barePath string, fn fun
 // Fetch runs `git fetch origin` on a cached bare clone to get latest refs.
 func (c *Cache) Fetch(barePath string) error {
 	return c.WithRepoLock(barePath, func() error {
-		return gitFetchContext(c.withCacheToken(context.Background()), barePath)
+		return gitFetchContext(c.withCacheToken(context.Background(), ""), barePath)
 	})
 }
 
@@ -792,7 +794,7 @@ func (c *Cache) CreateWorktree(params WorktreeParams) (*WorktreeResult, error) {
 // lock is held, so a client that times out behind maintenance cannot leave a
 // late, unwanted checkout.
 func (c *Cache) CreateWorktreeContext(ctx context.Context, params WorktreeParams) (*WorktreeResult, error) {
-	ctx = c.withCacheToken(ctx)
+	ctx = c.withCacheToken(ctx, params.WorkspaceID)
 	barePath := c.Lookup(params.WorkspaceID, params.RepoURL)
 	if barePath == "" {
 		return nil, fmt.Errorf("repo not found in cache: %s (workspace: %s)", params.RepoURL, params.WorkspaceID)
