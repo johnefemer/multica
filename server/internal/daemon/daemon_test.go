@@ -484,3 +484,107 @@ func TestEnsureRepoReadyConcurrentMissRefreshesOnce(t *testing.T) {
 		t.Fatalf("expected exactly 1 refresh call, got %d", got)
 	}
 }
+
+// TestResolveGitHubTokenIsWorkspaceScoped pins the tenancy boundary on the P1
+// tier. One daemon watches many workspaces; the settings PAT belongs to the
+// workspace it was configured on, and must never authenticate another
+// workspace's git remotes or reach another workspace's agent subprocess.
+func TestResolveGitHubTokenIsWorkspaceScoped(t *testing.T) {
+	t.Parallel()
+
+	d := newTestDaemon(t)
+	d.ghTokenSettings = map[string]string{
+		"ws-a": "pat-a",
+		"ws-b": "pat-b",
+	}
+
+	if got := d.resolveGitHubToken("ws-a"); got != "pat-a" {
+		t.Errorf("ws-a: got %q, want pat-a", got)
+	}
+	if got := d.resolveGitHubToken("ws-b"); got != "pat-b" {
+		t.Errorf("ws-b: got %q, want pat-b", got)
+	}
+	if got := d.resolveGitHubToken("ws-c"); got != "" {
+		t.Errorf("ws-c must not inherit a neighbour's PAT, got %q", got)
+	}
+	// Callers with no workspace in hand get the machine tiers only.
+	if got := d.resolveGitHubToken(""); got != "" {
+		t.Errorf("empty workspace must not resolve a settings PAT, got %q", got)
+	}
+}
+
+// TestResolveGitHubTokenFallsBackToMachineTiers: P2/P3 are machine-wide, so a
+// workspace without its own PAT still authenticates with them.
+func TestResolveGitHubTokenFallsBackToMachineTiers(t *testing.T) {
+	t.Parallel()
+
+	d := newTestDaemon(t)
+	d.ghTokenSettings = map[string]string{"ws-a": "pat-a"}
+	d.ghTokenEnv = "env-token"
+
+	if got := d.resolveGitHubToken("ws-a"); got != "pat-a" {
+		t.Errorf("settings token must win, got %q", got)
+	}
+	if got := d.resolveGitHubToken("ws-b"); got != "env-token" {
+		t.Errorf("ws-b should fall back to the env token, got %q", got)
+	}
+
+	d.ghTokenEnv = ""
+	d.ghTokenCLI = "cli-token"
+	if got := d.resolveGitHubToken("ws-b"); got != "cli-token" {
+		t.Errorf("ws-b should fall back to the gh CLI token, got %q", got)
+	}
+}
+
+// TestApplySettingsReloadTargetsOneWorkspace: a PAT change arrives on one
+// runtime's heartbeat and must not disturb the other workspaces this daemon
+// watches, nor be applied at all when the runtime is unknown.
+func TestApplySettingsReloadTargetsOneWorkspace(t *testing.T) {
+	t.Parallel()
+
+	d := newTestDaemon(t)
+	d.repoCache = repocache.New(t.TempDir(), slog.Default())
+	d.ghTokenSettings = map[string]string{"ws-a": "pat-a", "ws-b": "pat-b"}
+
+	d.applySettingsReload("ws-a", "pat-a-new")
+	if got := d.resolveGitHubToken("ws-a"); got != "pat-a-new" {
+		t.Errorf("ws-a: got %q, want pat-a-new", got)
+	}
+	if got := d.resolveGitHubToken("ws-b"); got != "pat-b" {
+		t.Errorf("ws-b must be untouched, got %q", got)
+	}
+
+	// Cleared upstream: drop back to the machine tiers, don't keep the old PAT.
+	d.applySettingsReload("ws-a", "")
+	if got := d.resolveGitHubToken("ws-a"); got != "" {
+		t.Errorf("cleared PAT should not linger, got %q", got)
+	}
+
+	// An unresolvable runtime must not apply the token anywhere.
+	d.applySettingsReload("", "orphan-pat")
+	if got := d.resolveGitHubToken("ws-b"); got != "pat-b" {
+		t.Errorf("orphan reload leaked into ws-b: %q", got)
+	}
+}
+
+// TestWorkspaceForRuntime maps a heartbeating runtime back to its workspace,
+// which is what scopes a settings reload to the right tenant.
+func TestWorkspaceForRuntime(t *testing.T) {
+	t.Parallel()
+
+	d := newTestDaemon(t)
+	d.workspaces = map[string]*workspaceState{
+		"ws-a": {workspaceID: "ws-a", runtimeIDs: []string{"rt-1", "rt-2"}},
+		"ws-b": {workspaceID: "ws-b", runtimeIDs: []string{"rt-3"}},
+	}
+
+	if got := d.workspaceForRuntime("rt-2"); got != "ws-a" {
+		t.Errorf("rt-2: got %q, want ws-a", got)
+	}
+	if got := d.workspaceForRuntime("rt-3"); got != "ws-b" {
+		t.Errorf("rt-3: got %q, want ws-b", got)
+	}
+	if got := d.workspaceForRuntime("rt-unknown"); got != "" {
+		t.Errorf("unknown runtime should map to \"\", got %q", got)
+	}
+}

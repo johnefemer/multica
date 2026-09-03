@@ -927,3 +927,88 @@ func TestGetRemoteDefaultBranchAmbiguousOriginReturnsEmpty(t *testing.T) {
 		t.Fatalf("getRemoteDefaultBranch = %q, want \"\" (ambiguous origin/* must not guess)", got)
 	}
 }
+
+// TestTokenForIsWorkspaceScoped pins the isolation that stops one workspace's
+// PAT reaching another workspace's remotes. Before this, the cache held a
+// single daemon-wide token, so whichever workspace registered last decided
+// which credential every other workspace cloned with — producing 403 "Write
+// access to repository not granted" on repos that token was never granted.
+func TestTokenForIsWorkspaceScoped(t *testing.T) {
+	t.Parallel()
+
+	c := New(t.TempDir(), slog.Default())
+	c.SetWorkspaceToken("ws-a", "token-a")
+	c.SetWorkspaceToken("ws-b", "token-b")
+
+	if got := c.tokenFor("ws-a"); got != "token-a" {
+		t.Errorf("ws-a: got %q, want token-a", got)
+	}
+	if got := c.tokenFor("ws-b"); got != "token-b" {
+		t.Errorf("ws-b: got %q, want token-b", got)
+	}
+	// A workspace with no token of its own gets nothing, not a neighbour's.
+	if got := c.tokenFor("ws-c"); got != "" {
+		t.Errorf("ws-c must not inherit another workspace's token, got %q", got)
+	}
+}
+
+// TestTokenForFallsBackToDefault covers the machine-wide tiers (daemon
+// environment / gh CLI), which legitimately apply to every workspace.
+func TestTokenForFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+
+	c := New(t.TempDir(), slog.Default())
+	c.SetDefaultToken("machine-token")
+	c.SetWorkspaceToken("ws-a", "token-a")
+
+	if got := c.tokenFor("ws-a"); got != "token-a" {
+		t.Errorf("workspace token must win over the default, got %q", got)
+	}
+	if got := c.tokenFor("ws-b"); got != "machine-token" {
+		t.Errorf("ws-b should fall back to the default, got %q", got)
+	}
+}
+
+// TestSetWorkspaceTokenClearsOnEmpty: re-registering after the PAT was removed
+// upstream must drop the entry rather than keep serving the old credential.
+func TestSetWorkspaceTokenClearsOnEmpty(t *testing.T) {
+	t.Parallel()
+
+	c := New(t.TempDir(), slog.Default())
+	c.SetDefaultToken("machine-token")
+	c.SetWorkspaceToken("ws-a", "token-a")
+	c.SetWorkspaceToken("ws-a", "")
+
+	if got := c.tokenFor("ws-a"); got != "machine-token" {
+		t.Errorf("cleared workspace token should fall back to the default, got %q", got)
+	}
+}
+
+// TestEnvUsesWorkspaceToken checks the token actually reaches the git
+// environment for the right workspace.
+func TestEnvUsesWorkspaceToken(t *testing.T) {
+	t.Parallel()
+
+	c := New(t.TempDir(), slog.Default())
+	c.SetWorkspaceToken("ws-a", "token-a")
+	c.SetWorkspaceToken("ws-b", "token-b")
+
+	assertEnvToken(t, c.env("ws-a"), "token-a", "token-b")
+	assertEnvToken(t, c.env("ws-b"), "token-b", "token-a")
+}
+
+func assertEnvToken(t *testing.T, env []string, want, mustNotAppear string) {
+	t.Helper()
+	var found bool
+	for _, kv := range env {
+		if kv == "GH_TOKEN="+want {
+			found = true
+		}
+		if mustNotAppear != "" && strings.Contains(kv, mustNotAppear) {
+			t.Errorf("another workspace's token leaked into the git env: %q", kv)
+		}
+	}
+	if !found {
+		t.Errorf("GH_TOKEN=%s not present in git env", want)
+	}
+}

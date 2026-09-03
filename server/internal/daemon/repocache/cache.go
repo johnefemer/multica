@@ -103,38 +103,68 @@ type Cache struct {
 	// repo. Separate repos are independent and run concurrently.
 	repoLocks sync.Map // barePath -> *sync.Mutex
 
-	// tokenMu guards token.
+	// tokenMu guards defaultToken and workspaceTokens.
 	tokenMu sync.RWMutex
-	// token is the resolved GitHub token for this cache (set by SetToken).
-	// All git remote operations use this token unless a per-call override
-	// is supplied via CreateWorktreeWithToken.
-	token string
+	// defaultToken is the machine-wide GitHub token (the daemon's own
+	// environment, or the local gh CLI). It covers workspaces that have
+	// no token of their own.
+	defaultToken string
+	// workspaceTokens holds the token configured in a workspace's runtime
+	// settings, keyed by workspace ID.
+	//
+	// Per-workspace, not per-daemon: a token belongs to whoever configured
+	// that one workspace. Using it for another workspace's remotes leaks
+	// its access across tenants and, because it is scoped to repositories
+	// it was never granted, fails those clones with a confusing 403
+	// ("Write access to repository not granted") or 404 rather than an
+	// honest "no credentials configured".
+	workspaceTokens map[string]string
 }
 
 // New creates a new repo cache rooted at the given directory.
 func New(root string, logger *slog.Logger) *Cache {
-	return &Cache{root: root, logger: logger}
+	return &Cache{root: root, logger: logger, workspaceTokens: map[string]string{}}
 }
 
-// SetToken updates the resolved GitHub token used for all subsequent git
-// remote operations. Thread-safe — may be called from the daemon's token-
-// refresh path while repo operations are in flight.
-func (c *Cache) SetToken(token string) {
+// SetDefaultToken updates the machine-wide fallback token. Thread-safe — may
+// be called from the daemon's token-refresh path while repo operations are in
+// flight.
+func (c *Cache) SetDefaultToken(token string) {
 	c.tokenMu.Lock()
 	defer c.tokenMu.Unlock()
-	c.token = token
+	c.defaultToken = token
 }
 
-// getToken reads the current token under the read lock.
-func (c *Cache) getToken() string {
+// SetWorkspaceToken records the token configured for one workspace. An empty
+// token clears the entry, which drops that workspace back to the default
+// rather than leaving a stale credential in place.
+func (c *Cache) SetWorkspaceToken(workspaceID, token string) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	if c.workspaceTokens == nil {
+		c.workspaceTokens = map[string]string{}
+	}
+	if token == "" {
+		delete(c.workspaceTokens, workspaceID)
+		return
+	}
+	c.workspaceTokens[workspaceID] = token
+}
+
+// tokenFor resolves the token to use for a workspace's remotes: its own if it
+// has one, otherwise the machine-wide default.
+func (c *Cache) tokenFor(workspaceID string) string {
 	c.tokenMu.RLock()
 	defer c.tokenMu.RUnlock()
-	return c.token
+	if tok := c.workspaceTokens[workspaceID]; tok != "" {
+		return tok
+	}
+	return c.defaultToken
 }
 
-// env returns an authenticated git environment using the cache's current token.
-func (c *Cache) env() []string {
-	return gitEnvWithToken(c.getToken())
+// env returns an authenticated git environment for one workspace's remotes.
+func (c *Cache) env(workspaceID string) []string {
+	return gitEnvWithToken(c.tokenFor(workspaceID))
 }
 
 // lockForRepo returns the mutex dedicated to the given bare repo path. See
@@ -162,7 +192,7 @@ func (c *Cache) Sync(workspaceID string, repos []RepoInfo) error {
 		return fmt.Errorf("create workspace cache dir: %w", err)
 	}
 
-	env := c.env()
+	env := c.env(workspaceID)
 	var firstErr error
 	for _, repo := range repos {
 		if repo.URL == "" {
@@ -204,11 +234,6 @@ func (c *Cache) Lookup(workspaceID, url string) string {
 		return barePath
 	}
 	return ""
-}
-
-// Fetch runs `git fetch origin` on a cached bare clone to get latest refs.
-func (c *Cache) Fetch(barePath string) error {
-	return gitFetchWithEnv(barePath, c.env())
 }
 
 // bareDirName returns a filesystem-safe, collision-free directory name for
@@ -430,7 +455,7 @@ type WorktreeResult struct {
 // at the target path (reused environment), it updates the existing worktree to
 // the latest remote default branch instead of failing.
 func (c *Cache) CreateWorktree(params WorktreeParams) (*WorktreeResult, error) {
-	return c.createWorktreeWithEnv(params, c.env())
+	return c.createWorktreeWithEnv(params, c.env(params.WorkspaceID))
 }
 
 // CreateWorktreeWithToken is like CreateWorktree but uses the supplied token
