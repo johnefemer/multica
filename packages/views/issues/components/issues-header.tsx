@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@multica/ui/lib/utils";
+
 import { useMemo, useState } from "react";
 import {
   ArrowDown,
@@ -424,11 +426,14 @@ export function IssuesHeader({ scopedIssues }: { scopedIssues: Issue[] }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={
+                  // size="sm" is 28px tall, under a comfortable touch target.
+                  // Grow it on phones only; the desktop row is unchanged.
+                  className={cn(
+                    "min-h-9 md:min-h-0",
                     scope === s.value
                       ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                      : "text-muted-foreground"
-                  }
+                      : "text-muted-foreground",
+                  )}
                   onClick={() => setScope(s.value)}
                 >
                   {s.label}

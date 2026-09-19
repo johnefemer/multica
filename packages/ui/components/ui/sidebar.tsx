@@ -272,7 +272,10 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon-sm"
-      className={cn(className)}
+      // icon-sm is 28px, which is below a comfortable touch target and this is
+      // the only way into navigation on a phone. Grow it under md, and pull the
+      // extra width back out of the margin so the header spacing is unchanged.
+      className={cn("size-9 -ml-1.5 md:size-7 md:ml-0", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()

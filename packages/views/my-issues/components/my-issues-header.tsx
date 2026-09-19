@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@multica/ui/lib/utils";
+
 import { useMemo } from "react";
 import { useStore } from "zustand";
 import {
@@ -138,11 +140,14 @@ export function MyIssuesHeader({ allIssues }: { allIssues: Issue[] }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={
+                  // size="sm" is 28px tall, under a comfortable touch target.
+                  // Grow it on phones only; the desktop row is unchanged.
+                  className={cn(
+                    "min-h-9 md:min-h-0",
                     scope === s.value
                       ? "bg-accent text-accent-foreground hover:bg-accent/80"
-                      : "text-muted-foreground"
-                  }
+                      : "text-muted-foreground",
+                  )}
                   onClick={() => act.setScope(s.value)}
                 >
                   {s.label}
