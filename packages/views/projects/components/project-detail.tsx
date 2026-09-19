@@ -612,7 +612,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                 <TooltipTrigger
                   render={
                     <Button
-                      variant={sidebarOpen ? "secondary" : "ghost"}
+                      variant={(isMobile ? mobileSidebarOpen : sidebarOpen) ? "secondary" : "ghost"}
                       size="icon-sm"
                       className={sidebarOpen ? "" : "text-muted-foreground"}
                       onClick={handleToggleSidebar}
