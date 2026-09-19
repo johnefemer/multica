@@ -20,6 +20,7 @@ import {
   Plus,
   GitBranch,
 } from "lucide-react";
+import { PageHeader } from "../layout/page-header";
 import { GitHubLogo } from "./logos/github-logo";
 import { SlackLogo } from "./logos/slack-logo";
 import { NotionLogo } from "./logos/notion-logo";
@@ -1639,8 +1640,14 @@ export function IntegrationsPage() {
     filter === "All" ? defs : defs.filter((d) => d.category === filter);
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+    <div className="flex flex-1 min-h-0 flex-col">
+      {/* Without this the page renders no sidebar trigger, which on a phone
+          leaves the user with no way back to navigation. */}
+      <PageHeader className="md:hidden">
+        <span className="text-sm font-medium">Integrations</span>
+      </PageHeader>
+      <div className="flex-1 overflow-y-auto">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6 sm:py-8 space-y-8">
 
         {/* Header */}
         <div className="space-y-1">
@@ -1662,7 +1669,7 @@ export function IntegrationsPage() {
               key={cat}
               type="button"
               onClick={() => setFilter(cat)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`min-h-9 md:min-h-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 filter === cat
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1732,6 +1739,7 @@ export function IntegrationsPage() {
             No integrations in this category yet.
           </div>
         )}
+      </div>
       </div>
     </div>
   );
