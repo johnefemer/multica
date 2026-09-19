@@ -193,11 +193,23 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
   const sidebarRef = usePanelRef();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(defaultSidebarOpen);
+  // The phone sidebar is a modal Sheet, and it must never mount already open.
+  // useIsMobile() reports false on the first render and flips inside an effect,
+  // so a single shared `sidebarOpen` produces one commit where isMobile is true
+  // and the sheet is open. Base UI mounts the sheet, the next effect closes it,
+  // and because the open state was never painted no transition runs — so the
+  // transitionend that would unmount it never fires. The sheet stays in
+  // data-ending-style forever, leaving an invisible backdrop over the page that
+  // swallows every tap until a full reload. Giving the sheet its own state,
+  // closed on mount and opened only by the toggle, removes that window.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
       sidebarRef.current?.collapse();
+    } else {
+      setMobileSidebarOpen(false);
     }
   }, [isMobile]);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
@@ -638,12 +650,12 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
               <TooltipTrigger
                 render={
                   <Button
-                    variant={sidebarOpen ? "secondary" : "ghost"}
+                    variant={(isMobile ? mobileSidebarOpen : sidebarOpen) ? "secondary" : "ghost"}
                     size="icon-sm"
-                    className={sidebarOpen ? "" : "text-muted-foreground"}
+                    className={(isMobile ? mobileSidebarOpen : sidebarOpen) ? "" : "text-muted-foreground"}
                     onClick={() => {
                       if (isMobile) {
-                        setSidebarOpen(!sidebarOpen);
+                        setMobileSidebarOpen((v) => !v);
                       } else {
                         const panel = sidebarRef.current;
                         if (!panel) return;
@@ -1090,7 +1102,7 @@ export function IssueDetail({ issueId, onDelete, defaultSidebarOpen = true, layo
       </ResizablePanel>
       )}
       {isMobile && (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
           <SheetContent side="right" showCloseButton={false} className="w-[min(85vw,320px)] overflow-y-auto p-4">
             {sidebarContent}
           </SheetContent>

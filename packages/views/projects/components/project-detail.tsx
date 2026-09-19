@@ -229,11 +229,18 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   });
   const sidebarRef = usePanelRef();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Separate state for the phone sheet so it can never mount already open.
+  // See the matching note in issues/components/issue-detail.tsx: a sheet that
+  // opens and closes within one commit never runs its transition, so Base UI
+  // never unmounts it and its backdrop keeps swallowing taps until a reload.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
       sidebarRef.current?.collapse();
+    } else {
+      setMobileSidebarOpen(false);
     }
   }, [isMobile]);
 
@@ -634,12 +641,12 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                 <TooltipTrigger
                   render={
                     <Button
-                      variant={sidebarOpen ? "secondary" : "ghost"}
+                      variant={(isMobile ? mobileSidebarOpen : sidebarOpen) ? "secondary" : "ghost"}
                       size="icon-sm"
-                      className={sidebarOpen ? "" : "text-muted-foreground"}
+                      className={(isMobile ? mobileSidebarOpen : sidebarOpen) ? "" : "text-muted-foreground"}
                       onClick={() => {
                         if (isMobile) {
-                          setSidebarOpen(!sidebarOpen);
+                          setMobileSidebarOpen((v) => !v);
                         } else {
                           const panel = sidebarRef.current;
                           if (!panel) return;
@@ -688,7 +695,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         </ResizablePanel>
         )}
         {isMobile && (
-          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
             <SheetContent side="right" showCloseButton={false} className="w-[320px] overflow-y-auto p-4">
               {sidebarContent}
             </SheetContent>
