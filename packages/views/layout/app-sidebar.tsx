@@ -53,6 +53,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@multica/ui/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -313,6 +314,14 @@ interface AppSidebarProps {
 
 export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }: AppSidebarProps = {}) {
   const { pathname, push } = useNavigation();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // On a phone the sidebar is a modal sheet covering the screen. Navigating
+  // does not dismiss it on its own, so tapping a nav item used to leave the
+  // user staring at the sidebar on top of the page they just opened.
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
   const user = useAuthStore((s) => s.user);
   const userId = useAuthStore((s) => s.user?.id);
   const logout = useLogout();
