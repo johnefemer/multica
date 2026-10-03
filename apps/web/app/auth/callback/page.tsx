@@ -7,6 +7,8 @@ import { sanitizeNextUrl, useAuthStore } from "@multica/core/auth";
 import { workspaceKeys } from "@multica/core/workspace/queries";
 import { paths, resolvePostAuthDestination } from "@multica/core/paths";
 import { api } from "@multica/core/api";
+import { createLogger } from "@multica/core/logger";
+import { validateCliCallback, redirectToCliCallback } from "@multica/views/auth";
 import {
   Card,
   CardHeader,
@@ -15,26 +17,36 @@ import {
   CardContent,
 } from "@multica/ui/components/ui/card";
 import { Button } from "@multica/ui/components/ui/button";
+import { useT } from "@multica/views/i18n";
 import { Loader2 } from "lucide-react";
+import { callbackErrorFrom, type CallbackError } from "./callback-error";
+
+const authLogger = createLogger("auth.callback");
 
 function CallbackContent() {
+  const { t } = useT("auth");
   const router = useRouter();
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<CallbackError | null>(null);
   const [desktopToken, setDesktopToken] = useState<string | null>(null);
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (!code) {
-      setError("Missing authorization code");
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      authLogger.warn("Google OAuth returned an error parameter", errorParam);
+      setError(
+        errorParam === "access_denied"
+          ? { kind: "access_denied" }
+          : { kind: "login_failed" },
+      );
       return;
     }
 
-    const errorParam = searchParams.get("error");
-    if (errorParam) {
-      setError(errorParam === "access_denied" ? "Access denied" : errorParam);
+    if (!code) {
+      setError({ kind: "missing_code" });
       return;
     }
 
@@ -46,18 +58,50 @@ function CallbackContent() {
     // so an attacker-controlled `state=next:https://evil` cannot redirect here.
     const nextUrl = sanitizeNextUrl(nextPart ? nextPart.slice(5) : null);
 
+    // CLI callback params — carried across the Google OAuth round-trip so
+    // headless/WSL2 `multica login` can receive the JWT after browser-based
+    // Google auth completes.
+    const cliCallbackPart = stateParts.find((p) => p.startsWith("cli_callback:"));
+    const cliStatePart = stateParts.find((p) => p.startsWith("cli_state:"));
+    const cliCallbackRaw = cliCallbackPart
+      ? decodeURIComponent(cliCallbackPart.slice("cli_callback:".length))
+      : null;
+    const cliState = cliStatePart
+      ? decodeURIComponent(cliStatePart.slice("cli_state:".length))
+      : "";
+
     const redirectUri = `${window.location.origin}/auth/callback`;
 
-    if (isDesktop) {
+    // Validate the CLI callback URL before redirecting — the state parameter
+    // passes through Google OAuth and must be treated as attacker-controlled.
+    const cliCallback =
+      cliCallbackRaw && validateCliCallback(cliCallbackRaw)
+        ? cliCallbackRaw
+        : null;
+
+    if (cliCallback) {
+      // CLI login flow: exchange the Google code for a JWT, then redirect the
+      // token back to the CLI's local HTTP listener (e.g. WSL2 host).
+      api
+        .googleLogin(code, redirectUri)
+        .then(({ token }) => {
+          redirectToCliCallback(cliCallback, token, cliState);
+        })
+        .catch((err) => {
+          authLogger.error("CLI Google OAuth callback failed", err);
+          setError(callbackErrorFrom(err));
+        });
+    } else if (isDesktop) {
       // Desktop flow: exchange code for token, then redirect via deep link
       api
         .googleLogin(code, redirectUri)
         .then(({ token }) => {
           setDesktopToken(token);
-          window.location.href = `multica://auth/callback?token=${encodeURIComponent(token)}`;
+          window.location.href = `agenthost://auth/callback?token=${encodeURIComponent(token)}`;
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : "Login failed");
+          authLogger.error("Desktop Google OAuth callback failed", err);
+          setError(callbackErrorFrom(err));
         });
     } else {
       // Normal web flow
@@ -66,39 +110,97 @@ function CallbackContent() {
           const wsList = await api.listWorkspaces();
           qc.setQueryData(workspaceKeys.list(), wsList);
           const onboarded = loggedInUser.onboarded_at != null;
-          if (!onboarded) {
-            router.push(paths.onboarding());
+
+          // 1. nextUrl wins: a `next=/invite/<id>` always survives the OAuth
+          //    round-trip — the user clicked a specific link and we should
+          //    honor exactly that destination.
+          if (nextUrl) {
+            router.push(nextUrl);
             return;
           }
-          router.push(
-            nextUrl || resolvePostAuthDestination(wsList, onboarded),
-          );
+
+          // 2. Un-onboarded users may have pending invitations on their
+          //    email even when no `next=` was carried (came from a fresh
+          //    login on multica.ai instead of clicking the email link,
+          //    or `state` was lost across the round-trip). Look them up by
+          //    email and route to the batch /invitations page if any.
+          //    Already-onboarded users skip this lookup — their new invites
+          //    surface in the sidebar dropdown, not as a forced wall.
+          if (!onboarded) {
+            try {
+              const invites = await api.listMyInvitations();
+              if (invites.length > 0) {
+                qc.setQueryData(workspaceKeys.myInvitations(), invites);
+                router.push(paths.invitations());
+                return;
+              }
+            } catch {
+              // Network blip on the invite lookup is non-fatal — fall through
+              // to the normal post-auth destination so the user isn't stuck
+              // on a blank callback screen. Worst case they land on
+              // /onboarding and the sidebar will surface invites later.
+            }
+          }
+
+          // 3. Default: hand off to the resolver (onboarding for first-timers,
+          //    first workspace for returning users, /workspaces/new for
+          //    onboarded users with zero workspaces). Source-attribution
+          //    backfill for onboarded users with no recorded source is
+          //    handled by `<SourceBackfillModal />` inside the dashboard
+          //    shell — not a route detour, so we route straight to dest.
+          router.push(resolvePostAuthDestination(wsList, onboarded));
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : "Login failed");
+          authLogger.error("Web Google OAuth callback failed", err);
+          setError(callbackErrorFrom(err));
         });
     }
   }, [searchParams, loginWithGoogle, router, qc]);
+
+  const errorDescription = (() => {
+    if (!error) return null;
+    switch (error.kind) {
+      case "raw":
+        return error.text;
+      case "missing_code":
+        return t(($) => $.web.callback.missing_code);
+      case "access_denied":
+        return t(($) => $.web.callback.access_denied);
+      case "login_failed":
+        return t(($) => $.web.callback.login_failed);
+      case "account_disabled":
+        return t(($) => $.web.callback.account_disabled);
+      case "signup_prohibited":
+        return t(($) => $.web.callback.signup_prohibited);
+      case "email_not_allowed":
+        return t(($) => $.web.callback.email_not_allowed);
+      case "google_account_no_email":
+        return t(($) => $.web.callback.google_account_no_email);
+      case "oauth_code_invalid":
+        return t(($) => $.web.callback.oauth_code_invalid);
+    }
+  })();
 
   if (desktopToken) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Opening Agenthost</CardTitle>
+            <CardTitle className="text-display-sm">
+              {t(($) => $.web.desktop_handoff.opening_title)}
+            </CardTitle>
             <CardDescription>
-              You should see a prompt to open the Agenthost desktop app. If
-              nothing happens, click the button below.
+              {t(($) => $.web.desktop_handoff.opening_description)}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <Button
               variant="outline"
               onClick={() => {
-                window.location.href = `multica://auth/callback?token=${encodeURIComponent(desktopToken)}`;
+                window.location.href = `agenthost://auth/callback?token=${encodeURIComponent(desktopToken)}`;
               }}
             >
-              Open Agenthost Desktop
+              {t(($) => $.web.desktop_handoff.open_button)}
             </Button>
           </CardContent>
         </Card>
@@ -111,12 +213,16 @@ function CallbackContent() {
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Login Failed</CardTitle>
-            <CardDescription>{error}</CardDescription>
+            <CardTitle className="text-display-sm">
+              {t(($) => $.web.callback.failed_title)}
+            </CardTitle>
+            <CardDescription>
+              {errorDescription}
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <a href={paths.login()} className="text-primary underline-offset-4 hover:underline">
-              Back to login
+              {t(($) => $.web.callback.back_to_login)}
             </a>
           </CardContent>
         </Card>
@@ -128,8 +234,9 @@ function CallbackContent() {
     <div className="flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Signing in...</CardTitle>
-          <CardDescription>Please wait while we complete your login</CardDescription>
+          <CardTitle className="text-display-sm">
+            {t(($) => $.web.callback.signing_in)}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

@@ -113,7 +113,7 @@ func (h *Handler) aicoachKeyForWorkspace(ctx context.Context, workspaceID string
 	if !wsID.Valid {
 		return ""
 	}
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "aicoach")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "aicoach"})
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			// Worth knowing about, but not worth failing an import that may
@@ -137,7 +137,7 @@ func AICoachKeyResolver(q *db.Queries) func(context.Context, string) string {
 		if !wsID.Valid {
 			return ""
 		}
-		conn, err := q.GetIntegrationConnection(ctx, wsID, "aicoach")
+		conn, err := q.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "aicoach"})
 		if err != nil || conn.Status != "active" {
 			return ""
 		}

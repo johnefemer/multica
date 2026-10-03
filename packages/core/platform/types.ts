@@ -1,3 +1,8 @@
+import type {
+  LocaleAdapter,
+  LocaleResources,
+  SupportedLocale,
+} from "../i18n";
 import type { StorageAdapter } from "../types/storage";
 
 /** Identifies the calling client to the server. Threaded through to
@@ -8,7 +13,7 @@ export interface ClientIdentity {
   platform?: string;
   /** Client/app version string (e.g. "0.1.0"). */
   version?: string;
-  /** Operating system: "macos" | "windows" | "linux". */
+  /** Coarse operating-system bucket (for example "macos", "windows", or "linux"). */
   os?: string;
 }
 
@@ -26,6 +31,19 @@ export interface CoreProviderProps {
   onLogin?: () => void;
   /** Called after logout (e.g. clear cookie). */
   onLogout?: () => void;
+  /** Called when the server ends the session (401) rather than the user.
+   *  Defaults to `onLogout`; pass it only when some of this shell's logout
+   *  teardown is too destructive for an expiry the user did not ask for. */
+  onSessionExpired?: () => void;
   /** Identifies the calling client (web/desktop + version + os) to the server. */
   identity?: ClientIdentity;
+  /** Active locale, determined server-side (web) or at app boot (desktop). */
+  locale: SupportedLocale;
+  /** i18next resources, server-preloaded for the active locale. */
+  resources: Record<string, LocaleResources>;
+  /** Locale adapter for persisting user choice (used by Settings switcher).
+   *  Optional because some shells (e.g. CLI auth pages) don't need switching. */
+  localeAdapter?: LocaleAdapter;
+  /** Automatically sync the signed-in user's locale. Pause during one-shot handoffs. Default: true. */
+  syncUserLocale?: boolean;
 }

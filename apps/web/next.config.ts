@@ -1,14 +1,30 @@
 import type { NextConfig } from "next";
 import { config } from "dotenv";
 import { resolve } from "path";
+import {
+  resolveDevDocsUrl,
+  resolveDevRemoteApiUrl,
+  resolveDocsUrl,
+  resolveRemoteApiUrl,
+} from "./config/runtime-urls";
+import { createMDX } from "fumadocs-mdx/next";
 
-// Load root .env so REMOTE_API_URL is available to next.config.ts
+// Load root .env so local next.config.ts rewrites see REMOTE_API_URL / DOCS_URL.
+// Production requests use proxy.ts runtime rewrites, which read process.env
+// when the Next.js server runs instead of baking these URLs at build time.
 config({ path: resolve(__dirname, "../../.env") });
 
-const remoteApiUrl = process.env.REMOTE_API_URL || "http://localhost:8080";
-// Public docs site — Cloudflare Pages at docs.agenthost.pro. Override
-// via DOCS_ORIGIN to point at a local dev instance (e.g.
-// http://localhost:4000) without rebuilding.
+// `next dev` falls back to the conventional localhost upstreams; builds use
+// the strict resolvers so prebuilt images keep unset upstreams unproxied.
+const isDev = process.env.NODE_ENV === "development";
+const remoteApiUrl = isDev
+  ? resolveDevRemoteApiUrl(process.env)
+  : resolveRemoteApiUrl(process.env);
+const docsUrl = isDev
+  ? resolveDevDocsUrl(process.env)
+  : resolveDocsUrl(process.env);
+// Kensink: public docs site on Cloudflare Pages. Used when DOCS_URL is unset
+// (no in-app /docs proxy); override via DOCS_ORIGIN for a local docs instance.
 const docsOrigin =
   process.env.DOCS_ORIGIN || "https://docs.agenthost.pro";
 
@@ -54,6 +70,9 @@ const nextConfig: NextConfig = {
   // specific Chinese paths first so they aren't shadowed by the generic
   // English fallback.
   async redirects() {
+    // Kensink: send /docs to the standalone docs site unless an in-app docs
+    // upstream (DOCS_URL) is configured, in which case the rewrite below serves it.
+    if (docsUrl) return [];
     return [
       {
         source: "/docs",
@@ -79,31 +98,62 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return {
-      afterFiles: [
-        {
-          source: "/api/:path*",
-          destination: `${remoteApiUrl}/api/:path*`,
-        },
-        {
-          source: "/ws",
-          destination: `${remoteApiUrl}/ws`,
-        },
-        {
-          source: "/auth/:path*",
-          destination: `${remoteApiUrl}/auth/:path*`,
-        },
-        {
-          source: "/uploads/:path*",
-          destination: `${remoteApiUrl}/uploads/:path*`,
-        },
-        {
-          source: "/webhooks/:path*",
-          destination: `${remoteApiUrl}/webhooks/:path*`,
-        },
-      ],
+      // Run before file-system routes so /docs isn't shadowed by the
+      // [workspaceSlug] dynamic segment.
+      beforeFiles: docsUrl
+        ? [
+            {
+              source: "/docs",
+              destination: `${docsUrl}/docs`,
+            },
+            {
+              source: "/docs/:path*",
+              destination: `${docsUrl}/docs/:path*`,
+            },
+          ]
+        : [],
+      afterFiles: remoteApiUrl
+        ? [
+            {
+              source: "/v1/:path*",
+              destination: `${remoteApiUrl}/v1/:path*`,
+            },
+            {
+              source: "/api/:path*",
+              destination: `${remoteApiUrl}/api/:path*`,
+            },
+            {
+              source: "/ws",
+              destination: `${remoteApiUrl}/ws`,
+            },
+            {
+              source: "/health",
+              destination: `${remoteApiUrl}/health`,
+            },
+            {
+              source: "/auth/:path*",
+              destination: `${remoteApiUrl}/auth/:path*`,
+            },
+            {
+              source: "/uploads/:path*",
+              destination: `${remoteApiUrl}/uploads/:path*`,
+            },
+            // Kensink: GitHub integration webhooks hit the backend directly.
+            {
+              source: "/webhooks/:path*",
+              destination: `${remoteApiUrl}/webhooks/:path*`,
+            },
+          ]
+        : [],
       fallback: [],
     };
   },
 };
 
-export default nextConfig;
+// fumadocs-mdx@12 is incompatible with Next 16's Turbopack: its loader fails to
+// dynamic-import `.source/source.config.mjs` under the Turbopack Node evaluator
+// (see fumadocs#2658). `dev`/`build` scripts pass `--webpack` to opt out.
+// Drop the flag once fumadocs-mdx ships a Turbopack-compatible loader.
+const withMDX = createMDX() as (config: NextConfig) => NextConfig;
+
+export default withMDX(nextConfig);

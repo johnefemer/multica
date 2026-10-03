@@ -6,10 +6,21 @@ import {
   type IssueViewState,
   viewStoreSlice,
   viewStorePersistOptions,
+  mergeViewStatePersisted,
 } from "./view-store";
 import { registerForWorkspaceRehydration } from "../../platform/workspace-storage";
 
-export type MyIssuesScope = "assigned" | "created" | "agents";
+export type MyIssuesScope = "all" | "assigned" | "created" | "agents";
+export type MyIssuesRelation = "all" | "assigned" | "created" | "involved";
+
+// "agents" is the user-facing scope label; the issue APIs call the same
+// ownership/squad-membership relation "involved".
+export function myIssuesRelationFromScope(
+  scope: MyIssuesScope,
+): MyIssuesRelation {
+  if (scope === "agents") return "involved";
+  return scope;
+}
 
 export interface MyIssuesViewState extends IssueViewState {
   scope: MyIssuesScope;
@@ -32,6 +43,11 @@ const _myIssuesViewStore = createStore<MyIssuesViewState>()(
         ...basePersist.partialize(state),
         scope: state.scope,
       }),
+      // Reuse the same deep-merge as the base view store so newly added
+      // cardProperties toggles inherit defaults for existing users. Without
+      // this, the my-issues page renders no labels because the persisted
+      // snapshot predates the `labels` key and shallow-merge wins.
+      merge: mergeViewStatePersisted<MyIssuesViewState>,
     },
   ),
 );

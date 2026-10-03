@@ -18,6 +18,7 @@ import { constants } from "node:fs";
 import { execFileSync, execSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { deriveVersion } from "./package.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..", "..");
@@ -60,7 +61,8 @@ function normalizeRuntimeArch(arch) {
 }
 
 function binaryNameForPlatform(platform) {
-  return platform === "win32" ? "multica.exe" : "multica";
+  // Kensink: the fork ships the CLI as `agenthost` (see src/shared/kensink.ts).
+  return platform === "win32" ? "agenthost.exe" : "agenthost";
 }
 
 const targetPlatform = normalizeRuntimePlatform(
@@ -74,9 +76,10 @@ const srcBinary = join(serverDir, "bin", `${goos}-${goarch}`, binName);
 const destDir = join(repoRoot, "apps", "desktop", "resources", "bin");
 const destBinary = join(destDir, binName);
 
-function sh(cmd) {
+// Hand git arguments straight to the binary (no shell) on every platform.
+function git(...args) {
   try {
-    return execSync(cmd, { encoding: "utf-8" }).trim();
+    return execFileSync("git", args, { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
@@ -101,8 +104,8 @@ async function exists(p) {
 }
 
 if (hasGo()) {
-  const version = sh("git describe --tags --always --dirty") || "dev";
-  const commit = sh("git rev-parse --short HEAD") || "unknown";
+  const version = deriveVersion() || "dev";
+  const commit = git("rev-parse", "--short", "HEAD") || "unknown";
   const date = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const ldflags = `-X main.version=${version} -X main.commit=${commit} -X main.date=${date}`;
 

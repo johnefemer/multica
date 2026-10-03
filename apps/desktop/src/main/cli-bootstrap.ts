@@ -9,16 +9,16 @@ import { tmpdir } from "os";
 import { Readable } from "stream";
 
 import { selectPlatformReleaseAssetName } from "./cli-release-asset";
+import { CLI_BINARY_NAME, CLI_RELEASE_DOWNLOAD_BASE } from "../shared/kensink";
 
 // Desktop prefers the bundled `multica` CLI shipped inside the app for
 // same-repo builds, but it can also repair or bootstrap a managed copy in
 // userData on first launch when the bundled binary is missing or unusable.
 
-const GITHUB_LATEST_BASE =
-  "https://github.com/multica-ai/multica/releases/latest/download";
+const GITHUB_LATEST_BASE = CLI_RELEASE_DOWNLOAD_BASE;
 
 function binaryName(): string {
-  return process.platform === "win32" ? "multica.exe" : "multica";
+  return process.platform === "win32" ? `${CLI_BINARY_NAME}.exe` : CLI_BINARY_NAME;
 }
 
 export function managedCliPath(): string {
@@ -102,7 +102,7 @@ async function installFresh(): Promise<string> {
   }
   const url = `${GITHUB_LATEST_BASE}/${assetName}`;
 
-  const workDir = join(tmpdir(), `multica-cli-${Date.now()}`);
+  const workDir = join(tmpdir(), `${CLI_BINARY_NAME}-cli-${Date.now()}`);
   await mkdir(workDir, { recursive: true });
 
   try {

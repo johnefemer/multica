@@ -51,8 +51,8 @@ func registerSlackNotifyListeners(bus *events.Bus, queries *db.Queries) {
 
 // notifySlackChannels posts one event to every bound channel subscribed to it.
 func notifySlackChannels(ctx context.Context, queries *db.Queries, eventType string, e events.Event) error {
-	wsID := util.ParseUUID(e.WorkspaceID)
-	if !wsID.Valid {
+	wsID, err := util.ParseUUID(e.WorkspaceID)
+	if err != nil {
 		return nil
 	}
 
@@ -73,7 +73,11 @@ func notifySlackChannels(ctx context.Context, queries *db.Queries, eventType str
 	if !ok {
 		return nil
 	}
-	issue, err := queries.GetIssue(ctx, util.ParseUUID(issueID))
+	issueUUID, err := util.ParseUUID(issueID)
+	if err != nil {
+		return nil
+	}
+	issue, err := queries.GetIssue(ctx, issueUUID)
 	if err != nil {
 		return fmt.Errorf("load issue %s: %w", issueID, err)
 	}
@@ -81,7 +85,7 @@ func notifySlackChannels(ctx context.Context, queries *db.Queries, eventType str
 	if err != nil {
 		return fmt.Errorf("load workspace: %w", err)
 	}
-	conn, err := queries.GetIntegrationConnection(ctx, wsID, "slack")
+	conn, err := queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "slack"})
 	if err != nil {
 		return fmt.Errorf("load slack connection: %w", err)
 	}

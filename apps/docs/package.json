@@ -9,7 +9,9 @@
     "preview:cf": "wrangler pages dev out",
     "deploy:cf": "wrangler pages deploy out --project-name=agenthost-docs",
     "start": "next start",
-    "typecheck": "fumadocs-mdx && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "mdx": "fumadocs-mdx",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
@@ -19,7 +21,7 @@
     "fumadocs-ui": "^15.5.2",
     "lucide-react": "catalog:",
     "mermaid": "^11.14.0",
-    "next": "^15.3.3",
+    "next": "^15.5.16",
     "next-themes": "^0.4.6",
     "react": "catalog:",
     "react-dom": "catalog:"
@@ -30,6 +32,7 @@
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
+    "vitest": "catalog:",
     "wrangler": "^4.43.0"
   }
 }

@@ -34,7 +34,10 @@ import { posToDOMRect } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { toast } from "sonner";
 import { useCreateIssue } from "@multica/core/issues/mutations";
-import { Toggle } from "@multica/ui/components/ui/toggle";
+import { useT } from "../i18n";
+import { createShortcutChord, type ShortcutChord } from "@multica/core/shortcuts";
+import { ShortcutKeycaps } from "../common/shortcut-keycaps";
+import { Toggle, toggleVariants } from "@multica/ui/components/ui/toggle";
 import { Separator } from "@multica/ui/components/ui/separator";
 import {
   Tooltip,
@@ -54,9 +57,11 @@ import {
   Italic,
   Strikethrough,
   Code,
+  Highlighter,
   Link2,
   List,
   ListOrdered,
+  ListTodo,
   Quote,
   ChevronDown,
   Check,
@@ -68,13 +73,14 @@ import {
   Heading3,
   FilePlus,
   Loader2,
+  MessageSquarePlus,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function shouldShowBubbleMenu(editor: Editor): boolean {
+function shouldShowBubbleMenu(editor: Editor, hasSelectionAction = false): boolean {
   if (!editor.isEditable) return false;
   const { selection } = editor.state;
   if (selection.empty) return false;
@@ -82,25 +88,22 @@ function shouldShowBubbleMenu(editor: Editor): boolean {
   if (!editor.state.doc.textBetween(from, to).trim().length) return false;
   if (selection instanceof NodeSelection) return false;
   const $from = editor.state.doc.resolve(from);
-  if ($from.parent.type.name === "codeBlock") return false;
+  if ($from.parent.type.name === "codeBlock" && !hasSelectionAction) return false;
   return true;
 }
-
-const isMac =
-  typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
-const mod = isMac ? "\u2318" : "Ctrl";
 
 // ---------------------------------------------------------------------------
 // Mark Toggle Button
 // ---------------------------------------------------------------------------
 
-type InlineMark = "bold" | "italic" | "strike" | "code";
+type InlineMark = "bold" | "italic" | "strike" | "code" | "highlight";
 
 const toggleMarkActions: Record<InlineMark, (editor: Editor) => void> = {
   bold: (e) => e.chain().focus().toggleBold().run(),
   italic: (e) => e.chain().focus().toggleItalic().run(),
   strike: (e) => e.chain().focus().toggleStrike().run(),
   code: (e) => e.chain().focus().toggleCode().run(),
+  highlight: (e) => e.chain().focus().toggleHighlight().run(),
 };
 
 function MarkButton({
@@ -115,7 +118,7 @@ function MarkButton({
   mark: InlineMark;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  shortcut: string;
+  shortcut: ShortcutChord;
   isActive: boolean;
 }) {
   return (
@@ -124,6 +127,7 @@ function MarkButton({
         render={
           <Toggle
             size="sm"
+            aria-label={label}
             pressed={isActive}
             onPressedChange={() => toggleMarkActions[mark](editor)}
             onMouseDown={(e) => e.preventDefault()}
@@ -134,7 +138,7 @@ function MarkButton({
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
         {label}
-        <span className="ml-1.5 text-muted-foreground">{shortcut}</span>
+        <ShortcutKeycaps shortcut={shortcut} className="ml-1.5" />
       </TooltipContent>
     </Tooltip>
   );
@@ -181,6 +185,7 @@ function LinkEditBar({
   editor: Editor;
   onClose: () => void;
 }) {
+  const { t } = useT("editor");
   const existingHref = editor.getAttributes("link").href as string | undefined;
   const [url, setUrl] = useState(existingHref ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -212,22 +217,40 @@ function LinkEditBar({
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="https://..."
-        aria-label="URL"
-        className="h-7 flex-1 text-xs"
+        aria-label={t(($) => $.bubble_menu.url_aria_label)}
+        className="h-7 flex-1 text-caption"
         onKeyDown={(e) => {
           if (e.key === "Enter") { e.preventDefault(); apply(); }
           if (e.key === "Escape") { e.preventDefault(); onClose(); editor.commands.focus(); }
         }}
       />
-      <Button size="icon-xs" variant="ghost" onClick={apply} onMouseDown={(e) => e.preventDefault()}>
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        aria-label={t(($) => $.bubble_menu.link_edit.apply)}
+        onClick={apply}
+        onMouseDown={(e) => e.preventDefault()}
+      >
         <Check className="size-3.5" />
       </Button>
       {existingHref && (
-        <Button size="icon-xs" variant="ghost" onClick={remove} onMouseDown={(e) => e.preventDefault()}>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label={t(($) => $.bubble_menu.link_edit.remove)}
+          onClick={remove}
+          onMouseDown={(e) => e.preventDefault()}
+        >
           <Unlink className="size-3.5" />
         </Button>
       )}
-      <Button size="icon-xs" variant="ghost" onClick={() => { onClose(); editor.commands.focus(); }} onMouseDown={(e) => e.preventDefault()}>
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        aria-label={t(($) => $.bubble_menu.link_edit.close)}
+        onClick={() => { onClose(); editor.commands.focus(); }}
+        onMouseDown={(e) => e.preventDefault()}
+      >
         <X className="size-3.5" />
       </Button>
     </div>
@@ -239,13 +262,14 @@ function LinkEditBar({
 // ---------------------------------------------------------------------------
 
 function HeadingDropdown({ editor, onOpenChange, activeLevel }: { editor: Editor; onOpenChange: (open: boolean) => void; activeLevel: number | undefined }) {
+  const { t } = useT("editor");
   const [open, setOpen] = useState(false);
-  const label = activeLevel ? `H${activeLevel}` : "Text";
+  const label = activeLevel ? `H${activeLevel}` : t(($) => $.bubble_menu.heading_dropdown.text);
   const items = [
-    { label: "Normal Text", icon: Type, active: !activeLevel, action: () => editor.chain().focus().setParagraph().run() },
-    { label: "Heading 1", icon: Heading1, active: activeLevel === 1, action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
-    { label: "Heading 2", icon: Heading2, active: activeLevel === 2, action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
-    { label: "Heading 3", icon: Heading3, active: activeLevel === 3, action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+    { label: t(($) => $.bubble_menu.heading_dropdown.normal_text), icon: Type, active: !activeLevel, action: () => editor.chain().focus().setParagraph().run() },
+    { label: t(($) => $.bubble_menu.heading_dropdown.heading_1), icon: Heading1, active: activeLevel === 1, action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+    { label: t(($) => $.bubble_menu.heading_dropdown.heading_2), icon: Heading2, active: activeLevel === 2, action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+    { label: t(($) => $.bubble_menu.heading_dropdown.heading_3), icon: Heading3, active: activeLevel === 3, action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
   ];
 
   const handleOpenChange = useCallback((next: boolean) => {
@@ -256,7 +280,7 @@ function HeadingDropdown({ editor, onOpenChange, activeLevel }: { editor: Editor
   return (
     <Popover modal={false} open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
-        className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-xs font-medium hover:bg-muted"
+        className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-caption font-medium hover:bg-muted"
         onMouseDown={(e) => e.preventDefault()}
       >
         {label}
@@ -272,8 +296,9 @@ function HeadingDropdown({ editor, onOpenChange, activeLevel }: { editor: Editor
       >
         {items.map((item) => (
           <button
+            type="button"
             key={item.label}
-            className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-xs outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-caption outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
             onMouseDown={(e) => {
               e.preventDefault();
               item.action();
@@ -294,7 +319,8 @@ function HeadingDropdown({ editor, onOpenChange, activeLevel }: { editor: Editor
 // List Dropdown
 // ---------------------------------------------------------------------------
 
-function ListDropdown({ editor, onOpenChange, isBullet, isOrdered }: { editor: Editor; onOpenChange: (open: boolean) => void; isBullet: boolean; isOrdered: boolean }) {
+function ListDropdown({ editor, onOpenChange, isBullet, isOrdered, isTask }: { editor: Editor; onOpenChange: (open: boolean) => void; isBullet: boolean; isOrdered: boolean; isTask: boolean }) {
+  const { t } = useT("editor");
   const [open, setOpen] = useState(false);
 
   const handleOpenChange = useCallback((next: boolean) => {
@@ -306,12 +332,17 @@ function ListDropdown({ editor, onOpenChange, isBullet, isOrdered }: { editor: E
     <Popover modal={false} open={open} onOpenChange={handleOpenChange}>
       <Tooltip>
         <TooltipTrigger render={
-          <PopoverTrigger className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-xs font-medium hover:bg-muted aria-pressed:bg-muted" aria-pressed={isBullet || isOrdered} onMouseDown={(e) => e.preventDefault()} />
+          <PopoverTrigger
+            className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-caption font-medium hover:bg-muted aria-pressed:bg-muted"
+            aria-label={t(($) => $.bubble_menu.list)}
+            aria-pressed={isBullet || isOrdered || isTask}
+            onMouseDown={(e) => e.preventDefault()}
+          />
         }>
           <List className="size-3.5" />
           <ChevronDown className="size-3" />
         </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={8}>List</TooltipContent>
+        <TooltipContent side="top" sideOffset={8}>{t(($) => $.bubble_menu.list)}</TooltipContent>
       </Tooltip>
       <PopoverContent
         side="bottom"
@@ -322,26 +353,40 @@ function ListDropdown({ editor, onOpenChange, isBullet, isOrdered }: { editor: E
         finalFocus={false}
       >
         <button
-          className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-xs outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
+          type="button"
+          className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-caption outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
           onMouseDown={(e) => {
             e.preventDefault();
             editor.chain().focus().toggleBulletList().run();
             handleOpenChange(false);
           }}
         >
-          <List className="size-3.5" /> Bullet List
+          <List className="size-3.5" /> {t(($) => $.bubble_menu.list_dropdown.bullet_list)}
           {isBullet && <Check className="ml-auto size-3.5" />}
         </button>
         <button
-          className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-xs outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
+          type="button"
+          className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-caption outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
           onMouseDown={(e) => {
             e.preventDefault();
             editor.chain().focus().toggleOrderedList().run();
             handleOpenChange(false);
           }}
         >
-          <ListOrdered className="size-3.5" /> Ordered List
+          <ListOrdered className="size-3.5" /> {t(($) => $.bubble_menu.list_dropdown.ordered_list)}
           {isOrdered && <Check className="ml-auto size-3.5" />}
+        </button>
+        <button
+          type="button"
+          className="flex w-full cursor-default items-center gap-2 rounded-md px-1.5 py-1 text-caption outline-hidden select-none hover:bg-accent hover:text-accent-foreground"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleTaskList().run();
+            handleOpenChange(false);
+          }}
+        >
+          <ListTodo className="size-3.5" /> {t(($) => $.bubble_menu.list_dropdown.task_list)}
+          {isTask && <Check className="ml-auto size-3.5" />}
         </button>
       </PopoverContent>
     </Popover>
@@ -365,6 +410,7 @@ function CreateSubIssueButton({
   editor: Editor;
   parentIssueId: string;
 }) {
+  const { t } = useT("editor");
   const createIssue = useCreateIssue();
   const [pending, setPending] = useState(false);
 
@@ -403,13 +449,17 @@ function CreateSubIssueButton({
           ],
         )
         .run();
-      toast.success(`Created ${newIssue.identifier}`);
-    } catch {
-      toast.error("Failed to create sub-issue");
+      toast.success(t(($) => $.bubble_menu.sub_issue.created, { identifier: newIssue.identifier }));
+    } catch (err) {
+      toast.error(
+        err instanceof Error && err.message
+          ? err.message
+          : t(($) => $.bubble_menu.sub_issue.create_failed),
+      );
     } finally {
       setPending(false);
     }
-  }, [editor, parentIssueId, createIssue, pending]);
+  }, [editor, parentIssueId, createIssue, pending, t]);
 
   return (
     <Tooltip>
@@ -417,6 +467,7 @@ function CreateSubIssueButton({
         render={
           <Toggle
             size="sm"
+            aria-label={t(($) => $.bubble_menu.sub_issue.tooltip)}
             pressed={false}
             disabled={pending}
             onPressedChange={handleClick}
@@ -431,7 +482,7 @@ function CreateSubIssueButton({
         )}
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
-        Create sub-issue from selection
+        {t(($) => $.bubble_menu.sub_issue.tooltip)}
       </TooltipContent>
     </Tooltip>
   );
@@ -444,13 +495,17 @@ function CreateSubIssueButton({
 function EditorBubbleMenu({
   editor,
   currentIssueId,
+  selectionAction,
 }: {
   editor: Editor;
   currentIssueId?: string;
+  selectionAction?: { label: string; onSelect: () => boolean | void };
 }) {
+  const { t } = useT("editor");
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<"toolbar" | "link-edit">("toolbar");
   const floatingRef = useRef<HTMLDivElement>(null);
+  const hasSelectionAction = !!selectionAction;
 
   // Precise subscription to formatting state — only re-renders when these
   // values actually change, not on every transaction.
@@ -461,13 +516,20 @@ function EditorBubbleMenu({
       italic: e.isActive("italic"),
       strike: e.isActive("strike"),
       code: e.isActive("code"),
+      codeBlock: e.isActive("codeBlock"),
+      highlight: e.isActive("highlight"),
       link: e.isActive("link"),
       blockquote: e.isActive("blockquote"),
       bulletList: e.isActive("bulletList"),
       orderedList: e.isActive("orderedList"),
-      heading1: e.isActive("heading", { level: 1 }),
-      heading2: e.isActive("heading", { level: 2 }),
-      heading3: e.isActive("heading", { level: 3 }),
+      taskList: e.isActive("taskList"),
+      // The level itself, not one boolean per offered level: the schema accepts
+      // h1-h6 so the cursor can sit in an H4-H6 that Markdown brought in, and
+      // the dropdown has to report that honestly instead of falling through to
+      // "Normal text". It still only offers H1-H3 as choices (MUL-6060).
+      headingLevel: e.isActive("heading")
+        ? (e.getAttributes("heading").level as number | undefined)
+        : undefined,
     }),
   });
 
@@ -489,11 +551,11 @@ function EditorBubbleMenu({
   useEffect(() => {
     const onTransaction = () => {
       if (!editor.isInitialized) return;
-      setVisible(shouldShowBubbleMenu(editor));
+      setVisible(shouldShowBubbleMenu(editor, hasSelectionAction));
     };
     editor.on("transaction", onTransaction);
     return () => { editor.off("transaction", onTransaction); };
-  }, [editor]);
+  }, [editor, hasSelectionAction]);
 
   // Hide on blur — debounced to allow focus to settle (e.g. clicking menu)
   useEffect(() => {
@@ -577,29 +639,62 @@ function EditorBubbleMenu({
       ) : (
         <TooltipProvider delay={300}>
           <div className="bubble-menu">
-            <MarkButton editor={editor} mark="bold" icon={Bold} label="Bold" shortcut={`${mod}+B`} isActive={fmt.bold} />
-            <MarkButton editor={editor} mark="italic" icon={Italic} label="Italic" shortcut={`${mod}+I`} isActive={fmt.italic} />
-            <MarkButton editor={editor} mark="strike" icon={Strikethrough} label="Strikethrough" shortcut={`${mod}+Shift+S`} isActive={fmt.strike} />
-            <MarkButton editor={editor} mark="code" icon={Code} label="Code" shortcut={`${mod}+E`} isActive={fmt.code} />
+            {!fmt.codeBlock && <>
+            <MarkButton editor={editor} mark="bold" icon={Bold} label={t(($) => $.bubble_menu.bold)} shortcut={createShortcutChord("B", { primary: true })} isActive={fmt.bold} />
+            <MarkButton editor={editor} mark="italic" icon={Italic} label={t(($) => $.bubble_menu.italic)} shortcut={createShortcutChord("I", { primary: true })} isActive={fmt.italic} />
+            <MarkButton editor={editor} mark="strike" icon={Strikethrough} label={t(($) => $.bubble_menu.strikethrough)} shortcut={createShortcutChord("S", { primary: true, shift: true })} isActive={fmt.strike} />
+            <MarkButton editor={editor} mark="code" icon={Code} label={t(($) => $.bubble_menu.code)} shortcut={createShortcutChord("E", { primary: true })} isActive={fmt.code} />
+            <MarkButton editor={editor} mark="highlight" icon={Highlighter} label={t(($) => $.bubble_menu.highlight)} shortcut={createShortcutChord("H", { primary: true, shift: true })} isActive={fmt.highlight} />
             <Separator orientation="vertical" className="mx-0.5 h-5" />
             <Tooltip>
               <TooltipTrigger render={
-                <Toggle size="sm" pressed={fmt.link} onPressedChange={() => setMode("link-edit")} onMouseDown={(e) => e.preventDefault()} />
+                <Toggle
+                  size="sm"
+                  aria-label={t(($) => $.bubble_menu.link)}
+                  pressed={fmt.link}
+                  onPressedChange={() => setMode("link-edit")}
+                  onMouseDown={(e) => e.preventDefault()}
+                />
               }>
                 <Link2 className="size-3.5" />
               </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={8}>Link</TooltipContent>
+              <TooltipContent side="top" sideOffset={8}>{t(($) => $.bubble_menu.link)}</TooltipContent>
             </Tooltip>
             <Separator orientation="vertical" className="mx-0.5 h-5" />
-            <HeadingDropdown editor={editor} onOpenChange={handleMenuOpenChange} activeLevel={fmt.heading1 ? 1 : fmt.heading2 ? 2 : fmt.heading3 ? 3 : undefined} />
-            <ListDropdown editor={editor} onOpenChange={handleMenuOpenChange} isBullet={fmt.bulletList} isOrdered={fmt.orderedList} />
+            <HeadingDropdown editor={editor} onOpenChange={handleMenuOpenChange} activeLevel={fmt.headingLevel} />
+            <ListDropdown editor={editor} onOpenChange={handleMenuOpenChange} isBullet={fmt.bulletList} isOrdered={fmt.orderedList} isTask={fmt.taskList} />
+            {/* Dedicated one-click toggle for checkbox task lists — turns the
+                current line(s) into a `- [ ]` task item or back to a paragraph.
+                The same toggle also lives in the List dropdown, but a direct
+                button keeps the common "make this a checklist" action one tap
+                away instead of two. */}
             <Tooltip>
               <TooltipTrigger render={
-                <Toggle size="sm" pressed={fmt.blockquote} onPressedChange={() => editor.chain().focus().toggleBlockquote().run()} onMouseDown={(e) => e.preventDefault()} />
+                <Toggle
+                  size="sm"
+                  aria-label={t(($) => $.bubble_menu.task_list)}
+                  pressed={fmt.taskList}
+                  onPressedChange={() => editor.chain().focus().toggleTaskList().run()}
+                  onMouseDown={(e) => e.preventDefault()}
+                />
+              }>
+                <ListTodo className="size-3.5" />
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={8}>{t(($) => $.bubble_menu.task_list)}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger render={
+                <Toggle
+                  size="sm"
+                  aria-label={t(($) => $.bubble_menu.quote)}
+                  pressed={fmt.blockquote}
+                  onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+                  onMouseDown={(e) => e.preventDefault()}
+                />
               }>
                 <Quote className="size-3.5" />
               </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={8}>Quote</TooltipContent>
+              <TooltipContent side="top" sideOffset={8}>{t(($) => $.bubble_menu.quote)}</TooltipContent>
             </Tooltip>
             {currentIssueId && (
               <>
@@ -607,6 +702,26 @@ function EditorBubbleMenu({
                 <CreateSubIssueButton editor={editor} parentIssueId={currentIssueId} />
               </>
             )}
+            </>}
+            {selectionAction && <>
+              {!fmt.codeBlock && <Separator orientation="vertical" className="mx-0.5 h-5" />}
+              <Tooltip>
+                <TooltipTrigger render={
+                  <button type="button" className={toggleVariants({ size: "sm" })}
+                    aria-label={selectionAction.label}
+                    onClick={() => {
+                      if (selectionAction.onSelect() === false) return;
+                      // Keep later editor transactions from reopening the formatting
+                      // toolbar over the annotation's note field. The text is untouched.
+                      editor.commands.setTextSelection(editor.state.selection.to);
+                      setVisible(false);
+                    }} />
+                }>
+                  <MessageSquarePlus className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={8}>{selectionAction.label}</TooltipContent>
+              </Tooltip>
+            </>}
           </div>
         </TooltipProvider>
       )}

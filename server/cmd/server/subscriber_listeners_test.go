@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -64,9 +63,9 @@ func cleanupTestUser(t *testing.T, email string) {
 func isSubscribed(t *testing.T, queries *db.Queries, issueID, userType, userID string) bool {
 	t.Helper()
 	subscribed, err := queries.IsIssueSubscriber(context.Background(), db.IsIssueSubscriberParams{
-		IssueID:  util.ParseUUID(issueID),
+		IssueID:  util.MustParseUUID(issueID),
 		UserType: userType,
-		UserID:   util.ParseUUID(userID),
+		UserID:   util.MustParseUUID(userID),
 	})
 	if err != nil {
 		t.Fatalf("IsIssueSubscriber: %v", err)
@@ -76,7 +75,7 @@ func isSubscribed(t *testing.T, queries *db.Queries, issueID, userType, userID s
 
 func subscriberCount(t *testing.T, queries *db.Queries, issueID string) int {
 	t.Helper()
-	subs, err := queries.ListIssueSubscribers(context.Background(), util.ParseUUID(issueID))
+	subs, err := queries.ListIssueSubscribers(context.Background(), util.MustParseUUID(issueID))
 	if err != nil {
 		t.Fatalf("ListIssueSubscribers: %v", err)
 	}
@@ -86,7 +85,7 @@ func subscriberCount(t *testing.T, queries *db.Queries, issueID string) int {
 func TestSubscriberIssueCreated_CreatorSubscribed(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() { cleanupTestIssue(t, issueID) })
@@ -121,7 +120,7 @@ func TestSubscriberIssueCreated_CreatorSubscribed(t *testing.T) {
 func TestSubscriberIssueCreated_CreatorAndAssignee(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	assigneeEmail := "subscriber-assignee-test@multica.ai"
 	assigneeID := createTestUser(t, assigneeEmail)
@@ -165,7 +164,7 @@ func TestSubscriberIssueCreated_CreatorAndAssignee(t *testing.T) {
 func TestSubscriberIssueCreated_SelfAssign(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() { cleanupTestIssue(t, issueID) })
@@ -205,7 +204,7 @@ func TestSubscriberIssueCreated_SelfAssign(t *testing.T) {
 func TestSubscriberIssueUpdated_AssigneeChanged(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	assigneeEmail := "subscriber-new-assignee-test@multica.ai"
 	assigneeID := createTestUser(t, assigneeEmail)
@@ -244,7 +243,7 @@ func TestSubscriberIssueUpdated_AssigneeChanged(t *testing.T) {
 func TestSubscriberIssueUpdated_NoAssigneeChange(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() { cleanupTestIssue(t, issueID) })
@@ -279,7 +278,7 @@ func TestSubscriberIssueUpdated_NoAssigneeChange(t *testing.T) {
 func TestSubscriberCommentCreated_CommenterSubscribed(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	commenterEmail := "subscriber-commenter-test@multica.ai"
 	commenterID := createTestUser(t, commenterEmail)
@@ -311,9 +310,8 @@ func TestSubscriberCommentCreated_CommenterSubscribed(t *testing.T) {
 }
 
 func TestSubscriberAddedEventPublished(t *testing.T) {
-	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() { cleanupTestIssue(t, issueID) })
@@ -366,7 +364,7 @@ func TestSubscriberAddedEventPublished(t *testing.T) {
 func TestSubscriberIssueCreated_AutopilotMapPayload(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerSubscriberListeners(bus, queries)
+	registerSubscriberListeners(bus, testPool)
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() { cleanupTestIssue(t, issueID) })
@@ -391,24 +389,5 @@ func TestSubscriberIssueCreated_AutopilotMapPayload(t *testing.T) {
 
 	if !isSubscribed(t, queries, issueID, "member", testUserID) {
 		t.Fatal("expected creator to be subscribed when autopilot publishes map payload")
-	}
-}
-
-// Verify parseUUID is consistent — pgtype.UUID from our local helper should match util.ParseUUID
-func TestParseUUIDConsistency(t *testing.T) {
-	uuid := "550e8400-e29b-41d4-a716-446655440000"
-	local := parseUUID(uuid)
-	utilResult := util.ParseUUID(uuid)
-	if local != utilResult {
-		t.Fatalf("parseUUID inconsistency: local=%v, util=%v", local, utilResult)
-	}
-	if !local.Valid {
-		t.Fatal("expected valid UUID")
-	}
-
-	// Empty string should produce invalid UUID
-	empty := parseUUID("")
-	if empty != (pgtype.UUID{}) {
-		t.Fatalf("expected zero UUID for empty string, got %v", empty)
 	}
 }

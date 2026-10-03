@@ -15,7 +15,7 @@ import (
 // tryResolveAppURL returns the app URL if configured, or "" if not available.
 // Unlike resolveAppURL, it never calls os.Exit.
 func tryResolveAppURL(cmd *cobra.Command) string {
-	for _, key := range []string{"AGENTHOST_APP_URL", "MULTICA_APP_URL", "FRONTEND_ORIGIN"} {
+	for _, key := range []string{"MULTICA_APP_URL", "FRONTEND_ORIGIN"} {
 		if val := strings.TrimSpace(os.Getenv(key)); val != "" {
 			return strings.TrimRight(val, "/")
 		}
@@ -31,26 +31,51 @@ func tryResolveAppURL(cmd *cobra.Command) string {
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate and set up workspaces",
-	Long:  "Log in to Agenthost by Kensink Labs, then automatically discover and watch all your workspaces.",
-	RunE:  runLogin,
+	Long:  "Log in to Multica, then automatically discover and watch all your workspaces.",
+	// Up to one positional is accepted so `--token mul_...` / `--token mcn_...`
+	// (space form) can recover the token in runAuthLogin even though pflag
+	// won't bind it.
+	Args: cobra.MaximumNArgs(1),
+	RunE: runLogin,
 }
 
+// tokenPromptSentinel is the value pflag assigns to `--token` when the flag
+// is supplied without an explicit value. runAuthLoginToken treats it as
+// "prompt me interactively", preserving the legacy `multica login --token`
+// no-value form alongside the documented `--token mul_...` / `--token mcn_...`
+// value form.
+//
+// The sentinel must be printable: pflag renders NoOptDefVal verbatim in help
+// output ("--token string[=\"prompt\"]") and uses "\x00" internally as its
+// column-alignment marker, so a NUL-prefixed sentinel corrupts `login -h`.
+// Colliding with a user literally typing `--token prompt` is harmless — that
+// string is never a valid PAT, and prompting is a reasonable response.
+const tokenPromptSentinel = "prompt"
+
 func init() {
+	loginCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
 	addLoginFlags(loginCmd)
 }
 
-// addLoginFlags registers the flags that runAuthLogin reads (via cmd.Flags())
-// on any cobra command that ends up calling runLogin. The flag names MUST
-// match what runAuthLogin looks up, so keep this as the single registration
-// point for both `agenthost login` and `agenthost setup` (which invokes login
-// internally).
+// addLoginFlags registers the login-mode flags that runAuthLogin reads (via
+// cmd.Flags()) on any cobra command that ends up calling runLogin: `login`
+// and the `setup` family, which logs in internally (Kensink). Each command
+// registers --callback-host itself, so it is not repeated here.
 func addLoginFlags(cmd *cobra.Command) {
-	cmd.Flags().Bool("token", false, "Authenticate by pasting a personal access token")
+	// No backticks in the usage string: pflag's UnquoteUsage treats the first
+	// backquoted segment as the flag's value placeholder in help output.
+	cmd.Flags().String("token", "", "Authenticate using a personal access token (mul_... user PAT or mcn_... Cloud Node PAT). Pass --token mul_... / --token mcn_... to supply it inline, or --token alone to be prompted interactively.")
+	// NoOptDefVal lets `--token` (no value) keep its old prompt-mode behavior
+	// while `--token mul_...` / `--token mcn_...` and the `=value` form
+	// consume the value normally.
+	cmd.Flags().Lookup("token").NoOptDefVal = tokenPromptSentinel
 	cmd.Flags().Bool("manual", false, "Headless flow: print the login URL and prompt for the authentication code shown in the browser (use on SSH-only boxes where the browser can't reach the CLI's localhost listener)")
-	cmd.Flags().String(callbackHostFlag, "", "Host the OAuth callback URL points at (auto-detected from the server's route when empty). Use this for reverse-proxy / FQDN setups where auto-detection picks the wrong interface.")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
+	if err := requireHumanLocalCommand("login"); err != nil {
+		return err
+	}
 	// Run the standard auth login flow.
 	if err := runAuthLogin(cmd, args); err != nil {
 		return err
@@ -68,14 +93,24 @@ func runLogin(cmd *cobra.Command, args []string) error {
 }
 
 func autoWatchWorkspaces(cmd *cobra.Command) error {
-	serverURL := resolveServerURL(cmd)
-	token := resolveToken(cmd)
-	if token == "" {
+	// runLogin has already passed the human/local command guard and saved the
+	// newly authenticated profile. Read that exact profile here rather than the
+	// general task-safe resolvers, which intentionally fail closed on a lone
+	// MULTICA_DAEMON_PORT signal.
+	profile := resolveProfile(cmd)
+	cfg, err := cli.LoadCLIConfigForProfile(profile)
+	if err != nil {
+		return err
+	}
+	if cfg.Token == "" {
 		return fmt.Errorf("not authenticated")
 	}
+	if cfg.ServerURL == "" {
+		return fmt.Errorf("server URL not configured")
+	}
 
-	client := cli.NewAPIClient(serverURL, "", token)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	client := cli.NewAPIClient(normalizeAPIBaseURL(cfg.ServerURL), "", cfg.Token)
+	ctx, cancel := cli.APIContext(context.Background())
 	defer cancel()
 
 	var workspaces []struct {
@@ -98,12 +133,6 @@ func autoWatchWorkspaces(cmd *cobra.Command) error {
 		}
 	}
 
-	profile := resolveProfile(cmd)
-	cfg, err := cli.LoadCLIConfigForProfile(profile)
-	if err != nil {
-		return err
-	}
-
 	// Set default workspace if not set.
 	if cfg.WorkspaceID == "" {
 		cfg.WorkspaceID = workspaces[0].ID
@@ -115,7 +144,14 @@ func autoWatchWorkspaces(cmd *cobra.Command) error {
 
 	fmt.Fprintf(os.Stderr, "\nFound %d workspace(s):\n", len(workspaces))
 	for _, ws := range workspaces {
-		fmt.Fprintf(os.Stderr, "  • %s (%s)\n", ws.Name, ws.ID)
+		marker := "  "
+		if ws.ID == cfg.WorkspaceID {
+			marker = "* "
+		}
+		fmt.Fprintf(os.Stderr, "%s%s (%s)\n", marker, ws.Name, ws.ID)
+	}
+	if len(workspaces) > 1 {
+		fmt.Fprintln(os.Stderr, "\nUse 'multica workspace switch <id|slug>' to change the default workspace.")
 	}
 
 	return nil
@@ -150,10 +186,17 @@ func waitForWorkspaceCreation(cmd *cobra.Command, client *cli.APIClient) ([]stru
 	const pollTimeout = 5 * time.Minute
 	deadline := time.Now().Add(pollTimeout)
 
+	// Per-poll request budget. We keep a short 10s floor so the loop stays
+	// responsive (a hung request shouldn't block a single iteration for long),
+	// but it still honors MULTICA_HTTP_TIMEOUT via AtLeastAPITimeout so a user
+	// who raised the timeout for a slow network isn't capped below it. The
+	// overall wait is bounded by pollTimeout regardless.
+	pollRequestTimeout := cli.AtLeastAPITimeout(10 * time.Second)
+
 	for time.Now().Before(deadline) {
 		time.Sleep(pollInterval)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), pollRequestTimeout)
 		var workspaces []struct {
 			ID   string `json:"id"`
 			Name string `json:"name"`

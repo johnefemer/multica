@@ -145,7 +145,7 @@ func (h *Handler) resolveSlackModalScope(
 	if err != nil {
 		return slackCommandScope{}, "That workspace no longer exists."
 	}
-	conn, err := h.Queries.GetIntegrationConnection(ctx, ws.ID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: ws.ID, Provider: "slack"})
 	if err != nil {
 		return slackCommandScope{}, "Slack isn't connected for this workspace any more."
 	}

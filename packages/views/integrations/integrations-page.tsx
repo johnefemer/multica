@@ -646,7 +646,7 @@ function GitHubManagePanel({
             {dialogMode === "import" && (
               <label
                 className={`flex items-start gap-2 text-xs ${
-                  selectedRepo ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground/60"
+                  selectedRepo ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground"
                 }`}
               >
                 <Checkbox
@@ -1490,7 +1490,7 @@ function IntegrationCard({
           <ul className="space-y-1">
             {def.features.map((f) => (
               <li key={f} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-muted-foreground/50" />
+                <CheckCircle2 className="size-3 mt-0.5 shrink-0 text-faint-foreground" />
                 {f}
               </li>
             ))}

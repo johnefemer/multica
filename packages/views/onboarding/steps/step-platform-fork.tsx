@@ -1,197 +1,140 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { captureEvent, setPersonProperties } from "@multica/core/analytics";
+import { useEffect, useState, type ReactNode } from "react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
-import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
+import { cn } from "@multica/ui/lib/utils";
 import type { AgentRuntime } from "@multica/core/types";
-import { DragStrip } from "@multica/views/platform";
-import { StepHeader } from "../components/step-header";
-import { RuntimeAsidePanel } from "../components/runtime-aside-panel";
-import { CompactRuntimeRow } from "../components/compact-runtime-row";
+import { runtimeDisplayLabel } from "@multica/core/runtimes";
+import {
+  StepFooter,
+  StepHeading,
+} from "../components/step-shell";
+import {
+  MikaRuntimeChoice,
+  type MikaRuntimeSelection,
+} from "../../runtimes/components/mika-runtime-choice";
 import { useRuntimePicker } from "../components/use-runtime-picker";
-import { CloudWaitlistExpand } from "../components/cloud-waitlist-expand";
+import { useT } from "../../i18n";
 
 /**
- * Step 3 on **web**. The user is in a browser and hasn't downloaded
- * the desktop app yet, so we can't scan their machine for runtimes.
- * Primary path: **Install the CLI** — "Show steps" opens a dialog with
- * install instructions + live runtime probe. When a runtime appears and
- * the user selects it, "Connect & continue" fires `onNext(runtime)`.
- * A cloud waitlist dialog remains wired for optional expansion; Skip
- * exits without a runtime.
+ * Step 3 on **web**. Kensink runs runtimes through the CLI only, so this
+ * screen offers a single card: **Install the CLI** — "Show steps" opens a
+ * dialog with the install instructions + live runtime probe. When a
+ * runtime appears and the user selects it, the dialog's "Connect &
+ * continue" button fires `onNext(runtime)` and advances the flow. The
+ * desktop download and cloud computer cards from upstream are removed.
  *
  * Footer is simplified — no Continue button, since the CLI dialog
  * owns that advancement itself. Only Skip remains.
  */
 
-type DialogState = "cli" | "cloud" | null;
+type DialogState = "cli" | null;
 
 export function StepPlatformFork({
   wsId,
+  wsSlug,
   onNext,
-  onBack,
   cliInstructions,
-  onWaitlistSubmitted,
 }: {
   wsId: string;
-  onNext: (runtime: AgentRuntime | null) => void | Promise<void>;
-  onBack?: () => void;
+  /** Slug of the target workspace. Sent explicitly so the runtime list reads
+   *  the workspace being set up rather than whichever one the app is currently
+   *  showing. */
+  wsSlug?: string;
+  onNext: (runtime: AgentRuntime | null, model?: string) => void | Promise<void>;
   /** Platform-specific CLI install card, rendered inside the CLI dialog. */
   cliInstructions?: ReactNode;
-  /** Parent-level latch used to label the onboarding completion path
-   *  as `cloud_waitlist` when the user ends up skipping Step 3 after
-   *  submitting the waitlist form. */
-  onWaitlistSubmitted?: () => void;
 }) {
-  const mainRef = useRef<HTMLElement>(null);
-  const fadeStyle = useScrollFade(mainRef);
+  const { t } = useT("onboarding");
 
   const [dialog, setDialog] = useState<DialogState>(null);
-  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [model, setModel] = useState("");
 
-  // Platform signal retained purely for PostHog dimensions — the UI
-  // no longer branches on it (Windows / Linux desktop installers now
-  // ship, so all three platforms get the same card). Computed
-  // lazily; SSR-safe because handlers only run client-side.
-  const isMac =
-    typeof navigator !== "undefined" &&
-    (/Mac|iPhone|iPad|iPod/i.test(navigator.platform || "") ||
-      /Mac OS X/i.test(navigator.userAgent || ""));
-
-  const picker = useRuntimePicker(wsId);
+  const picker = useRuntimePicker(wsId, wsSlug);
 
   const handleOpenCli = () => {
     setDialog("cli");
-    captureEvent("onboarding_runtime_path_selected", {
-      path: "cli",
-      source: "step3",
-      is_mac: isMac,
-    });
-    setPersonProperties({ platform_preference: "web" });
   };
 
-  const handleCliConnect = () => {
-    if (!picker.selected) return;
-    setDialog(null);
-    onNext(picker.selected);
-  };
-
-  const footerHint = (() => {
-    if (waitlistSubmitted) {
-      return "You're on the waitlist — pick Skip to keep exploring.";
+  const handleCliConnect = async () => {
+    if (!picker.selected || connecting) return;
+    setConnecting(true);
+    try {
+      await onNext(picker.selected, model || undefined);
+      setDialog(null);
+    } finally {
+      setConnecting(false);
     }
-    return "Pick a path above — or skip and configure a runtime later.";
-  })();
+  };
+
+  const footerHint = t(($) => $.step_platform.hint_default);
 
   return (
-    <div className="animate-onboarding-enter grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px]">
-      {/* Left — DragStrip + 3-region app shell */}
-      <div className="flex min-h-0 flex-col">
-        <DragStrip />
+    <>
+      <div className="flex flex-col gap-8 pt-2 sm:pt-6">
+        {/* The eyebrow read "Connect a computer" directly above a headline
+            that starts with the same three words. The block has no eyebrow
+            slot and the rail already names the step, so it goes. */}
+        <StepHeading
+          title={t(($) => $.step_platform.headline)}
+          description={t(($) => $.step_platform.lede)}
+        />
 
-        <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
-          {onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back
-            </button>
-          ) : (
-            <span aria-hidden className="w-0" />
-          )}
-          <div className="flex-1">
-            <StepHeader currentStep="runtime" />
-          </div>
-        </header>
+        <div className="flex flex-col gap-2">
+          <ForkAlt
+            title={t(($) => $.step_platform.cli_title)}
+            subtitle={t(($) => $.step_platform.cli_subtitle)}
+            actionLabel={t(($) => $.step_platform.cli_action)}
+            onAction={handleOpenCli}
+          />
 
-        <main
-          ref={mainRef}
-          style={fadeStyle}
-          className="min-h-0 flex-1 overflow-y-auto"
-        >
-          <div className="mx-auto w-full max-w-[620px] px-6 py-10 sm:px-10 md:px-14 lg:px-0 lg:py-14">
-            <div className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Step 3 · Runtime
-            </div>
-            <h1 className="text-balance font-serif text-[36px] font-medium leading-[1.1] tracking-tight text-foreground">
-              Connect a runtime.
-            </h1>
-            <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.55] text-muted-foreground">
-              Install the CLI on your dev machine or server to connect
-              it to Agenthost as a runtime.
-            </p>
+        </div>
 
-            <div className="mt-10 flex max-w-[560px] flex-col gap-3.5">
-              <ForkAlt
-                title="Install the CLI"
-                subtitle="For servers, remote dev boxes, and headless setups. Terminal required."
-                actionLabel="Show steps"
-                onAction={handleOpenCli}
-              />
-            </div>
-          </div>
-        </main>
-
-        {/* Footer — hint on the left, Skip on the right. Advancement
-            for the CLI path is owned by the CLI dialog's own
-            "Connect & continue" button; Skip is the self-serve exit. */}
-        <footer className="flex shrink-0 items-center justify-between gap-4 bg-background px-6 py-4 sm:px-10 md:px-14 lg:px-16">
-          <span
-            aria-live="polite"
-            className="text-xs text-muted-foreground"
-          >
-            {footerHint}
-          </span>
-          <Button variant="secondary" onClick={() => onNext(null)}>
-            Skip for now
-          </Button>
-        </footer>
       </div>
 
-      {/* Right — always-visible aside */}
-      <aside className="hidden min-h-0 border-l bg-muted/40 lg:flex lg:flex-col">
-        <DragStrip />
-        <div className="min-h-0 flex-1 overflow-y-auto px-12 py-12">
-          <RuntimeAsidePanel />
-        </div>
-      </aside>
+      {/* Advancement for the CLI path is owned by the CLI dialog's own
+          "Connect & continue" button; Skip creates the single self-serve
+          onboarding issue. */}
+      <StepFooter hint={footerHint}>
+        <Button
+          variant="ghost"
+          className="w-full"
+          onClick={() => onNext(null)}
+        >
+          {t(($) => $.step_runtime.skip)}
+        </Button>
+      </StepFooter>
 
-      <CliInstallDialog
-        open={dialog === "cli"}
-        onClose={() => setDialog(null)}
-        onConnect={handleCliConnect}
-        runtimes={picker.runtimes}
-        selectedId={picker.selectedId}
-        onSelect={picker.setSelectedId}
-        hasRuntimes={picker.hasRuntimes}
-        canConnect={picker.selected !== null}
-        selectedName={picker.selected?.name ?? null}
-        cliInstructions={cliInstructions}
-      />
-
-      <CloudWaitlistDialog
-        open={dialog === "cloud"}
-        onClose={() => setDialog(null)}
-        submitted={waitlistSubmitted}
-        onSubmitted={() => {
-          setWaitlistSubmitted(true);
-          onWaitlistSubmitted?.();
-        }}
-      />
-    </div>
+    <CliInstallDialog
+      open={dialog === "cli"}
+      onClose={() => setDialog(null)}
+      onConnect={handleCliConnect}
+      runtimes={picker.runtimes}
+      choice={{ runtimeId: picker.selectedId ?? "", model }}
+      onChoiceChange={(next) => {
+        if (next.runtimeId !== picker.selectedId) {
+          picker.setSelectedId(next.runtimeId);
+        }
+        setModel(next.model);
+      }}
+      hasRuntimes={picker.hasRuntimes}
+      canConnect={picker.selected !== null}
+      selectedName={
+        picker.selected ? runtimeDisplayLabel(picker.selected) : null
+      }
+      connecting={connecting}
+      cliInstructions={cliInstructions}
+    />
+    </>
   );
 }
 
@@ -200,38 +143,51 @@ export function StepPlatformFork({
 // ------------------------------------------------------------
 
 /**
- * Alt card with an explicit right-side action pill. The whole card is
- * clickable (so you can hit the title/subtitle too), but the pill is the
- * visual anchor — it's what tells the user "this card is a button".
- * Pressing it opens a dialog that owns the real content + action.
+ * Alt card with a right-side action. When `disabled`, the action
+ * renders as a static badge (used for "Coming soon" paths that aren't
+ * yet wired up); otherwise it's an outline button that fires
+ * `onAction` and typically opens a dialog.
  */
 function ForkAlt({
   title,
   subtitle,
   actionLabel,
   onAction,
+  disabled = false,
 }: {
   title: string;
   subtitle: ReactNode;
   actionLabel: ReactNode;
-  onAction: () => void;
+  onAction?: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border bg-card px-5 py-4">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 rounded-lg border bg-card px-5 py-4",
+        disabled && "opacity-70",
+      )}
+    >
       <div className="min-w-0">
-        <div className="text-[14.5px] font-medium text-foreground">{title}</div>
-        <div className="mt-1 text-[12.5px] leading-[1.5] text-muted-foreground">
+        <div className="text-body font-medium text-foreground">{title}</div>
+        <div className="mt-1 text-caption leading-[1.5] text-muted-foreground">
           {subtitle}
         </div>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className="shrink-0"
-        onClick={onAction}
-      >
-        {actionLabel}
-      </Button>
+      {disabled ? (
+        <span className="shrink-0 rounded-full border bg-muted px-3 py-1 text-caption font-medium text-muted-foreground">
+          {actionLabel}
+        </span>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={onAction}
+        >
+          {actionLabel}
+        </Button>
+      )}
     </div>
   );
 }
@@ -252,66 +208,55 @@ function CliInstallDialog({
   onClose,
   onConnect,
   runtimes,
-  selectedId,
-  onSelect,
+  choice,
+  onChoiceChange,
   hasRuntimes,
   canConnect,
   selectedName,
+  connecting,
   cliInstructions,
 }: {
   open: boolean;
   onClose: () => void;
-  onConnect: () => void;
+  onConnect: () => void | Promise<void>;
   runtimes: AgentRuntime[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  choice: MikaRuntimeSelection;
+  onChoiceChange: (next: MikaRuntimeSelection) => void;
   hasRuntimes: boolean;
   canConnect: boolean;
   selectedName: string | null;
+  connecting: boolean;
   cliInstructions?: ReactNode;
 }) {
+  const { t } = useT("onboarding");
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
-      {/* max-h + flex column so an unbounded runtime list (N machines)
-          triggers internal scrolling instead of pushing the footer's
-          Connect button below the viewport. */}
       <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Install the CLI</DialogTitle>
-          <DialogDescription>
-            A small daemon installed via terminal — runs in the background
-            and connects your machine to Agenthost.
-          </DialogDescription>
+          <DialogTitle>{t(($) => $.step_platform.cli_dialog_title)}</DialogTitle>
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pt-2">
           {cliInstructions}
 
-          {/* Live probe. Shows a staged waiting message with elapsed-
-              time fallbacks while no runtime is detected; flips to
-              a success list once the daemon registers via WS. */}
           {hasRuntimes ? (
             <>
-              <div className="flex items-center gap-2 pt-1 text-sm">
+              <div className="flex items-center gap-2 pt-1 text-body">
                 <div className="h-2 w-2 rounded-full bg-success" />
                 <span className="font-medium">
-                  {runtimes.length} runtime{runtimes.length > 1 ? "s" : ""}{" "}
-                  connected
+                  {t(($) => $.step_platform.runtimes_connected, { count: runtimes.length })}
                 </span>
               </div>
               {/* Cap the runtime list at ~4 rows visible, scroll the rest.
                   Keeps the commands above always reachable even when
                   a user has many machines registered. */}
-              <div className="flex max-h-[240px] flex-col gap-2 overflow-y-auto">
-                {runtimes.map((rt) => (
-                  <CompactRuntimeRow
-                    key={rt.id}
-                    runtime={rt}
-                    selected={rt.id === selectedId}
-                    onSelect={() => onSelect(rt.id)}
-                  />
-                ))}
-              </div>
+              <MikaRuntimeChoice
+                layout="list"
+                runtimes={runtimes}
+                value={choice}
+                onChange={onChoiceChange}
+                disabled={connecting}
+              />
             </>
           ) : (
             <CliWaitingStatus dialogOpen={open} />
@@ -323,19 +268,20 @@ function CliInstallDialog({
               one" / "selected X". While still waiting, the body's
               CliWaitingStatus already conveys the live-listening state,
               so an additional "Waiting..." footer line is duplication. */}
-          <span className="text-xs text-muted-foreground">
+          <span className="text-caption text-muted-foreground">
             {hasRuntimes
               ? canConnect && selectedName
-                ? `Selected: ${selectedName}`
-                : "Pick a runtime above."
+                ? t(($) => $.step_runtime.hint_selected, { name: selectedName })
+                : t(($) => $.step_platform.cli_dialog_pick_hint)
               : null}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t(($) => $.common.cancel)}
             </Button>
-            <Button disabled={!canConnect} onClick={onConnect}>
-              Connect &amp; continue
+            <Button disabled={!canConnect || connecting} onClick={onConnect}>
+              {connecting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t(($) => $.step_runtime.continue)}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -377,6 +323,7 @@ function formatElapsed(seconds: number) {
  * after closing resets the staging.
  */
 function CliWaitingStatus({ dialogOpen }: { dialogOpen: boolean }) {
+  const { t } = useT("onboarding");
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -409,7 +356,7 @@ function CliWaitingStatus({ dialogOpen }: { dialogOpen: boolean }) {
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4">
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-body">
         {/* Pulsing green dot signals active WS subscription — the
             useRuntimePicker hook is already subscribed to `daemon:register`,
             this is the visual confirmation that "we're listening". */}
@@ -418,94 +365,46 @@ function CliWaitingStatus({ dialogOpen }: { dialogOpen: boolean }) {
           className="inline-block size-2 shrink-0 rounded-full bg-success animate-pulse"
         />
         <span className="font-medium text-foreground">
-          Live · Listening for your daemon
+          {t(($) => $.step_platform.live_listening)}
         </span>
-        <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="ml-auto font-mono text-caption tabular-nums text-muted-foreground">
           {formatElapsed(elapsed)}
         </span>
       </div>
 
       <p
         aria-live="polite"
-        className="text-[12.5px] leading-[1.55] text-muted-foreground"
+        className="text-caption leading-[1.55] text-muted-foreground"
       >
         {stage === "normal" && (
           <>
-            Run the command above. As soon as{" "}
-            <span className="font-mono">multica setup</span> finishes
-            browser sign-in and the daemon starts, your runtime will
-            appear here automatically (usually 10–30 seconds).
+            {t(($) => $.step_platform.stage_normal_prefix)}
+            <span className="font-mono">{"agenthost setup"}</span>
+            {t(($) => $.step_platform.stage_normal_suffix)}
           </>
         )}
         {stage === "midway" && (
           <>
-            Still listening. Make sure you finished the browser tab that{" "}
-            <span className="font-mono">multica setup</span> opened — it
-            needs you to approve the sign-in before the daemon can start.
+            {t(($) => $.step_platform.stage_midway_prefix)}
+            <span className="font-mono">{"agenthost setup"}</span>
+            {t(($) => $.step_platform.stage_midway_suffix)}
           </>
         )}
         {stage === "slow" && (
           <>
-            Taking longer than usual. Check the terminal where you ran{" "}
-            <span className="font-mono">multica setup</span> for errors.
+            {t(($) => $.step_platform.stage_slow_prefix)}
+            <span className="font-mono">{"agenthost setup"}</span>
+            {t(($) => $.step_platform.stage_slow_suffix)}
           </>
         )}
         {stage === "stalled" && (
           <>
-            Nothing coming through yet. Check the terminal for errors,
-            or hit Skip to continue and configure a runtime later.
+            {t(($) => $.step_platform.stage_stalled_prefix)}
+            <span className="font-medium text-foreground">{t(($) => $.step_platform.stage_stalled_term)}</span>
+            {t(($) => $.step_platform.stage_stalled_suffix)}
           </>
         )}
       </p>
     </div>
-  );
-}
-
-// ------------------------------------------------------------
-// Cloud waitlist dialog
-// ------------------------------------------------------------
-
-/**
- * Modal dialog for the cloud waitlist path. Wraps the shared
- * `CloudWaitlistExpand` form. Submitting it records interest — the
- * dialog does NOT advance the onboarding flow. After submit, the user
- * closes the dialog and can hit Skip in the footer.
- */
-function CloudWaitlistDialog({
-  open,
-  onClose,
-  submitted,
-  onSubmitted,
-}: {
-  open: boolean;
-  onClose: () => void;
-  submitted: boolean;
-  onSubmitted: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Join the cloud runtime waitlist</DialogTitle>
-          <DialogDescription>
-            Cloud runtimes aren&apos;t live yet. Leave your email and
-            we&apos;ll email you when they are.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto pt-2">
-          <CloudWaitlistExpand
-            submitted={submitted}
-            onSubmitted={onSubmitted}
-          />
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            {submitted ? "Close" : "Cancel"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

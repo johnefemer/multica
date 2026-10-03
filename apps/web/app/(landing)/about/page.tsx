@@ -4,7 +4,7 @@ import { AboutPageClient } from "@/features/landing/components/about-page-client
 export const metadata: Metadata = {
   title: "About",
   description:
-    "About Agenthost — an open-source project management platform built around the idea that coding agents are real teammates, not tools.",
+    "Learn about Multica — multiplexed information and computing agent. A source-available project management platform for human + agent teams.",
   openGraph: {
     title: "About Agenthost",
     description:

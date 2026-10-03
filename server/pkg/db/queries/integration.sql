@@ -115,6 +115,21 @@ INSERT INTO issue (
 RETURNING *;
 
 
+-- name: SyncIssueFromIntegration :one
+-- Kensink "Pull latest": refresh an imported issue's title / description /
+-- status from its provider and stamp integration_synced_at. Bumps revision and
+-- last_activity_at like the other single-purpose issue updates so realtime
+-- clients pick up the change.
+UPDATE issue SET
+    title = sqlc.arg(title),
+    description = sqlc.narg(description),
+    status = sqlc.arg(status),
+    integration_synced_at = now(),
+    revision = revision + 1,
+    updated_at = now(),
+    last_activity_at = GREATEST(COALESCE(last_activity_at, updated_at), now())
+WHERE id = sqlc.arg(id)
+RETURNING *;
 -- name: GetIntegrationConnectionByProviderAccount :one
 -- Reverse lookup: which workspace owns the connection for a given external
 -- account? Slack webhooks arrive keyed by team id with no workspace context,

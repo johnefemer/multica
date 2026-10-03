@@ -91,7 +91,7 @@ func (h *Handler) ListSlackChannels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "slack"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "Slack not connected")
 		return
@@ -161,7 +161,7 @@ func (h *Handler) CreateChatChannelBinding(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Look up the Slack connection to get the team ID.
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "slack"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusBadRequest, "Slack not connected")
 		return

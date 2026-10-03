@@ -2,11 +2,11 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,12 +15,15 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/analytics"
 	"github.com/multica-ai/multica/server/internal/auth"
 	"github.com/multica-ai/multica/server/internal/logger"
+	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
@@ -36,14 +39,40 @@ func (e SignupError) Error() string {
 var ErrSignupProhibited = SignupError{Message: "user registration is disabled on this self-hosted instance"}
 var ErrEmailNotAllowed = SignupError{Message: "email address or domain not allowed on this instance"}
 
+const (
+	googleLoginCodeAccountDisabled     = "account_disabled"
+	googleLoginCodeSignupProhibited    = "signup_prohibited"
+	googleLoginCodeEmailNotAllowed     = "email_not_allowed"
+	googleLoginCodeAccountWithoutEmail = "google_account_no_email"
+	googleLoginCodeInvalidOAuthCode    = "oauth_code_invalid"
+)
+
+const devVerificationCodeEnv = "MULTICA_DEV_VERIFICATION_CODE"
+
+// supportedLanguages mirrors `SUPPORTED_LOCALES` in packages/core/i18n/types.ts.
+// Keep both lists in sync when adding a locale — the user-controlled `language`
+// field round-trips through GetMe back into i18n.changeLanguage(), so without
+// validation an arbitrary string would persist and echo to every device.
+var supportedLanguages = map[string]struct{}{
+	"en":      {},
+	"zh-Hans": {},
+	"ko":      {},
+	"ja":      {},
+	"fr":      {},
+}
+
 type UserResponse struct {
-	ID                      string          `json:"id"`
-	Name                    string          `json:"name"`
-	Email                   string          `json:"email"`
-	AvatarURL               *string         `json:"avatar_url"`
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Email     string  `json:"email"`
+	AvatarURL *string `json:"avatar_url"`
+	Language  *string `json:"language"`
+	// Pinned IANA tz; nil = no preference (use browser-detected tz).
+	Timezone                *string         `json:"timezone"`
 	OnboardedAt             *string         `json:"onboarded_at"`
 	OnboardingQuestionnaire json.RawMessage `json:"onboarding_questionnaire"`
 	StarterContentState     *string         `json:"starter_content_state"`
+	ProfileDescription      string          `json:"profile_description"`
 	// HasPassword drives the account settings UI: "Set a password" for
 	// accounts created through the email-code or Google flow, "Change
 	// password" once one exists. The hash itself is never serialised.
@@ -52,7 +81,13 @@ type UserResponse struct {
 	UpdatedAt   string `json:"updated_at"`
 }
 
-func userToResponse(u db.User) UserResponse {
+// MaxProfileDescriptionLen caps the user-supplied profile_description body.
+// Picked at 2000 chars per MUL-2406: enough room for role / stack / a few
+// preferences, short enough that injecting it into every agent brief
+// doesn't move the needle on prompt cost.
+const MaxProfileDescriptionLen = 2000
+
+func (h *Handler) userToResponse(u db.User) UserResponse {
 	// JSONB column is []byte with DEFAULT '{}', so it's never nil at the DB
 	// level. Defensive coalesce just in case a future ALTER makes the column
 	// nullable and some row comes back with no default applied.
@@ -64,10 +99,13 @@ func userToResponse(u db.User) UserResponse {
 		ID:                      uuidToString(u.ID),
 		Name:                    u.Name,
 		Email:                   u.Email,
-		AvatarURL:               textToPtr(u.AvatarUrl),
+		AvatarURL:               h.resolveAvatarURLPtr(textToPtr(u.AvatarUrl)),
+		Language:                textToPtr(u.Language),
+		Timezone:                textToPtr(u.Timezone),
 		OnboardedAt:             timestampToPtr(u.OnboardedAt),
 		OnboardingQuestionnaire: json.RawMessage(q),
 		StarterContentState:     textToPtr(u.StarterContentState),
+		ProfileDescription:      u.ProfileDescription,
 		HasPassword:             u.PasswordHash.Valid && u.PasswordHash.String != "",
 		CreatedAt:               timestampToString(u.CreatedAt),
 		UpdatedAt:               timestampToString(u.UpdatedAt),
@@ -97,12 +135,54 @@ func generateCode() (string, error) {
 	return fmt.Sprintf("%06d", n), nil
 }
 
+func isDevVerificationCode(code string) bool {
+	if isProductionEnv() {
+		return false
+	}
+
+	devCode := strings.TrimSpace(os.Getenv(devVerificationCodeEnv))
+	if !isSixDigitCode(devCode) {
+		return false
+	}
+
+	return subtle.ConstantTimeCompare([]byte(code), []byte(devCode)) == 1
+}
+
+func isProductionEnv() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production")
+}
+
+func isSixDigitCode(code string) bool {
+	if len(code) != 6 {
+		return false
+	}
+	for _, ch := range code {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func (h *Handler) issueJWT(user db.User) (string, error) {
+	if auth.IsTemporarilyDisabledUser(uuidToString(user.ID), user.Email) {
+		return "", auth.ErrTemporarilyDisabledUser
+	}
+	// `sid` identifies this login for as long as it lasts: sliding renewal
+	// copies it forward, so it stays put while `exp` moves. The CSRF token is
+	// bound to it rather than to the token string, which is what lets the
+	// auth cookie be re-issued mid-session without invalidating CSRF tokens
+	// other tabs are already holding (MUL-7436).
+	sid, err := auth.NewSessionID()
+	if err != nil {
+		return "", err
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":   uuidToString(user.ID),
 		"email": user.Email,
 		"name":  user.Name,
-		"exp":   time.Now().Add(30 * 24 * time.Hour).Unix(),
+		"sid":   sid,
+		"exp":   time.Now().Add(auth.AuthTokenTTL()).Unix(),
 		"iat":   time.Now().Unix(),
 	})
 	return token.SignedString(auth.JWTSecret())
@@ -118,6 +198,10 @@ func (h *Handler) issueJWT(user db.User) (string, error) {
 func (h *Handler) finishLogin(w http.ResponseWriter, r *http.Request, user db.User, method string, cfCookieTTL time.Duration) {
 	tokenString, err := h.issueJWT(user)
 	if err != nil {
+		if errors.Is(err, auth.ErrTemporarilyDisabledUser) {
+			writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+			return
+		}
 		slog.Warn("login failed", append(logger.RequestAttrs(r), "error", err, "email", user.Email, "method", method)...)
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
@@ -138,7 +222,7 @@ func (h *Handler) finishLogin(w http.ResponseWriter, r *http.Request, user db.Us
 	slog.Info("user logged in", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email, "method", method)...)
 	writeJSON(w, http.StatusOK, LoginResponse{
 		Token: tokenString,
-		User:  userToResponse(user),
+		User:  h.userToResponse(user),
 	})
 }
 
@@ -147,13 +231,20 @@ func (h *Handler) finishLogin(w http.ResponseWriter, r *http.Request, user db.Us
 // event fires on that edge, covering both the verification-code and Google
 // OAuth entry points.
 func (h *Handler) findOrCreateUser(ctx context.Context, email string) (user db.User, isNew bool, err error) {
+	if auth.IsTemporarilyDisabledUserEmail(email) {
+		return db.User{}, false, auth.ErrTemporarilyDisabledUser
+	}
+
 	user, err = h.Queries.GetUserByEmail(ctx, email)
 	isNew = isNotFound(err)
 	if err != nil && !isNew {
 		return db.User{}, false, err
 	}
+	if !isNew && auth.IsTemporarilyDisabledUser(uuidToString(user.ID), user.Email) {
+		return db.User{}, false, auth.ErrTemporarilyDisabledUser
+	}
 
-	if err := h.checkSignupAllowed(email, isNew); err != nil {
+	if err := h.checkSignupAllowed(ctx, email, isNew); err != nil {
 		return db.User{}, false, err
 	}
 
@@ -204,7 +295,7 @@ func signupSourceFromRequest(r *http.Request) string {
 	return decoded
 }
 
-func (h *Handler) checkSignupAllowed(email string, isNewUser bool) error {
+func (h *Handler) checkSignupAllowed(ctx context.Context, email string, isNewUser bool) error {
 	if !isNewUser {
 		return nil // existing users always allowed to log in
 	}
@@ -215,27 +306,36 @@ func (h *Handler) checkSignupAllowed(email string, isNewUser bool) error {
 		domain = email[at+1:]
 	}
 
-	// 1. explicit email whitelist always wins
+	// 1. explicit email allowlist always wins
 	if len(h.cfg.AllowedEmails) > 0 && contains(h.cfg.AllowedEmails, email) {
 		return nil
 	}
 
-	// 2. domain whitelist always wins
+	// 2. domain allowlist always wins
 	if len(h.cfg.AllowedEmailDomains) > 0 && contains(h.cfg.AllowedEmailDomains, domain) {
 		return nil
 	}
 
-	// 3. general signup flag
+	// 3. unrestricted signup needs no invitation lookup.
+	if h.cfg.AllowSignup && len(h.cfg.AllowedEmailDomains) == 0 && len(h.cfg.AllowedEmails) == 0 {
+		return nil
+	}
+
+	// 4. A live invitation is an implicit per-email signup allowance. This
+	// also permits invited emails outside configured allowlists, regardless
+	// of ALLOW_SIGNUP. Recheck at account creation in findOrCreateUser.
+	invited, err := h.Queries.HasPendingInvitationForEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("check pending invitation for signup: %w", err)
+	}
+	if invited {
+		return nil
+	}
+
 	if !h.cfg.AllowSignup {
 		return ErrSignupProhibited
 	}
-
-	// 4. if allowlists are set but didn't match, block
-	if len(h.cfg.AllowedEmailDomains) > 0 || len(h.cfg.AllowedEmails) > 0 {
-		return ErrSignupProhibited
-	}
-
-	return nil
+	return ErrEmailNotAllowed
 }
 
 func contains(slice []string, s string) bool {
@@ -259,9 +359,13 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "email is required")
 		return
 	}
+	if auth.IsTemporarilyDisabledUserEmail(email) {
+		writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+		return
+	}
 
 	// Check signup restrictions before sending magic link
-	_, err := h.Queries.GetUserByEmail(r.Context(), email)
+	existingUser, err := h.Queries.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		if !isNotFound(err) {
 			// Real database/query error → return 500
@@ -270,25 +374,31 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 		}
 		// User does not exist → treat as new user
 		isNewUser := true
-		if err := h.checkSignupAllowed(email, isNewUser); err != nil {
+		if err := h.checkSignupAllowed(r.Context(), email, isNewUser); err != nil {
 			var signupErr SignupError
 			if errors.As(err, &signupErr) {
 				writeError(w, http.StatusForbidden, signupErr.Error())
 			} else {
-				writeError(w, http.StatusForbidden, "user registration is disabled")
+				slog.Warn("signup eligibility check failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
+				writeError(w, http.StatusInternalServerError, "failed to check signup eligibility")
 			}
 			return
 		}
 	} else {
 		// User already exists → always allowed to login
+		if auth.IsTemporarilyDisabledUser(uuidToString(existingUser.ID), existingUser.Email) {
+			writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+			return
+		}
 		isNewUser := false
-		if err := h.checkSignupAllowed(email, isNewUser); err != nil {
+		if err := h.checkSignupAllowed(r.Context(), email, isNewUser); err != nil {
 			// This should rarely happen, but handle it anyway
 			var signupErr SignupError
 			if errors.As(err, &signupErr) {
 				writeError(w, http.StatusForbidden, signupErr.Error())
 			} else {
-				writeError(w, http.StatusForbidden, "user registration is disabled")
+				slog.Warn("signup eligibility check failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
+				writeError(w, http.StatusInternalServerError, "failed to check signup eligibility")
 			}
 			return
 		}
@@ -343,6 +453,10 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "email and code are required")
 		return
 	}
+	if auth.IsTemporarilyDisabledUserEmail(email) {
+		writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+		return
+	}
 
 	dbCode, err := h.Queries.GetLatestVerificationCode(r.Context(), email)
 	if err != nil {
@@ -350,8 +464,8 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isMasterCode := code == "888888" && os.Getenv("APP_ENV") != "production"
-	if !isMasterCode && subtle.ConstantTimeCompare([]byte(code), []byte(dbCode.Code)) != 1 {
+	isDevCode := isDevVerificationCode(code)
+	if !isDevCode && subtle.ConstantTimeCompare([]byte(code), []byte(dbCode.Code)) != 1 {
 		_ = h.Queries.IncrementVerificationCodeAttempts(r.Context(), dbCode.ID)
 		writeError(w, http.StatusBadRequest, "invalid or expired code")
 		return
@@ -364,19 +478,51 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 
 	user, isNew, err := h.findOrCreateUser(r.Context(), email)
 	if err != nil {
+		if errors.Is(err, auth.ErrTemporarilyDisabledUser) {
+			writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+			return
+		}
 		var signupErr SignupError
 		if errors.As(err, &signupErr) {
 			writeError(w, http.StatusForbidden, signupErr.Error())
 			return
 		}
+		slog.Warn("login user lookup or creation failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 	if isNew {
-		h.Analytics.Capture(analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r)))
+		obsmetrics.RecordEvent(h.Analytics, h.Metrics, analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r)))
 	}
 
-	h.finishLogin(w, r, user, "verification_code", 30*24*time.Hour)
+	tokenString, err := h.issueJWT(user)
+	if err != nil {
+		if errors.Is(err, auth.ErrTemporarilyDisabledUser) {
+			writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+			return
+		}
+		slog.Warn("login failed", append(logger.RequestAttrs(r), "error", err, "email", req.Email)...)
+		writeError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	// Set HttpOnly auth cookie (browser clients) + CSRF cookie.
+	if err := auth.SetAuthCookies(w, tokenString); err != nil {
+		slog.Warn("failed to set auth cookies", "error", err)
+	}
+
+	// Set CloudFront signed cookies for CDN access.
+	if h.CFSigner != nil {
+		for _, cookie := range h.CFSigner.SignedCookies(time.Now().Add(auth.AuthTokenTTL())) {
+			http.SetCookie(w, cookie)
+		}
+	}
+
+	slog.Info("user logged in", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email)...)
+	writeJSON(w, http.StatusOK, LoginResponse{
+		Token: tokenString,
+		User:  h.userToResponse(user),
+	})
 }
 
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -386,17 +532,27 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.Queries.GetUser(r.Context(), parseUUID(userID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The credential no longer identifies an existing user. Return the
+		// same terminal status as an expired token so clients can sign in again.
+		writeError(w, http.StatusUnauthorized, "user not found")
+		return
+	}
 	if err != nil {
-		writeError(w, http.StatusNotFound, "user not found")
+		writeError(w, http.StatusInternalServerError, "failed to load user")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userToResponse(user))
+	writeJSON(w, http.StatusOK, h.userToResponse(user))
 }
 
 type UpdateMeRequest struct {
-	Name      *string `json:"name"`
-	AvatarURL *string `json:"avatar_url"`
+	Name               *string `json:"name"`
+	AvatarURL          *string `json:"avatar_url"`
+	Language           *string `json:"language"`
+	ProfileDescription *string `json:"profile_description"`
+	// IANA tz to pin; "" clears back to NULL; nil leaves untouched.
+	Timezone *string `json:"timezone"`
 }
 
 type GoogleLoginRequest struct {
@@ -416,6 +572,32 @@ type googleUserInfo struct {
 	Picture string `json:"picture"`
 }
 
+func writeGoogleLoginActionableError(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, auth.ErrTemporarilyDisabledUser):
+		writeErrorCode(w, http.StatusForbidden, googleLoginCodeAccountDisabled, auth.TemporarilyDisabledUserError)
+	case errors.Is(err, ErrSignupProhibited):
+		writeErrorCode(w, http.StatusForbidden, googleLoginCodeSignupProhibited, ErrSignupProhibited.Error())
+	case errors.Is(err, ErrEmailNotAllowed):
+		writeErrorCode(w, http.StatusForbidden, googleLoginCodeEmailNotAllowed, ErrEmailNotAllowed.Error())
+	default:
+		var signupErr SignupError
+		if !errors.As(err, &signupErr) {
+			return false
+		}
+		// Preserve the actionable fallback for signup restrictions without a code.
+		writeError(w, http.StatusForbidden, signupErr.Error())
+	}
+	return true
+}
+
+func (h *Handler) googleHTTPClient() *http.Client {
+	if h.googleOAuthHTTPClient != nil {
+		return h.googleOAuthHTTPClient
+	}
+	return http.DefaultClient
+}
+
 func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	var req GoogleLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -431,7 +613,7 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	if clientID == "" || clientSecret == "" {
-		writeError(w, http.StatusServiceUnavailable, "Google login is not configured")
+		writeFeatureDisabled(w, "google_login_not_configured", "Google login is not configured")
 		return
 	}
 
@@ -441,7 +623,7 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Exchange authorization code for tokens.
-	tokenResp, err := http.PostForm("https://oauth2.googleapis.com/token", url.Values{
+	tokenResp, err := h.googleHTTPClient().PostForm("https://oauth2.googleapis.com/token", url.Values{
 		"code":          {req.Code},
 		"client_id":     {clientID},
 		"client_secret": {clientSecret},
@@ -463,13 +645,28 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if tokenResp.StatusCode != http.StatusOK {
 		slog.Error("google oauth token exchange returned error", "status", tokenResp.StatusCode, "body", string(tokenBody))
-		writeError(w, http.StatusBadRequest, "failed to exchange code with Google")
+		var tokenErr struct {
+			Error string `json:"error"`
+		}
+		// Only a valid invalid_grant response identifies a rejected authorization
+		// code. Configuration, provider and malformed responses are server failures.
+		if err := json.Unmarshal(tokenBody, &tokenErr); err == nil &&
+			tokenResp.StatusCode == http.StatusBadRequest && tokenErr.Error == "invalid_grant" {
+			writeErrorCode(w, http.StatusBadRequest, googleLoginCodeInvalidOAuthCode, "failed to exchange code with Google")
+			return
+		}
+		writeError(w, http.StatusBadGateway, "failed to exchange code with Google")
 		return
 	}
 
 	var gToken googleTokenResponse
 	if err := json.Unmarshal(tokenBody, &gToken); err != nil {
 		writeError(w, http.StatusBadGateway, "failed to parse Google token response")
+		return
+	}
+	if strings.TrimSpace(gToken.AccessToken) == "" {
+		slog.Error("google oauth token response has no access token")
+		writeError(w, http.StatusBadGateway, "invalid Google token response")
 		return
 	}
 
@@ -482,7 +679,7 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	userInfoReq.Header.Set("Authorization", "Bearer "+gToken.AccessToken)
 
-	userInfoResp, err := http.DefaultClient.Do(userInfoReq)
+	userInfoResp, err := h.googleHTTPClient().Do(userInfoReq)
 	if err != nil {
 		slog.Error("google userinfo fetch failed", "error", err)
 		writeError(w, http.StatusBadGateway, "failed to fetch user info from Google")
@@ -490,33 +687,51 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	defer userInfoResp.Body.Close()
 
-	var gUser googleUserInfo
+	if userInfoResp.StatusCode != http.StatusOK {
+		body, readErr := io.ReadAll(io.LimitReader(userInfoResp.Body, 4096))
+		if readErr != nil {
+			slog.Error("google userinfo error response could not be read", "status", userInfoResp.StatusCode, "error", readErr)
+		} else {
+			slog.Error("google userinfo returned error", "status", userInfoResp.StatusCode, "body", string(body))
+		}
+		writeError(w, http.StatusBadGateway, "failed to fetch user info from Google")
+		return
+	}
+
+	var gUser *googleUserInfo
 	if err := json.NewDecoder(userInfoResp.Body).Decode(&gUser); err != nil {
 		writeError(w, http.StatusBadGateway, "failed to parse Google user info")
 		return
 	}
-
-	if gUser.Email == "" {
-		writeError(w, http.StatusBadRequest, "Google account has no email")
+	if gUser == nil {
+		writeError(w, http.StatusBadGateway, "invalid Google user info")
 		return
 	}
 
 	email := strings.ToLower(strings.TrimSpace(gUser.Email))
+	if email == "" {
+		writeErrorCode(w, http.StatusBadRequest, googleLoginCodeAccountWithoutEmail, "Google did not provide an email address for this sign-in")
+		return
+	}
+
+	if auth.IsTemporarilyDisabledUserEmail(email) {
+		writeErrorCode(w, http.StatusForbidden, googleLoginCodeAccountDisabled, auth.TemporarilyDisabledUserError)
+		return
+	}
 
 	user, isNew, err := h.findOrCreateUser(r.Context(), email)
 	if err != nil {
-		var signupErr SignupError
-		if errors.As(err, &signupErr) {
-			writeError(w, http.StatusForbidden, signupErr.Error())
+		if writeGoogleLoginActionableError(w, err) {
 			return
 		}
+		slog.Warn("login user lookup or creation failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 	if isNew {
 		evt := analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r))
 		evt.Properties["auth_method"] = "google"
-		h.Analytics.Capture(evt)
+		obsmetrics.RecordEvent(h.Analytics, h.Metrics, evt)
 	}
 
 	// Update name and avatar from Google profile if the user was just created
@@ -545,7 +760,31 @@ func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.finishLogin(w, r, user, "google", 72*time.Hour)
+	tokenString, err := h.issueJWT(user)
+	if err != nil {
+		if writeGoogleLoginActionableError(w, err) {
+			return
+		}
+		slog.Warn("google login failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
+		writeError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	if err := auth.SetAuthCookies(w, tokenString); err != nil {
+		slog.Warn("failed to set auth cookies", "error", err)
+	}
+
+	if h.CFSigner != nil {
+		for _, cookie := range h.CFSigner.SignedCookies(time.Now().Add(72 * time.Hour)) {
+			http.SetCookie(w, cookie)
+		}
+	}
+
+	slog.Info("user logged in via google", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email)...)
+	writeJSON(w, http.StatusOK, LoginResponse{
+		Token: tokenString,
+		User:  h.userToResponse(user),
+	})
 }
 
 // IssueCliToken returns a fresh JWT for the authenticated user.
@@ -565,6 +804,10 @@ func (h *Handler) IssueCliToken(w http.ResponseWriter, r *http.Request) {
 
 	tokenString, err := h.issueJWT(user)
 	if err != nil {
+		if errors.Is(err, auth.ErrTemporarilyDisabledUser) {
+			writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+			return
+		}
 		slog.Warn("cli-token: failed to issue JWT", append(logger.RequestAttrs(r), "error", err, "user_id", userID)...)
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
@@ -610,7 +853,44 @@ func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		Name: name,
 	}
 	if req.AvatarURL != nil {
-		params.AvatarUrl = pgtype.Text{String: strings.TrimSpace(*req.AvatarURL), Valid: true}
+		avatarURL, ok := h.acceptAvatarURL(w, r, *req.AvatarURL, currentUser.AvatarUrl.String)
+		if !ok {
+			return
+		}
+		params.AvatarUrl = pgtype.Text{String: avatarURL, Valid: true}
+	}
+	if req.Language != nil {
+		lang := strings.TrimSpace(*req.Language)
+		if _, ok := supportedLanguages[lang]; !ok {
+			writeError(w, http.StatusBadRequest, "unsupported language")
+			return
+		}
+		params.Language = pgtype.Text{String: lang, Valid: true}
+	}
+	if req.ProfileDescription != nil {
+		// Count runes, not bytes: 2000 chars of Chinese must not be rejected
+		// as ~6000 bytes. utf8.RuneCountInString handles invalid UTF-8 by
+		// counting each bad byte as one rune, which still bounds the column.
+		desc := strings.TrimSpace(*req.ProfileDescription)
+		if utf8.RuneCountInString(desc) > MaxProfileDescriptionLen {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("profile_description exceeds %d characters", MaxProfileDescriptionLen))
+			return
+		}
+		params.ProfileDescription = pgtype.Text{String: desc, Valid: true}
+	}
+
+	if req.Timezone != nil {
+		// Valid=false → column untouched; Valid=true + "" → clear to
+		// NULL; Valid=true + IANA → set. Three-way semantics enforced
+		// in the UpdateUser SQL CASE.
+		tz := strings.TrimSpace(*req.Timezone)
+		if tz != "" {
+			if loc, err := time.LoadLocation(tz); err != nil || loc == nil {
+				writeError(w, http.StatusBadRequest, "invalid timezone")
+				return
+			}
+		}
+		params.Timezone = pgtype.Text{String: tz, Valid: true}
 	}
 
 	updatedUser, err := h.Queries.UpdateUser(r.Context(), params)
@@ -619,5 +899,5 @@ func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userToResponse(updatedUser))
+	writeJSON(w, http.StatusOK, h.userToResponse(updatedUser))
 }

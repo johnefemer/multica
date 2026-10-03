@@ -1,121 +1,163 @@
 ---
-title: Sign-in and signup configuration
-description: Configure email + verification code sign-in, Google OAuth, and signup allowlists. Avoid the 888888 trap.
+title: Sign-in and signup
+description: Configure email verification codes, Google sign-in, and who can sign up.
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
-import { Mermaid } from "@/components/mermaid";
 
-Agenthost supports two sign-in methods: **email + verification code** (default) and **Google OAuth** (optional). On successful sign-in, the server issues a JWT cookie with a 30-day lifetime. This page covers how to configure each method, how to restrict who can sign up, and the single biggest trap for self-hosted deployments.
+Multica signs users in with email verification codes by default; Google OAuth can be added on top. Existing users can always sign in again — signup restrictions only decide whether new accounts can be created.
 
-For the list of environment variables referenced below, see [Environment variables](/environment-variables); for token usage and lifecycle details, see [Authentication and tokens](/auth-tokens).
+## Email verification codes
 
-## How email + verification code sign-in works
+After the user enters an email address, Multica sends a 6-digit verification code. The code is valid for 10 minutes; once it verifies, the browser receives a sign-in cookie.
 
-The user enters an email on the sign-in page → the server sends a 6-digit code → the user enters it → the server verifies it → a JWT cookie is issued. Standard flow. It requires [Resend](https://resend.com/) as the email provider:
+Email can be delivered through Resend or SMTP. When both are configured, `SMTP_HOST` takes priority.
 
-1. Create a Resend account and verify your domain
-2. Create an API key
-3. Set the environment variables:
+### Using Resend
 
-    ```bash
-    RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
-    RESEND_FROM_EMAIL=noreply@yourdomain.com  # must be a domain verified in Resend
-    ```
+1. Verify a sending domain and create an API key at [Resend](https://resend.com/).
+2. Set:
 
-4. Restart the server
+   ```dotenv
+   RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+   RESEND_FROM_EMAIL=noreply@example.com
+   ```
 
-**What happens if you don't set `RESEND_API_KEY`**: the server doesn't error, but **every email that should have been sent is written to the server's stdout only**. Handy for local development (copy the code from the logs); in production it's a black hole.
+3. Restart the API service.
 
-## The 888888 trap
+`RESEND_FROM_EMAIL` must belong to a domain already verified in Resend.
 
-<Callout type="warning">
-**If `APP_ENV` is not set to `production`, anyone can sign in to any account with the code `888888`.**
+### Using SMTP
 
-Agenthost has a development-only master code, `888888` — a backdoor so local development doesn't depend on Resend. The rule is straightforward: when `APP_ENV != "production"`, **any email** plus `888888` passes verification.
+At minimum, set the host and sender address:
 
-**Production deployments must set `APP_ENV=production`**. If you deploy via `make selfhost` / `docker-compose.selfhost.yml`, this value is already set to `production` by default; but if you deploy from source yourself, write your own Docker config, or redefine environment variables in Kubernetes — you must add `APP_ENV=production` yourself.
-</Callout>
+```dotenv
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=multica
+SMTP_PASSWORD=<password>
+SMTP_FROM_EMAIL=noreply@example.com
+```
 
-To check whether your deployment has this trap: open the sign-in page, enter **any email** to request a code, then enter `888888`. If you get in, your `APP_ENV` is not set to `production`, and **the entire instance is wide open**.
+Common connection modes:
 
-## Google OAuth configuration
-
-Optional. Without it, only email + verification code is available; with it, the sign-in page gets a "Sign in with Google" button.
-
-1. Create an OAuth 2.0 client in the [Google Cloud Console](https://console.cloud.google.com/)
-2. Set the **Authorized redirect URIs** to your Agenthost frontend address plus `/auth/callback`, for example:
-
-    ```text
-    https://agenthost.yourdomain.com/auth/callback
-    ```
-
-3. Once you have the client ID and client secret, set three environment variables:
-
-    ```bash
-    GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
-    GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxx
-    GOOGLE_REDIRECT_URI=https://agenthost.yourdomain.com/auth/callback
-    ```
-
-4. Restart the server.
-
-**Takes effect at runtime**: the frontend reads these settings at runtime via `/api/config` — after changing them, restart the server and the frontend picks up the new values with no rebuild or redeploy.
-
-<Callout type="warning">
-**The redirect URI must match exactly in both the Google Console and `GOOGLE_REDIRECT_URI`** — including protocol (`http` vs `https`), trailing slash, and port. Any mismatch and Google rejects the entire OAuth flow; the error shown to the user is `redirect_uri_mismatch`.
-</Callout>
-
-## Restricting who can sign up
-
-Three environment variables combine by priority:
-
-<Mermaid chart={`
-graph TD
-    Start[New user first sign-in] --> A{Email in<br/>ALLOWED_EMAILS?}
-    A -- Yes --> Allow[Allow signup]
-    A -- No --> B{Domain in<br/>ALLOWED_EMAIL_DOMAINS?}
-    B -- Yes --> Allow
-    B -- No --> C{Any allowlist<br/>non-empty?}
-    C -- Yes --> Block[Reject]
-    C -- No --> D{ALLOW_SIGNUP<br/>= true?}
-    D -- Yes --> Allow
-    D -- No --> Block
-`} />
-
-**Existing users can always sign in again** — the signup allowlist only applies to **first-time signup**, not returning users.
-
-- **`ALLOWED_EMAILS`** (highest priority) — explicit email allowlist, comma-separated. **When non-empty, only listed emails can sign up.**
-- **`ALLOWED_EMAIL_DOMAINS`** — domain allowlist, comma-separated (for example `company.io,partner.com`).
-- **`ALLOW_SIGNUP`** — master switch, default `true`. Set `false` to disable signup entirely.
-
-<Callout type="warning">
-**The three layers are AND semantics, not OR.** A common wrong intuition is that `ALLOWED_EMAIL_DOMAINS=company.io` + `ALLOW_SIGNUP=true` means "allow company.io plus everyone else." It does **not**. If any layer has a non-empty value, **emails not matching it are rejected outright** — `ALLOW_SIGNUP=true` does not override that.
-
-To actually "allow everyone," leave all three variables empty (or keep `ALLOW_SIGNUP=true`).
-</Callout>
-
-**Typical configurations**:
-
-| Goal | Configuration |
+| Scenario | Configuration |
 |---|---|
-| Internal only, employees of `company.io` | `ALLOWED_EMAIL_DOMAINS=company.io` |
-| Internal + a few external collaborators | `ALLOWED_EMAIL_DOMAINS=company.io` + collaborator addresses added to `ALLOWED_EMAILS` |
-| Disable self-serve signup entirely, invite-only | `ALLOW_SIGNUP=false` |
-| Open signup (not recommended for production) | All three empty |
+| Internal anonymous relay | `SMTP_PORT=25`, leave username and password empty |
+| STARTTLS | `SMTP_PORT=587`; upgrades to TLS by default when the server supports it |
+| Implicit TLS | `SMTP_PORT=465`, or set `SMTP_TLS=implicit` explicitly |
 
-## Can you still invite people when signup is disabled?
+If `SMTP_FROM_EMAIL` is unset, it falls back to `RESEND_FROM_EMAIL`. Private CAs or self-signed certificates require adding the CA to the container trust store; `SMTP_TLS_INSECURE=true` skips certificate verification and should only be used temporarily on a trusted internal network.
 
-**Only people who already have a Agenthost account.** Accepting an invite doesn't check the signup allowlist — if the invitee has signed up already (for example in another workspace), clicking the invite link and signing in lets them accept.
+Some strict relays also require a valid EHLO name:
 
-**But people who have never signed up cannot be rescued by an invite.** Before accepting, they must sign in, and the first step of sign-in (requesting the verification code) passes through the signup allowlist check. If `ALLOW_SIGNUP=false`, or their email isn't in `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`, they **cannot complete signup**, and therefore cannot accept the invite.
+```dotenv
+SMTP_EHLO_NAME=mail.example.com
+```
 
-To invite an external collaborator who hasn't signed up yet: temporarily add their email to `ALLOWED_EMAILS`, wait for them to sign up and accept the invite, then remove the entry.
+### Behavior without an email service
 
-For how to create and use invites, see [Members and roles](/members-roles).
+The server still starts, but verification codes and invitation links are only written to the log; no email is sent. This suits local development, not production.
 
-## Next
+The startup log states whether the current mode is `Resend API`, `SMTP relay`, or `DEV mode`.
 
-- [Environment variables](/environment-variables) — full definitions of every variable used on this page
-- [Authentication and tokens](/auth-tokens) — JWT / PAT / daemon token categories and usage
-- [Troubleshooting](/troubleshooting) — verification code not received, OAuth `redirect_uri_mismatch`, signup rejected
+## Fixed local verification code
+
+Local automated tests can set a fixed verification code:
+
+```dotenv
+APP_ENV=development
+MULTICA_DEV_VERIFICATION_CODE=888888
+```
+
+The code must be 6 digits. The fixed code is ignored when `APP_ENV=production`.
+
+<Callout type="warning">
+Do not enable a fixed code on a publicly reachable instance. The production combination is `APP_ENV=production` with an empty `MULTICA_DEV_VERIFICATION_CODE`.
+</Callout>
+
+## Google sign-in
+
+1. Create an OAuth 2.0 client in the [Google Cloud Console](https://console.cloud.google.com/).
+2. Add the Multica frontend's callback URL to **Authorized redirect URIs**:
+
+   ```text
+   https://multica.example.com/auth/callback
+   ```
+
+3. Set:
+
+   ```dotenv
+   GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxx
+   GOOGLE_REDIRECT_URI=https://multica.example.com/auth/callback
+   ```
+
+4. Restart the API service.
+
+The URLs in the Google Console and in `GOOGLE_REDIRECT_URI` must match exactly, including protocol, port, and trailing slash. Once configured, the sign-in page shows a Google sign-in button; the frontend image needs no rebuild.
+
+## Signup restrictions
+
+Three variables together decide whether a new account can be created:
+
+| Variable | Effect |
+|---|---|
+| `ALLOWED_EMAILS` | Full email addresses allowed to sign up, comma-separated |
+| `ALLOWED_EMAIL_DOMAINS` | Email domains allowed to sign up, comma-separated |
+| `ALLOW_SIGNUP` | Whether signup is allowed when no allowlist is configured; defaults to `true` |
+
+The evaluation order is:
+
+1. The email matches `ALLOWED_EMAILS` — allow.
+2. Or its domain matches `ALLOWED_EMAIL_DOMAINS` — allow.
+3. With no allowlist configured and `ALLOW_SIGNUP=true` — allow.
+4. Otherwise, if the email has a pending, unexpired workspace invitation — allow.
+5. Otherwise — reject.
+
+Common configurations:
+
+```dotenv
+# Company domain and invited users
+ALLOW_SIGNUP=false
+ALLOWED_EMAIL_DOMAINS=company.com
+
+# Also admit one external collaborator
+ALLOWED_EMAILS=partner@example.net
+```
+
+<Callout type="info">
+Both allowlists also work as an explicit exception list when `ALLOW_SIGNUP=false`.
+</Callout>
+
+## Invitations and signup restrictions
+
+A pending, unexpired workspace invitation allows its email address to create an account even when `ALLOW_SIGNUP=false` or the address does not match `ALLOWED_EMAILS` or `ALLOWED_EMAIL_DOMAINS`. This exception also applies when `ALLOW_SIGNUP=true` with an allowlist configured: allowlists are not a hard boundary against invited users.
+
+Existing users can continue to sign in. New users without a matching allowlist entry or open signup need a pending, unexpired invitation; missing, expired, accepted, declined, and revoked invitations do not grant signup permission. The invitation is checked when requesting a login code and again when creating the account, including Google sign-in.
+
+You do not need to add ordinary invitees to `ALLOWED_EMAILS` or restart the server. The invitation must still be accepted through the normal invitation flow to join the workspace.
+
+Revoking an invitation does not delete an account already created using it or prevent that existing account from signing in.
+
+## Session lifetime
+
+Sessions slide. The lifetime below is an **idle** bound, not a countdown from sign-in: once a session drops below half of it, the next request re-issues it with a full lifetime again, so an account in continuous use is never signed out on a schedule. There is no absolute cap.
+
+The bound is one-sided. A session is only re-issued once it is past the halfway point, so a session last used while it still had more than half its lifetime left is not extended — the idle gap that is always survivable is half the value below, not all of it.
+
+Adjust with `AUTH_TOKEN_TTL`, which accepts a Go duration or a positive integer of seconds:
+
+```dotenv
+AUTH_TOKEN_TTL=720h
+```
+
+The minimum is `60s`; anything shorter is clamped up to it and logs a warning at startup. Below that, the renewal cadence the server derives would fall under the floor clients apply to it, and clients would check for renewal less often than the session can survive.
+
+Restart the API service after changing it. The value applies to sessions issued or re-issued afterwards — because sessions slide, an existing session picks up the new lifetime the next time it is re-issued.
+
+## Next steps
+
+- [Environment variables](/environment-variables) — the full variable reference.
+- [Authentication and tokens](/auth-tokens) — sign-in sessions and token types.
+- [Members and roles](/members-roles) — invitations and roles.

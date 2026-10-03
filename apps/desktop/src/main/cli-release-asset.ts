@@ -1,4 +1,5 @@
-const RELEASE_ARCHIVE_PREFIX = "multica-cli-";
+// Kensink: the fork publishes agenthost-cli-<os>-<arch>.<ext>.
+const RELEASE_ARCHIVE_PREFIX = "agenthost-cli-";
 
 function platformArchiveDescriptor(
   platform: NodeJS.Platform = process.platform,

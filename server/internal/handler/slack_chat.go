@@ -113,7 +113,7 @@ func (h *Handler) handleSlackAppMention(ctx context.Context, env SlackEventEnvel
 		return fmt.Errorf("lookup workspace: %w", err)
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, ws.ID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: ws.ID, Provider: "slack"})
 	if err != nil {
 		return fmt.Errorf("lookup slack connection: %w", err)
 	}
@@ -217,7 +217,7 @@ func (h *Handler) handleSlackThreadReply(ctx context.Context, env SlackEventEnve
 		return fmt.Errorf("lookup workspace: %w", err)
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, ws.ID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: ws.ID, Provider: "slack"})
 	if err != nil {
 		return fmt.Errorf("lookup slack connection: %w", err)
 	}
@@ -250,7 +250,7 @@ func (h *Handler) handleSlackThreadReply(ctx context.Context, env SlackEventEnve
 		return fmt.Errorf("create user chat message: %w", err)
 	}
 
-	if _, err := h.TaskService.EnqueueChatTask(ctx, session); err != nil {
+	if _, err := h.TaskService.EnqueueChatTask(ctx, session, user.ID, false); err != nil {
 		_ = slackprovider.PostMessageInThread(ctx, conn.AccessToken, env.Event.Channel, env.Event.ThreadTS,
 			"⚠️ Couldn't enqueue a task: "+err.Error())
 		return fmt.Errorf("enqueue follow-up task: %w", err)
@@ -300,7 +300,7 @@ func (h *Handler) HandleSlackPickerSelection(ctx context.Context, payload SlackI
 	if err != nil {
 		return fmt.Errorf("lookup workspace: %w", err)
 	}
-	conn, err := h.Queries.GetIntegrationConnection(ctx, ws.ID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: ws.ID, Provider: "slack"})
 	if err != nil {
 		return fmt.Errorf("lookup slack connection: %w", err)
 	}
@@ -394,7 +394,7 @@ func (h *Handler) startSlackChatSession(ctx context.Context, args slackChatStart
 		return fmt.Errorf("create initial chat message: %w", err)
 	}
 
-	if _, err := h.TaskService.EnqueueChatTask(ctx, session); err != nil {
+	if _, err := h.TaskService.EnqueueChatTask(ctx, session, args.Creator.ID, false); err != nil {
 		_ = slackprovider.PostMessageInThread(ctx, args.Connection.AccessToken, args.ChannelID, args.ThreadID,
 			"⚠️ Couldn't enqueue a task: "+err.Error())
 		return fmt.Errorf("enqueue chat task: %w", err)
@@ -430,7 +430,7 @@ func (h *Handler) lookupSlackTeamConnection(ctx context.Context, teamID string) 
 	if teamID == "" {
 		return db.IntegrationConnection{}, db.Workspace{}, errors.New("empty slack team id")
 	}
-	conn, err := h.Queries.GetIntegrationConnectionByProviderAccount(ctx, "slack", teamID)
+	conn, err := h.Queries.GetIntegrationConnectionByProviderAccount(ctx, db.GetIntegrationConnectionByProviderAccountParams{Provider: "slack", ProviderAccountID: teamID})
 	if err != nil {
 		return db.IntegrationConnection{}, db.Workspace{}, fmt.Errorf("lookup slack connection by team: %w", err)
 	}

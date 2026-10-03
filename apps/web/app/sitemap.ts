@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://www.multica.ai";
+  const baseUrl = "https://agenthost.pro";
   const legalLastModified = new Date("2026-05-01");
 
   return [
@@ -22,6 +22,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date("2026-04-01"),
       changeFrequency: "weekly",
       priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/contact-sales`,
+      lastModified: new Date("2026-05-21"),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/licensing`,
+      lastModified: new Date("2026-09-21"),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: new Date("2026-09-21"),
+      changeFrequency: "yearly",
+      priority: 0.3,
     },
     {
       url: `${baseUrl}/legal/terms`,

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Key, Trash2, Copy, Check } from "lucide-react";
+import { Trash2, Copy, Check, Info } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@multica/ui/components/ui/tooltip";
 import type { PersonalAccessToken } from "@multica/core/types";
+import { Alert, AlertDescription } from "@multica/ui/components/ui/alert";
+import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Input } from "@multica/ui/components/ui/input";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
@@ -19,7 +21,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@multica/ui/components/ui/dialog";
 import {
@@ -33,30 +34,46 @@ import {
   AlertDialogTitle,
 } from "@multica/ui/components/ui/alert-dialog";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
+import { copyText } from "@multica/ui/lib/clipboard";
 import { toast } from "sonner";
 import { api } from "@multica/core/api";
+import { useLocale, useT } from "../../i18n";
+import { SettingsSection, SettingsTab } from "./settings-layout";
+
+const EXPIRY_KEYS = ["30", "90", "365", "never"] as const;
 
 export function TokensTab() {
+  const { t } = useT("settings");
+  const locale = useLocale();
+  const expiryItems = EXPIRY_KEYS.map((value) => ({
+    value,
+    label: t(($) => $.tokens.expiry[value]),
+  }));
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
   const [tokenName, setTokenName] = useState("");
   const [tokenExpiry, setTokenExpiry] = useState("90");
   const [tokenCreating, setTokenCreating] = useState(false);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [tokenCopied, setTokenCopied] = useState(false);
+  const [commandCopied, setCommandCopied] = useState(false);
+  const [storedConfirmed, setStoredConfirmed] = useState(false);
   const [tokenRevoking, setTokenRevoking] = useState<string | null>(null);
   const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
   const [tokensLoading, setTokensLoading] = useState(true);
+  const [tokensLoadFailed, setTokensLoadFailed] = useState(false);
 
   const loadTokens = useCallback(async () => {
     try {
       const list = await api.listPersonalAccessTokens();
       setTokens(list);
+      setTokensLoadFailed(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load tokens");
+      setTokensLoadFailed(true);
+      toast.error(e instanceof Error ? e.message : t(($) => $.tokens.toast_load_failed));
     } finally {
       setTokensLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadTokens(); }, [loadTokens]);
 
@@ -70,7 +87,7 @@ export function TokensTab() {
       setTokenExpiry("90");
       await loadTokens();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create token");
+      toast.error(e instanceof Error ? e.message : t(($) => $.tokens.toast_create_failed));
     } finally {
       setTokenCreating(false);
     }
@@ -81,9 +98,9 @@ export function TokensTab() {
     try {
       await api.revokePersonalAccessToken(id);
       await loadTokens();
-      toast.success("Token revoked");
+      toast.success(t(($) => $.tokens.toast_revoked));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to revoke token");
+      toast.error(e instanceof Error ? e.message : t(($) => $.tokens.toast_revoke_failed));
     } finally {
       setTokenRevoking(null);
     }
@@ -91,42 +108,67 @@ export function TokensTab() {
 
   const handleCopyToken = async () => {
     if (!newToken) return;
-    await navigator.clipboard.writeText(newToken);
-    setTokenCopied(true);
-    setTimeout(() => setTokenCopied(false), 2000);
+    if (await copyText(newToken)) {
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    }
+  };
+
+  const handleCopyCommand = async () => {
+    if (!newToken) return;
+    if (await copyText(`agenthost login --token ${newToken}`)) {
+      setCommandCopied(true);
+      setTimeout(() => setCommandCopied(false), 2000);
+    }
+  };
+
+  const closeCreatedDialog = () => {
+    setNewToken(null);
+    setTokenCopied(false);
+    setCommandCopied(false);
+    setStoredConfirmed(false);
   };
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Key className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">API Tokens</h2>
-        </div>
-
+    <SettingsTab title={t(($) => $.tokens.title)} description={t(($) => $.tokens.purpose)} scope="account">
+      <SettingsSection
+        description={t(($) => $.tokens.security_note)}
+      >
+        <details className="text-caption text-muted-foreground">
+          <summary className="cursor-pointer rounded-sm py-2 focus-visible:outline-2 focus-visible:outline-ring">
+            {t(($) => $.tokens.usage_help)}
+          </summary>
+          <p className="mt-1">{t(($) => $.tokens.description)}</p>
+        </details>
         <Card>
           <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Personal access tokens allow the CLI and external integrations to authenticate with your account.
-            </p>
             <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto]">
               <Input
                 type="text"
+                name="token-name"
+                autoComplete="off"
+                aria-label={t(($) => $.tokens.name_placeholder)}
                 value={tokenName}
                 onChange={(e) => setTokenName(e.target.value)}
-                placeholder="Token name (e.g. My CLI)"
+                placeholder={t(($) => $.tokens.name_placeholder)}
               />
-              <Select value={tokenExpiry} onValueChange={(v) => { if (v) setTokenExpiry(v); }}>
-                <SelectTrigger size="sm"><SelectValue /></SelectTrigger>
+              <Select
+                items={expiryItems}
+                value={tokenExpiry}
+                onValueChange={(v) => { if (v) setTokenExpiry(v); }}
+              >
+                <SelectTrigger
+                  size="sm"
+                  aria-label={t(($) => $.tokens.title)}
+                ><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30">30 days</SelectItem>
-                  <SelectItem value="90">90 days</SelectItem>
-                  <SelectItem value="365">1 year</SelectItem>
-                  <SelectItem value="never">No expiry</SelectItem>
+                  {expiryItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button onClick={handleCreateToken} disabled={tokenCreating || !tokenName.trim()}>
-                {tokenCreating ? "Creating..." : "Create"}
+                {tokenCreating ? t(($) => $.tokens.creating) : t(($) => $.tokens.create)}
               </Button>
             </div>
           </CardContent>
@@ -141,21 +183,39 @@ export function TokensTab() {
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-3 w-48" />
                   </div>
-                  <Skeleton className="h-8 w-8 rounded" />
+                  <Skeleton className="h-8 w-8 rounded-xs" />
                 </CardContent>
               </Card>
             ))}
           </div>
-        ) : tokens.length > 0 && (
+        ) : tokens.length === 0 ? (
+          <Card>
+            <CardContent>
+              <p className="text-caption text-muted-foreground">
+                {tokensLoadFailed ? t(($) => $.tokens.load_failed) : t(($) => $.tokens.empty)}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
           <div className="space-y-2">
-            {tokens.map((t) => (
-              <Card key={t.id}>
+            {tokens.map((token) => (
+              <Card key={token.id}>
                 <CardContent className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {t.token_prefix}... · Created {new Date(t.created_at).toLocaleDateString()} · {t.last_used_at ? `Last used ${new Date(t.last_used_at).toLocaleDateString()}` : "Never used"}
-                      {t.expires_at && ` · Expires ${new Date(t.expires_at).toLocaleDateString()}`}
+                    <div className="text-body font-medium truncate">{token.name}</div>
+                    <div className="text-caption text-muted-foreground">
+                      {t(($) => $.tokens.metadata_prefix, {
+                        prefix: token.token_prefix,
+                        created: new Date(token.created_at).toLocaleDateString(locale),
+                        lastUsed: token.last_used_at
+                          ? t(($) => $.tokens.last_used_with_date, {
+                              date: new Date(token.last_used_at!).toLocaleDateString(locale),
+                            })
+                          : t(($) => $.tokens.last_used_never),
+                      })}
+                      {token.expires_at && t(($) => $.tokens.expires_with_date, {
+                        date: new Date(token.expires_at!).toLocaleDateString(locale),
+                      })}
                     </div>
                   </div>
                   <Tooltip>
@@ -164,33 +224,33 @@ export function TokensTab() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          onClick={() => setRevokeConfirmId(t.id)}
-                          disabled={tokenRevoking === t.id}
-                          aria-label={`Revoke ${t.name}`}
+                          onClick={() => setRevokeConfirmId(token.id)}
+                          disabled={tokenRevoking === token.id}
+                          aria-label={t(($) => $.tokens.revoke_aria, { name: token.name })}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       }
                     />
-                    <TooltipContent>Revoke</TooltipContent>
+                    <TooltipContent>{t(($) => $.tokens.revoke_tooltip)}</TooltipContent>
                   </Tooltip>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
-      </section>
+      </SettingsSection>
 
       <AlertDialog open={!!revokeConfirmId} onOpenChange={(v) => { if (!v) setRevokeConfirmId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke token</AlertDialogTitle>
+            <AlertDialogTitle>{t(($) => $.tokens.revoke_dialog.title)}</AlertDialogTitle>
             <AlertDialogDescription>
-              This token will be permanently revoked and can no longer be used. This cannot be undone.
+              {t(($) => $.tokens.revoke_dialog.description)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t(($) => $.tokens.revoke_dialog.cancel)}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={async () => {
@@ -198,40 +258,82 @@ export function TokensTab() {
                 setRevokeConfirmId(null);
               }}
             >
-              Revoke
+              {t(($) => $.tokens.revoke_dialog.confirm)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!newToken} onOpenChange={(v) => { if (!v) { setNewToken(null); setTokenCopied(false); } }}>
-        <DialogContent>
+      <Dialog open={!!newToken} onOpenChange={(v) => { if (!v) closeCreatedDialog(); }}>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Token created</DialogTitle>
-            <DialogDescription>
-              Copy your personal access token now. You won&apos;t be able to see it again.
-            </DialogDescription>
+            <DialogTitle>{t(($) => $.tokens.created_dialog.title)}</DialogTitle>
           </DialogHeader>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-md border bg-muted/50 px-3 py-2 text-sm break-all select-all">
+          <Alert>
+            <Info />
+            <AlertDescription>
+              {t(($) => $.tokens.created_dialog.warning_prefix)}
+              <span className="font-medium text-foreground">{t(($) => $.tokens.created_dialog.warning_emphasis)}</span>
+              {t(($) => $.tokens.created_dialog.warning_suffix)}
+            </AlertDescription>
+          </Alert>
+          <div className="flex min-w-0 items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-md border bg-muted/50 px-3 py-2 text-body select-all">
               {newToken}
             </code>
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <Button variant="outline" size="icon" onClick={handleCopyToken}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyToken}
+                    aria-label={t(($) => $.tokens.created_dialog.copy_tooltip)}
+                  >
                     {tokenCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 }
               />
-              <TooltipContent>Copy token</TooltipContent>
+              <TooltipContent>{t(($) => $.tokens.created_dialog.copy_tooltip)}</TooltipContent>
             </Tooltip>
           </div>
-          <DialogFooter>
-            <Button onClick={() => { setNewToken(null); setTokenCopied(false); }}>Done</Button>
+          <div className="min-w-0 space-y-1.5">
+            <p className="text-caption text-muted-foreground">{t(($) => $.tokens.created_dialog.cli_hint)}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-md border bg-muted/50 px-3 py-2 text-body select-all">
+                {`agenthost login --token ${newToken}`}
+              </code>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleCopyCommand}
+                      aria-label={t(($) => $.tokens.created_dialog.copy_command_tooltip)}
+                    >
+                      {commandCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  }
+                />
+                <TooltipContent>{t(($) => $.tokens.created_dialog.copy_command_tooltip)}</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+          <DialogFooter className="items-center sm:justify-between">
+            <label className="flex items-center gap-2 text-body">
+              <Checkbox
+                checked={storedConfirmed}
+                onCheckedChange={(v) => setStoredConfirmed(v === true)}
+              />
+              {t(($) => $.tokens.created_dialog.confirm_stored)}
+            </label>
+            <Button disabled={!storedConfirmed} onClick={closeCreatedDialog}>
+              {t(($) => $.tokens.created_dialog.done)}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </SettingsTab>
   );
 }

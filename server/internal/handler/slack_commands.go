@@ -118,7 +118,7 @@ func (h *Handler) resolveSlackCommandScope(
 	if err != nil {
 		return slackCommandScope{}, slackEphemeral("Couldn't load the workspace for this channel.")
 	}
-	conn, err := h.Queries.GetIntegrationConnection(ctx, ws.ID, "slack")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: ws.ID, Provider: "slack"})
 	if err != nil {
 		return slackCommandScope{}, slackEphemeral("Slack isn't connected for this workspace any more.")
 	}
@@ -580,7 +580,7 @@ func SlackIssueViewFor(ctx context.Context, q *db.Queries, ws db.Workspace, issu
 		}
 	}
 	if issue.ProjectID.Valid {
-		if p, err := q.GetProject(ctx, issue.ProjectID); err == nil {
+		if p, err := q.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{ID: issue.ProjectID, WorkspaceID: issue.WorkspaceID}); err == nil {
 			v.Project = p.Title
 		}
 	}

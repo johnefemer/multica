@@ -65,8 +65,8 @@ type CreateContactRequest struct {
 // shared store. The accuracy loss in the meantime (a determined bot
 // distributed across instances) is acceptable for a marketing form.
 type contactRateLimiter struct {
-	mu      sync.Mutex
-	hits    map[string][]time.Time
+	mu   sync.Mutex
+	hits map[string][]time.Time
 }
 
 func newContactRateLimiter() *contactRateLimiter {

@@ -31,15 +31,15 @@ var IntegrationRegistry *integration.Registry
 // IntegrationConnectionResponse is the public representation of a connection.
 // Access tokens are never returned; only metadata.
 type IntegrationConnectionResponse struct {
-	Provider             string  `json:"provider"`
-	ProviderAccountID    string  `json:"provider_account_id"`
-	ProviderAccountName  *string `json:"provider_account_name"`
+	Provider              string  `json:"provider"`
+	ProviderAccountID     string  `json:"provider_account_id"`
+	ProviderAccountName   *string `json:"provider_account_name"`
 	ProviderAccountAvatar *string `json:"provider_account_avatar"`
-	Scope                *string `json:"scope"`
-	Status               string  `json:"status"`
-	ErrorMessage         *string `json:"error_message,omitempty"`
-	ConnectedAt          string  `json:"connected_at"`
-	ConnectedBy          string  `json:"connected_by"`
+	Scope                 *string `json:"scope"`
+	Status                string  `json:"status"`
+	ErrorMessage          *string `json:"error_message,omitempty"`
+	ConnectedAt           string  `json:"connected_at"`
+	ConnectedBy           string  `json:"connected_by"`
 }
 
 func connectionToResponse(c db.IntegrationConnection) IntegrationConnectionResponse {
@@ -264,7 +264,7 @@ func (h *Handler) GetIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 	providerName := chi.URLParam(r, "provider")
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, providerName)
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: providerName})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSON(w, http.StatusOK, nil) // not connected — return null, not 404
 		return
@@ -287,7 +287,7 @@ func (h *Handler) DisconnectIntegration(w http.ResponseWriter, r *http.Request) 
 	}
 	providerName := chi.URLParam(r, "provider")
 
-	conn, err := h.Queries.DisconnectIntegration(ctx, wsID, providerName)
+	conn, err := h.Queries.DisconnectIntegration(ctx, db.DisconnectIntegrationParams{WorkspaceID: wsID, Provider: providerName})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "integration not connected")
 		return
@@ -316,7 +316,7 @@ func (h *Handler) ListGitHubRepos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "github"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "GitHub not connected")
 		return
@@ -356,7 +356,7 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "github"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "GitHub not connected")
 		return
@@ -393,7 +393,7 @@ func (h *Handler) ImportGitHubIssues(w http.ResponseWriter, r *http.Request) {
 	for _, ghi := range ghIssues {
 		extID := fmt.Sprintf("%d", ghi.Number)
 		// Check if already imported.
-		_, lookupErr := h.Queries.GetIssueByIntegration(ctx, wsID, "github", req.Repo, extID)
+		_, lookupErr := h.Queries.GetIssueByIntegration(ctx, db.GetIssueByIntegrationParams{WorkspaceID: wsID, Provider: strToText("github"), Repo: strToText(req.Repo), ExternalID: strToText(extID)})
 		if lookupErr == nil {
 			skipped++
 			continue // already exists
@@ -484,10 +484,10 @@ func (h *Handler) createIntegrationIssueTx(
 		CreatorID:              creatorUUID,
 		Number:                 number,
 		ProjectID:              projectID,
-		IntegrationProvider:    "github",
-		IntegrationExternalID:  extID,
-		IntegrationExternalURL: ghi.HTMLURL,
-		IntegrationRepo:        repo,
+		IntegrationProvider:    strToText("github"),
+		IntegrationExternalID:  strToText(extID),
+		IntegrationExternalUrl: strToText(ghi.HTMLURL),
+		IntegrationRepo:        strToText(repo),
 	})
 	if err != nil {
 		return db.Issue{}, err
@@ -519,7 +519,7 @@ func (h *Handler) RegisterGitHubWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "github"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "GitHub not connected")
 		return
@@ -552,7 +552,7 @@ func (h *Handler) RegisterGitHubWebhook(w http.ResponseWriter, r *http.Request) 
 
 	// Persist the hook ID in meta for future reference.
 	meta, _ := json.Marshal(map[string]any{req.Repo: map[string]any{"hook_id": hookID}})
-	h.Queries.UpdateIntegrationMeta(ctx, wsID, "github", meta) //nolint:errcheck
+	h.Queries.UpdateIntegrationMeta(ctx, db.UpdateIntegrationMetaParams{Patch: meta, WorkspaceID: wsID, Provider: "github"}) //nolint:errcheck
 
 	writeJSON(w, http.StatusOK, map[string]any{"hook_id": hookID, "repo": req.Repo})
 }
@@ -599,7 +599,7 @@ func (h *Handler) ListGitHubWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "github"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeJSON(w, http.StatusOK, map[string]any{"webhooks": []GitHubWebhookListItem{}})
 		return
@@ -652,7 +652,7 @@ func (h *Handler) RemoveGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := h.Queries.GetIntegrationConnection(ctx, wsID, "github")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: wsID, Provider: "github"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "GitHub not connected")
 		return
@@ -673,7 +673,7 @@ func (h *Handler) RemoveGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.Queries.DeleteIntegrationMetaKey(ctx, wsID, "github", repo); err != nil {
+	if _, err := h.Queries.DeleteIntegrationMetaKey(ctx, db.DeleteIntegrationMetaKeyParams{Key: repo, WorkspaceID: wsID, Provider: "github"}); err != nil {
 		slog.Error("remove webhook: failed to clean meta", "repo", repo, "error", err)
 	}
 
@@ -737,7 +737,7 @@ func (h *Handler) SyncIssueFromIntegration(w http.ResponseWriter, r *http.Reques
 	}
 
 	ctx := r.Context()
-	conn, err := h.Queries.GetIntegrationConnection(ctx, issue.WorkspaceID, "github")
+	conn, err := h.Queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: issue.WorkspaceID, Provider: "github"})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusFailedDependency, "GitHub is not connected for this workspace")
 		return
@@ -771,8 +771,12 @@ func (h *Handler) SyncIssueFromIntegration(w http.ResponseWriter, r *http.Reques
 		status = "done"
 	}
 
-	updated, err := h.Queries.SyncIssueFromIntegration(ctx, issue.ID, ghi.Title,
-		pgtype.Text{String: ghi.Body, Valid: ghi.Body != ""}, status)
+	updated, err := h.Queries.SyncIssueFromIntegration(ctx, db.SyncIssueFromIntegrationParams{
+		ID:          issue.ID,
+		Title:       ghi.Title,
+		Description: pgtype.Text{String: ghi.Body, Valid: ghi.Body != ""},
+		Status:      status,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update issue")
 		return

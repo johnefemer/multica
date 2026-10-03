@@ -154,7 +154,7 @@ func (h *Handler) PasswordLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	passwordLimiter.reset(key)
-	h.finishLogin(w, r, user, "password", 30*24*time.Hour)
+	h.finishLogin(w, r, user, "password", auth.AuthTokenTTL())
 }
 
 // SetPassword sets or replaces the password of the authenticated user.
@@ -215,5 +215,5 @@ func (h *Handler) SetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("user password set", append(logger.RequestAttrs(r), "user_id", userID, "replaced", hasPassword)...)
-	writeJSON(w, http.StatusOK, userToResponse(updated))
+	writeJSON(w, http.StatusOK, h.userToResponse(updated))
 }

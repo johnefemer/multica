@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/realtime"
+	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
@@ -27,26 +30,43 @@ type dbScopeAuthorizer struct{ q scopeAuthQuerier }
 
 func newScopeAuthorizer(q scopeAuthQuerier) *dbScopeAuthorizer { return &dbScopeAuthorizer{q: q} }
 
+// scopeLookupErr converts a scope-resource query error into an authorizer
+// result. A missing resource (pgx.ErrNoRows) is a legitimate denial — the
+// HTTP layer treats not-found as 404 rather than 403, so the realtime layer
+// reports it as a plain "forbidden" refusal. Any other error (pool
+// exhaustion, a cancelled context, a network blip) is a transient lookup
+// failure and must propagate so handleSubscribe reports "lookup_failed"
+// instead of masking a database outage as a wave of permission denials.
+func scopeLookupErr(err error) (bool, error) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return false, err
+}
+
 func (a *dbScopeAuthorizer) AuthorizeScope(ctx context.Context, userID, workspaceID, scopeType, scopeID string) (bool, error) {
 	if workspaceID == "" || scopeID == "" {
 		return false, nil
 	}
-	wsUUID := parseUUID(workspaceID)
-	idUUID := parseUUID(scopeID)
-	if !wsUUID.Valid || !idUUID.Valid {
+	wsUUID, err := util.ParseUUID(workspaceID)
+	if err != nil {
+		return false, nil
+	}
+	idUUID, err := util.ParseUUID(scopeID)
+	if err != nil {
 		return false, nil
 	}
 	switch scopeType {
 	case realtime.ScopeTask:
 		task, err := a.q.GetAgentTask(ctx, idUUID)
 		if err != nil {
-			return false, nil
+			return scopeLookupErr(err)
 		}
 		// Issue tasks: visible to any workspace member.
 		if task.IssueID.Valid {
 			issue, err := a.q.GetIssue(ctx, task.IssueID)
 			if err != nil {
-				return false, nil
+				return scopeLookupErr(err)
 			}
 			return issue.WorkspaceID == wsUUID, nil
 		}
@@ -55,13 +75,13 @@ func (a *dbScopeAuthorizer) AuthorizeScope(ctx context.Context, userID, workspac
 		if task.ChatSessionID.Valid {
 			sess, err := a.q.GetChatSession(ctx, task.ChatSessionID)
 			if err != nil {
-				return false, nil
+				return scopeLookupErr(err)
 			}
 			if sess.WorkspaceID != wsUUID {
 				return false, nil
 			}
-			uidUUID := parseUUID(userID)
-			if !uidUUID.Valid || sess.CreatorID != uidUUID {
+			uidUUID, err := util.ParseUUID(userID)
+			if err != nil || sess.CreatorID != uidUUID {
 				return false, nil
 			}
 			return true, nil
@@ -70,7 +90,7 @@ func (a *dbScopeAuthorizer) AuthorizeScope(ctx context.Context, userID, workspac
 	case realtime.ScopeChat:
 		sess, err := a.q.GetChatSession(ctx, idUUID)
 		if err != nil {
-			return false, nil
+			return scopeLookupErr(err)
 		}
 		if sess.WorkspaceID != wsUUID {
 			return false, nil
@@ -81,8 +101,8 @@ func (a *dbScopeAuthorizer) AuthorizeScope(ctx context.Context, userID, workspac
 		// otherwise any workspace member who learns a session_id could
 		// subscribe to chat:message / chat:done / chat:session_read for a
 		// peer's private chat.
-		uidUUID := parseUUID(userID)
-		if !uidUUID.Valid || sess.CreatorID != uidUUID {
+		uidUUID, err := util.ParseUUID(userID)
+		if err != nil || sess.CreatorID != uidUUID {
 			return false, nil
 		}
 		return true, nil

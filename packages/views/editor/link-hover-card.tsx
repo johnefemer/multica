@@ -15,7 +15,10 @@ import { computePosition, offset, flip, shift } from "@floating-ui/dom";
 import { ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@multica/ui/components/ui/button";
+import { copyText } from "@multica/ui/lib/clipboard";
 import { useWorkspaceSlug } from "@multica/core/paths";
+import { useAppOrigin } from "../navigation";
+import { useT } from "../i18n";
 import { openLink, isMentionHref } from "./utils/link-handler";
 
 function truncateUrl(url: string, max = 48): string {
@@ -66,9 +69,16 @@ function useLinkHover(containerRef: React.RefObject<HTMLElement | null>, disable
       if (!link) return;
       const href = link.getAttribute("href");
       if (!href || isMentionHref(href)) return;
-      // Issue mention cards render as <a class="issue-mention"> — they
-      // display their own rich info, a URL hover card is redundant.
-      if (link.classList.contains("issue-mention")) return;
+      // Mention chips render as <a class="issue-mention"> / <a
+      // class="project-mention"> — they display their own rich info, so a URL
+      // hover card is redundant, and the URL it would offer to copy is an
+      // in-app path rather than the shareable link the user expects.
+      if (
+        link.classList.contains("issue-mention") ||
+        link.classList.contains("project-mention")
+      ) {
+        return;
+      }
 
       clearTimeout(hideTimer.current);
       showTimer.current = window.setTimeout(() => {
@@ -135,6 +145,8 @@ function LinkHoverCard({
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const [positioned, setPositioned] = useState(false);
   const slug = useWorkspaceSlug();
+  const appOrigin = useAppOrigin();
+  const { t } = useT("editor");
 
   // Position the card when the portal div is mounted (ref callback).
   // Using useEffect would race with portal rendering — the div might
@@ -168,18 +180,17 @@ function LinkHoverCard({
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    try {
-      await navigator.clipboard.writeText(href);
-      toast.success("Link copied");
-    } catch {
-      toast.error("Failed to copy");
+    if (await copyText(href)) {
+      toast.success(t(($) => $.link_hover.link_copied));
+    } else {
+      toast.error(t(($) => $.link_hover.copy_failed));
     }
   };
 
   const handleOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    openLink(href, slug);
+    openLink(href, slug, appOrigin);
   };
 
   return createPortal(
@@ -197,7 +208,7 @@ function LinkHoverCard({
       onMouseLeave={onCardLeave}
     >
       <span
-        className="min-w-0 flex-1 truncate text-xs text-muted-foreground px-1"
+        className="min-w-0 flex-1 truncate text-caption text-muted-foreground px-1"
         title={href}
       >
         {truncateUrl(href)}
@@ -207,7 +218,7 @@ function LinkHoverCard({
         variant="ghost"
         className="text-muted-foreground"
         onClick={handleCopy}
-        title="Copy link"
+        title={t(($) => $.link_hover.copy_link)}
       >
         <Copy className="size-3.5" />
       </Button>
@@ -216,7 +227,7 @@ function LinkHoverCard({
         variant="ghost"
         className="text-muted-foreground"
         onClick={handleOpen}
-        title="Open link"
+        title={t(($) => $.link_hover.open_link)}
       >
         <ExternalLink className="size-3.5" />
       </Button>

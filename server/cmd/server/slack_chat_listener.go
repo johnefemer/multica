@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
 	slackprovider "github.com/multica-ai/multica/server/internal/messaging/slack"
+	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
-	"github.com/multica-ai/multica/server/internal/util"
 )
 
 // registerSlackChatListener wires the chat:done event to a goroutine that
@@ -62,7 +62,7 @@ func relayChatDoneToSlack(ctx context.Context, queries *db.Queries, e events.Eve
 		return nil
 	}
 
-	conn, err := queries.GetIntegrationConnection(ctx, session.WorkspaceID, "slack")
+	conn, err := queries.GetIntegrationConnection(ctx, db.GetIntegrationConnectionParams{WorkspaceID: session.WorkspaceID, Provider: "slack"})
 	if err != nil {
 		return err
 	}

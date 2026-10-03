@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
+import { useAuthStore } from "@multica/core/auth";
 import {
   workspaceKeys,
   workspaceListOptions,
@@ -12,9 +13,10 @@ import {
   resolvePostAuthDestination,
   useHasOnboarded,
 } from "@multica/core/paths";
-import { useNavigation } from "../navigation";
+import { AppLink, useNavigation } from "../navigation";
 import { useLogout } from "../auth";
 import { DragStrip } from "../platform";
+import { useT } from "../i18n";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -39,6 +41,7 @@ export interface InvitePageProps {
  * layered on by the desktop overlay; web just renders the page directly.
  */
 export function InvitePage({ invitationId, onBack }: InvitePageProps) {
+  const { t } = useT("invite");
   const { push } = useNavigation();
   const qc = useQueryClient();
   const [accepting, setAccepting] = useState(false);
@@ -62,6 +65,15 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
     setError(null);
     try {
       await api.acceptInvitation(invitationId);
+      // Belt to the backend's braces: AcceptInvitation already sets
+      // onboarded_at inside the same transaction, but explicitly calling
+      // markOnboardingComplete + refreshMe here keeps local user state in
+      // sync immediately so downstream guards don't see stale `null`.
+      await api.markOnboardingComplete({
+        completion_path: "invite_accept",
+        workspace_id: invitation?.workspace_id,
+      });
+      await useAuthStore.getState().refreshMe();
       setDone("accepted");
       // Fetch the refreshed workspace list so we know the joined workspace's slug.
       const nextList = await qc.fetchQuery({
@@ -77,7 +89,7 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
         : fallbackDest;
       setTimeout(() => push(dest), 1000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to accept invitation");
+      setError(e instanceof Error ? e.message : t(($) => $.errors.accept_failed));
     } finally {
       setAccepting(false);
     }
@@ -91,7 +103,7 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
       setDone("declined");
       qc.invalidateQueries({ queryKey: workspaceKeys.myInvitations() });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to decline invitation");
+      setError(e instanceof Error ? e.message : t(($) => $.errors.decline_failed));
     } finally {
       setDeclining(false);
     }
@@ -120,12 +132,16 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <X className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h2 className="text-lg font-semibold">Invitation not found</h2>
-            <p className="text-sm text-muted-foreground text-center">
-              This invitation may have expired, been revoked, or doesn&apos;t belong to your account.
+            <h2 className="text-title font-semibold">{t(($) => $.not_found.title)}</h2>
+            <p className="text-body text-muted-foreground text-center">
+              {t(($) => $.not_found.description)}
             </p>
-            <Button variant="outline" onClick={() => push(fallbackDest)}>
-              Go to dashboard
+            <Button
+              variant="outline"
+              render={<AppLink href={fallbackDest} />}
+              nativeButton={false}
+            >
+              {t(($) => $.not_found.go_to_dashboard)}
             </Button>
           </CardContent>
         </Card>
@@ -141,8 +157,12 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <Check className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-lg font-semibold">You joined {invitation.workspace_name}!</h2>
-            <p className="text-sm text-muted-foreground">Redirecting to workspace...</p>
+            <h2 className="text-title font-semibold">
+              {t(($) => $.accepted.title, { workspace_name: invitation.workspace_name })}
+            </h2>
+            <p className="text-body text-muted-foreground">
+              {t(($) => $.accepted.redirecting)}
+            </p>
           </CardContent>
         </Card>
       </InviteShell>
@@ -154,10 +174,14 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
       <InviteShell onBack={onBack}>
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <h2 className="text-lg font-semibold">Invitation declined</h2>
-            <p className="text-sm text-muted-foreground">You won&apos;t be added to this workspace.</p>
-            <Button variant="outline" onClick={() => push(fallbackDest)}>
-              Go to dashboard
+            <h2 className="text-title font-semibold">{t(($) => $.declined.title)}</h2>
+            <p className="text-body text-muted-foreground">{t(($) => $.declined.description)}</p>
+            <Button
+              variant="outline"
+              render={<AppLink href={fallbackDest} />}
+              nativeButton={false}
+            >
+              {t(($) => $.declined.go_to_dashboard)}
             </Button>
           </CardContent>
         </Card>
@@ -177,22 +201,28 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
           </div>
 
           <div className="text-center space-y-2">
-            <h2 className="text-xl font-semibold">
-              Join {invitation.workspace_name ?? "workspace"}
+            <h2 className="text-title-lg font-semibold">
+              {t(($) => $.main.join_title, {
+                workspace_name: invitation.workspace_name ?? t(($) => $.main.fallback_workspace_name),
+              })}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               <strong>{invitation.inviter_name || invitation.inviter_email}</strong>{" "}
-              invited you to join as {invitation.role === "admin" ? "an admin" : "a member"}.
+              {invitation.role === "admin"
+                ? t(($) => $.main.invited_role_admin)
+                : t(($) => $.main.invited_role_member)}
             </p>
           </div>
 
           {isAlreadyHandled ? (
-            <div className="text-sm text-muted-foreground">
-              This invitation has already been {invitation.status}.
+            <div className="text-body text-muted-foreground">
+              {invitation.status === "accepted"
+                ? t(($) => $.main.already_handled_accepted)
+                : t(($) => $.main.already_handled_declined)}
             </div>
           ) : isExpired ? (
-            <div className="text-sm text-muted-foreground">
-              This invitation has expired.
+            <div className="text-body text-muted-foreground">
+              {t(($) => $.main.expired)}
             </div>
           ) : (
             <div className="flex gap-3 w-full">
@@ -202,20 +232,20 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
                 onClick={handleDecline}
                 disabled={accepting || declining}
               >
-                {declining ? "Declining..." : "Decline"}
+                {declining ? t(($) => $.main.declining) : t(($) => $.main.decline)}
               </Button>
               <Button
                 className="flex-1"
                 onClick={handleAccept}
                 disabled={accepting || declining}
               >
-                {accepting ? "Joining..." : "Accept & Join"}
+                {accepting ? t(($) => $.main.joining) : t(($) => $.main.accept)}
               </Button>
             </div>
           )}
 
           {error && (
-            <p className="text-sm text-destructive text-center">{error}</p>
+            <p className="text-body text-destructive text-center">{error}</p>
           )}
         </CardContent>
       </Card>
@@ -235,6 +265,7 @@ function InviteShell({
   onBack?: () => void;
   children: ReactNode;
 }) {
+  const { t } = useT("invite");
   const logout = useLogout();
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
@@ -247,7 +278,7 @@ function InviteShell({
           onClick={onBack}
         >
           <ArrowLeft />
-          Back
+          {t(($) => $.header.back)}
         </Button>
       )}
       <Button
@@ -257,7 +288,7 @@ function InviteShell({
         onClick={logout}
       >
         <LogOut />
-        Log out
+        {t(($) => $.header.log_out)}
       </Button>
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-12">
         {children}

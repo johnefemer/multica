@@ -1,14 +1,3 @@
-export function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 export function generateUUID(): string {
   const cryptoObj = globalThis.crypto;
 
@@ -47,4 +36,59 @@ export function createSafeId(): string {
 /** Request id helper used for logs/tracing headers. */
 export function createRequestId(length = 8): string {
   return createSafeId().replace(/-/g, "").slice(0, length);
+}
+
+/**
+ * True when the keyboard event fires while an IME is composing a multi-key
+ * input (e.g. Chinese pinyin, Japanese kana). The Enter that commits the
+ * composition must NOT trigger submit/send/create handlers.
+ *
+ * Accepts both React synthetic events and native DOM `KeyboardEvent`s.
+ *
+ * Why both `isComposing` and `keyCode === 229`:
+ * - `isComposing` is the standard signal but Safari clears it on the keydown
+ *   that ends composition, so a bare check misses the very Enter that submits.
+ * - During composition the browser reports `keyCode === 229` regardless of
+ *   the actual key, which keeps working in Safari's edge case.
+ *
+ * Always read from `nativeEvent` when present — React's synthetic event is
+ * normalized but the native event reflects the browser's real state.
+ */
+export function isImeComposing(event: {
+  isComposing?: boolean;
+  keyCode?: number;
+  nativeEvent?: { isComposing?: boolean; keyCode?: number };
+}): boolean {
+  const e = event.nativeEvent ?? event;
+  return Boolean(e.isComposing) || e.keyCode === 229;
+}
+
+/**
+ * Truncate `text` to at most `maxLength` code points, appending an ellipsis
+ * (`…`, U+2026) when it is longer. Text at or under the limit is returned
+ * unchanged.
+ *
+ * The ellipsis counts toward the limit, so a truncated result is at most
+ * `maxLength` code points: the visible text is sliced to `maxLength - 1` and
+ * has trailing whitespace trimmed before the ellipsis is appended. The bound
+ * is measured in Unicode code points, not UTF-16 code units, so an emoji is
+ * never cut into a lone surrogate — a returned string may therefore exceed
+ * `maxLength` in `.length` (code units) while staying within `maxLength`
+ * visible characters. When `maxLength` leaves no room for visible text, only
+ * the ellipsis is returned; `maxLength <= 0` returns the empty string.
+ */
+export function truncateWithEllipsis(text: string, maxLength: number): string {
+  // Fast path on code units: may fail to return early on astral text, but
+  // never truncates wrongly — the code-point check below is authoritative.
+  if (text.length <= maxLength) {
+    return text;
+  }
+  if (maxLength <= 1) {
+    return maxLength <= 0 ? "" : "…";
+  }
+  const chars = Array.from(text);
+  if (chars.length <= maxLength) {
+    return text;
+  }
+  return `${chars.slice(0, maxLength - 1).join("").trimEnd()}…`;
 }

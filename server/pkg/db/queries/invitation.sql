@@ -1,6 +1,6 @@
 -- name: CreateInvitation :one
-INSERT INTO workspace_invitation (workspace_id, inviter_id, invitee_email, invitee_user_id, role)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO workspace_invitation (id, workspace_id, inviter_id, invitee_email, invitee_user_id, role, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetInvitation :one
@@ -41,10 +41,32 @@ SET status = 'declined', updated_at = now()
 WHERE id = $1 AND status = 'pending'
 RETURNING *;
 
--- name: RevokeInvitation :exec
+-- name: RevokeInvitation :execrows
 DELETE FROM workspace_invitation
 WHERE id = $1 AND status = 'pending';
 
 -- name: GetPendingInvitationByEmail :one
 SELECT * FROM workspace_invitation
-WHERE workspace_id = $1 AND invitee_email = $2 AND status = 'pending';
+WHERE workspace_id = $1 AND invitee_email = $2 AND status = 'pending' AND expires_at > now();
+
+-- name: HasPendingInvitationForEmail :one
+SELECT EXISTS (
+    SELECT 1
+    FROM workspace_invitation
+    WHERE invitee_email = $1
+      AND status = 'pending'
+      AND expires_at > now()
+);
+
+-- name: ExpireStalePendingInvitations :many
+-- Mark any past-due pending invitations for (workspace_id, invitee_email) as expired,
+-- so the next CreateInvitation does not collide with the partial unique index
+-- idx_invitation_unique_pending (which is WHERE status = 'pending' and cannot
+-- itself reference now() in its predicate).
+UPDATE workspace_invitation
+SET status = 'expired', updated_at = now()
+WHERE workspace_id = $1
+  AND invitee_email = $2
+  AND status = 'pending'
+  AND expires_at <= now()
+RETURNING *;

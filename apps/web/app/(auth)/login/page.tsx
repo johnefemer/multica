@@ -1,11 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { sanitizeNextUrl, useAuthStore } from "@multica/core/auth";
 import { useConfigStore } from "@multica/core/config";
-import { workspaceKeys } from "@multica/core/workspace/queries";
+import {
+  workspaceKeys,
+  workspaceListOptions,
+} from "@multica/core/workspace/queries";
 import {
   paths,
   resolvePostAuthDestination,
@@ -13,10 +16,45 @@ import {
 } from "@multica/core/paths";
 import { api } from "@multica/core/api";
 import type { Workspace } from "@multica/core/types";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@multica/ui/components/ui/card";
+import { Button } from "@multica/ui/components/ui/button";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { setLoggedInCookie } from "@/features/auth/auth-cookie";
 import { LoginPage, validateCliCallback } from "@multica/views/auth";
+import { useT } from "@multica/views/i18n";
+
+/**
+ * Pick where a logged-in user with no explicit `?next=` should land.
+ * Un-onboarded users with pending invitations on their email get routed to
+ * the batch /invitations page; everyone else falls through to the standard
+ * resolver. A network blip on listMyInvitations is non-fatal — we fall
+ * through rather than trap the user on an error screen.
+ */
+async function resolveLoggedInDestination(
+  qc: QueryClient,
+  hasOnboarded: boolean,
+  workspaces: Workspace[],
+): Promise<string> {
+  if (!hasOnboarded) {
+    try {
+      const invites = await api.listMyInvitations();
+      if (invites.length > 0) {
+        qc.setQueryData(workspaceKeys.myInvitations(), invites);
+        return paths.invitations();
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return resolvePostAuthDestination(workspaces, hasOnboarded);
+}
 
 /**
  * Inline-styled handoff screens for the Desktop OAuth bounce. They live
@@ -76,6 +114,7 @@ function DesktopHandoffShell({
 function LoginPageContent() {
   const router = useRouter();
   const qc = useQueryClient();
+  const { t } = useT("auth");
   const googleClientId = useConfigStore((state) => state.googleClientId);
   const user = useAuthStore((s) => s.user);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -96,16 +135,26 @@ function LoginPageContent() {
   const [desktopError, setDesktopError] = useState("");
   const hasOnboarded = useHasOnboarded();
 
-  // Already authenticated — honor ?next= or fall back to first workspace
-  // (or /onboarding if the user has none). Skip this entire path when
-  // the user arrived to authorize the CLI.
+  // Latched once auth has been observed settled as logged-out on this page.
+  // Any `user` that appears afterwards came from the login form in this
+  // session — not from an existing session found on arrival.
+  const settledLoggedOutRef = useRef(false);
+
+  // Already authenticated ON ARRIVAL — honor ?next= or fall back to first
+  // workspace (or /onboarding if the user has none). Skip this entire path
+  // when the user arrived to authorize the CLI.
   useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      settledLoggedOutRef.current = true;
+      return;
+    }
     // Bail out when the user landed on /login to authorize the CLI — for
     // both the browser callback flow (cli_callback) AND the device-code
-    // flow (cli_state alone). Otherwise an already-authenticated user gets
-    // bounced into a workspace and the LoginPage never renders the cli_confirm
-    // step that would mint and surface the auth code.
-    if (isLoading || !user || cliCallbackRaw || cliState) return;
+    // flow (cli_state alone, Kensink). Otherwise an already-authenticated user
+    // gets bounced into a workspace and the LoginPage never renders the
+    // cli_confirm step that would mint and surface the auth code.
+    if (cliCallbackRaw || cliState) return;
     if (isDesktopHandoff) {
       // Desktop opened the browser for login but the web session is already
       // authenticated — mint a bearer token from the cookie session and hand
@@ -114,49 +163,64 @@ function LoginPageContent() {
         .issueCliToken()
         .then(({ token }) => {
           setDesktopToken(token);
-          window.location.href = `multica://auth/callback?token=${encodeURIComponent(token)}`;
+          window.location.href = `agenthost://auth/callback?token=${encodeURIComponent(token)}`;
         })
         .catch((err) => {
           setDesktopError(
-            err instanceof Error ? err.message : "Failed to prepare Desktop sign-in",
+            err instanceof Error
+              ? err.message
+              : t(($) => $.web.desktop_handoff.prepare_failed),
           );
         });
       return;
     }
-    if (!hasOnboarded) {
-      router.replace(paths.onboarding());
-      return;
-    }
+    // Fresh form login (issue #5009): `user` was written by verifyCode while
+    // handleVerify was still fetching the workspace list, so this effect used
+    // to read the not-yet-seeded list cache and race handleSuccess with a
+    // replace to /workspaces/new. handleSuccess owns post-login navigation;
+    // this effect only serves visitors who arrived already authenticated.
+    if (settledLoggedOutRef.current) return;
     if (nextUrl) {
       router.replace(nextUrl);
       return;
     }
-    const list = qc.getQueryData<Workspace[]>(workspaceKeys.list()) ?? [];
-    router.replace(resolvePostAuthDestination(list, hasOnboarded));
+    // Fetch instead of reading the cache: on a fresh page load the cache is
+    // cold, and `getQueryData() ?? []` would misroute a user who does have
+    // workspaces to /workspaces/new. On fetch failure fall back to [] —
+    // same destination the cold-cache read produced, rather than trapping
+    // the user on the login page.
+    void qc
+      .ensureQueryData(workspaceListOptions())
+      .catch(() => [] as Workspace[])
+      .then((list) => resolveLoggedInDestination(qc, hasOnboarded, list))
+      .then((dest) => router.replace(dest));
   }, [isLoading, user, router, nextUrl, cliCallbackRaw, cliState, isDesktopHandoff, hasOnboarded, qc]);
 
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
     // Read the latest user snapshot directly — the closure's `hasOnboarded`
     // was captured before login completed and would be stale here.
     const currentUser = useAuthStore.getState().user;
     const onboarded = currentUser?.onboarded_at != null;
-    if (!onboarded) {
-      router.push(paths.onboarding());
-      return;
-    }
     if (nextUrl) {
       router.push(nextUrl);
       return;
     }
     const list = qc.getQueryData<Workspace[]>(workspaceKeys.list()) ?? [];
-    router.push(resolvePostAuthDestination(list, onboarded));
+    router.push(await resolveLoggedInDestination(qc, onboarded, list));
   };
 
-  // Build Google OAuth state: encode platform + next URL so the callback
-  // can redirect to the right place after login.
+  // Build Google OAuth state: encode platform, next URL, and CLI callback
+  // params so the callback can redirect to the right place after login.
+  // CLI callback/state must survive the Google OAuth round-trip so the
+  // post-login callback page can redirect the JWT back to the CLI's local
+  // HTTP listener (critical for headless / WSL2 environments).
   const googleState = [
     platform === "desktop" ? "platform:desktop" : "",
     nextUrl ? `next:${nextUrl}` : "",
+    cliCallbackRaw && validateCliCallback(cliCallbackRaw)
+      ? `cli_callback:${encodeURIComponent(cliCallbackRaw)}`
+      : "",
+    cliState ? `cli_state:${encodeURIComponent(cliState)}` : "",
   ]
     .filter(Boolean)
     .join(",") || undefined;
@@ -167,35 +231,47 @@ function LoginPageContent() {
   if (isDesktopHandoff && user) {
     if (desktopError) {
       return (
-        <DesktopHandoffShell
-          title="Sign-in failed"
-          description={desktopError}
-        />
+        <div className="flex min-h-screen items-center justify-center">
+          <Card className="w-full max-w-sm">
+            <CardHeader className="text-center">
+              <CardTitle className="text-display-sm">
+                {t(($) => $.web.desktop_handoff.failed_title)}
+              </CardTitle>
+              <CardDescription>{desktopError}</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       );
     }
     return (
-      <DesktopHandoffShell
-        title="Opening Agenthost"
-        description={
-          desktopToken
-            ? "You should see a prompt to open the Agenthost desktop app. If nothing happens, click below."
-            : "Preparing desktop sign-in..."
-        }
-      >
-        {desktopToken ? (
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = `multica://auth/callback?token=${encodeURIComponent(desktopToken)}`;
-            }}
-            className="inline-flex items-center justify-center gap-2 border border-[#7cf29c] bg-[#7cf29c] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#0a0d10] transition-colors duration-150 hover:bg-[#a4f5ba]"
-          >
-            Open Agenthost Desktop
-          </button>
-        ) : (
-          <Loader2 className="h-5 w-5 animate-spin text-[#7cf29c]" />
-        )}
-      </DesktopHandoffShell>
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-display-sm">
+              {t(($) => $.web.desktop_handoff.opening_title)}
+            </CardTitle>
+            <CardDescription>
+              {desktopToken
+                ? t(($) => $.web.desktop_handoff.opening_description)
+                : t(($) => $.web.desktop_handoff.preparing)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            {desktopToken ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  window.location.href = `agenthost://auth/callback?token=${encodeURIComponent(desktopToken)}`;
+                }}
+              >
+                {t(($) => $.web.desktop_handoff.open_button)}
+              </Button>
+            ) : (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

@@ -127,7 +127,7 @@ func (h *Handler) HandleSlackEvents(w http.ResponseWriter, r *http.Request) {
 					"event_type", eventType, "error", processErr)
 			}
 			// best-effort
-			h.Queries.MarkWebhookEventProcessed(bgCtx, ev.ID, errMsg) //nolint:errcheck
+			h.Queries.MarkWebhookEventProcessed(bgCtx, db.MarkWebhookEventProcessedParams{Error: errMsg, ID: ev.ID}) //nolint:errcheck
 		}()
 
 		// Phase 4: dispatch to chat-mirroring handlers.
