@@ -41,8 +41,20 @@
       "card5_body_prefix": "Shipped the export feature ",
       "card5_body_suffix": " flagged. Preview link in the PR.",
       "card5_mention_you": "@you",
-      "card5_timestamp": "just now"
-    }
+      "card5_timestamp": "just now",
+      "aria_label": "Preview of human and agent activity in a shared workspace"
+    },
+    "by_the_end": "By the end, a real agent will be replying to your first issue.",
+    "roadmap_eyebrow": "Takes ~2 minutes · 5 quick steps",
+    "roadmap": {
+      "team": "Tell us about your team",
+      "workspace": "Name your workspace",
+      "runtime": "Connect a runtime",
+      "agent": "Create your first agent",
+      "issue": "Assign your first issue"
+    },
+    "tagline": "Every issue, every thread, every decision — shared by your team and agents.",
+    "see_in_action": "See it in action"
   },
   "common": {
     "back": "Back",

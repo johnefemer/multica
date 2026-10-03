@@ -41,8 +41,20 @@
       "card5_body_prefix": "Fonctionnalité d'export livrée, celle que ",
       "card5_body_suffix": " avait signalée. Lien d'aperçu dans la PR.",
       "card5_mention_you": "@vous",
-      "card5_timestamp": "à l'instant"
-    }
+      "card5_timestamp": "à l'instant",
+      "aria_label": "Aperçu de l'activité des humains et des agents dans un espace de travail partagé"
+    },
+    "by_the_end": "À la fin, un vrai agent répondra à votre première tâche.",
+    "roadmap_eyebrow": "Environ 2 minutes · 5 étapes rapides",
+    "roadmap": {
+      "team": "Parlez-nous de votre équipe",
+      "workspace": "Nommez votre espace de travail",
+      "runtime": "Connectez un runtime",
+      "agent": "Créez votre premier agent",
+      "issue": "Assignez votre première tâche"
+    },
+    "tagline": "Chaque tâche, chaque fil, chaque décision — partagés par votre équipe et vos agents.",
+    "see_in_action": "Voir en action"
   },
   "common": {
     "back": "Retour",

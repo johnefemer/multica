@@ -41,6 +41,7 @@ export function StepWelcome({
   onNext: () => void | Promise<void>;
   onSkip?: () => void | Promise<void>;
 }) {
+  const { t } = useT("onboarding");
   const [pending, setPending] = useState<"next" | "skip" | null>(null);
 
   const handleNext = async () => {
@@ -73,23 +74,23 @@ export function StepWelcome({
             <div className="flex items-center gap-2.5">
               <MulticaIcon className="size-5 text-foreground" noSpin />
               <span className="font-serif text-lg font-medium tracking-tight sm:text-xl">
-                Welcome to Agenthost
+                {t(($) => $.welcome.wordmark)}
               </span>
             </div>
 
             <h1 className="text-balance font-serif text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
-              Your AI teammates,
+              {t(($) => $.welcome.headline_line1)}
               <br className="hidden lg:block" />
-              {" "}in <em className="italic text-brand">one workspace.</em>
+              {" "}{t(($) => $.welcome.headline_line2)}{" "}
+              <em className="italic text-brand">{t(($) => $.welcome.headline_emphasis)}</em>
             </h1>
 
             <div className="flex flex-col gap-3.5">
               <p className="text-base leading-relaxed text-foreground sm:text-lg">
-                Assign them work like you&apos;d assign a colleague — they
-                pick it up, update status, and comment when done.
+                {t(($) => $.welcome.lede)}
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                By the end, a real agent will be replying to your first issue.
+                {t(($) => $.welcome.by_the_end)}
               </p>
             </div>
 
@@ -105,7 +106,7 @@ export function StepWelcome({
                 {pending === "next" && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Start exploring
+                {t(($) => $.welcome.start_exploring)}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               {onSkip && (
@@ -121,7 +122,7 @@ export function StepWelcome({
                   {pending === "skip" && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   )}
-                  I&apos;ve done this before
+                  {t(($) => $.welcome.skip_existing)}
                 </button>
               )}
             </div>
@@ -138,11 +139,10 @@ export function StepWelcome({
         </div>
         <div className="flex flex-col items-center justify-center gap-5 px-5 py-10 sm:gap-6 sm:px-8 sm:py-14 lg:h-full lg:gap-7 lg:py-8">
           <p className="hidden max-w-[440px] text-balance text-center font-serif text-[15px] italic leading-snug text-muted-foreground lg:block">
-            Every issue, every thread, every decision — shared by your team and
-            agents.
+            {t(($) => $.welcome.tagline)}
           </p>
           <p className="text-center font-serif text-[13px] italic uppercase tracking-wide text-muted-foreground lg:hidden">
-            See it in action
+            {t(($) => $.welcome.see_in_action)}
           </p>
           <ActivityPreview />
         </div>
@@ -151,30 +151,25 @@ export function StepWelcome({
   );
 }
 
-const ROADMAP = [
-  "Tell us about your team",
-  "Name your workspace",
-  "Connect a runtime",
-  "Create your first agent",
-  "Assign your first issue",
-] as const;
+const ROADMAP = ["team", "workspace", "runtime", "agent", "issue"] as const;
 
 function Roadmap() {
+  const { t } = useT("onboarding");
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 sm:p-5">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Takes ~2 minutes · 5 quick steps
+        {t(($) => $.welcome.roadmap_eyebrow)}
       </p>
       <ol className="flex flex-col gap-2.5">
-        {ROADMAP.map((label, i) => (
-          <li key={label} className="flex items-center gap-3 text-sm">
+        {ROADMAP.map((step, i) => (
+          <li key={step} className="flex items-center gap-3 text-sm">
             <span
               aria-hidden
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-semibold text-muted-foreground"
             >
               {i + 1}
             </span>
-            <span className="text-foreground">{label}</span>
+            <span className="text-foreground">{t(($) => $.welcome.roadmap[step])}</span>
           </li>
         ))}
       </ol>
@@ -207,6 +202,7 @@ function useReducedMotion() {
 }
 
 function ActivityPreview() {
+  const { t } = useT("onboarding");
   const reducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [phase, setPhase] = useState<number>(0);
@@ -271,43 +267,39 @@ function ActivityPreview() {
       ref={containerRef}
       className="flex w-full max-w-[460px] flex-col gap-2.5 sm:gap-3"
       role="img"
-      aria-label="Preview of human and agent activity in a shared workspace"
+      aria-label={t(($) => $.welcome.illustration.aria_label)}
       {...hoverHandlers}
     >
       <PreviewCard
         show={phase >= 1}
-        actor={{ kind: "user", name: "You", initial: "N" }}
+        actor={{ kind: "user", name: t(($) => $.welcome.illustration.card1_actor_name), initial: t(($) => $.welcome.illustration.card1_actor_initial) }}
         issueId="MCA-42"
         content={
           <>
-            <Mention>@Content Agent</Mention> can you draft a short launch
-            post? Pull from <Mention>@Research Agent</Mention>&apos;s interview
-            findings.
+            <Mention>{t(($) => $.welcome.illustration.card1_mention_content)}</Mention>
+            {t(($) => $.welcome.illustration.card1_body_prefix)}
+            <Mention>{t(($) => $.welcome.illustration.card1_mention_research)}</Mention>
+            {t(($) => $.welcome.illustration.card1_body_suffix)}
           </>
         }
       />
       <PreviewCard
         show={phase >= 2}
         offsetClassName="lg:-translate-x-5 lg:-rotate-[1.2deg]"
-        actor={{ kind: "agent", name: "Content Agent", provider: "codex" }}
+        actor={{ kind: "agent", name: t(($) => $.welcome.illustration.card2_actor_name), provider: "codex" }}
         issueId="MCA-42"
-        content={
-          <>
-            On it. Pulling Research&apos;s quotes, drafting around the
-            &ldquo;time saved&rdquo; angle…
-          </>
-        }
+        content={t(($) => $.welcome.illustration.card2_body)}
         status={phase >= 3 ? "done" : "in_progress"}
-        timestamp={phase >= 3 ? "just now" : undefined}
+        timestamp={phase >= 3 ? t(($) => $.welcome.illustration.card5_timestamp) : undefined}
       />
       <PreviewCard
         show={phase >= 4}
         offsetClassName="lg:translate-x-8 lg:rotate-[1.6deg]"
-        actor={{ kind: "agent", name: "Research Agent", provider: "hermes" }}
+        actor={{ kind: "agent", name: t(($) => $.welcome.illustration.card3_actor_name), provider: "hermes" }}
         issueId="MCA-38"
-        content="This week's user interviews summarized — 12 calls, 4 recurring themes, 3 pull-quotes."
+        content={t(($) => $.welcome.illustration.card3_body)}
         status="done"
-        timestamp="15 min ago"
+        timestamp={t(($) => $.welcome.illustration.card3_timestamp)}
       />
       <PreviewCard
         show={phase >= 5}
@@ -315,9 +307,9 @@ function ActivityPreview() {
         // breakpoints are the responsive density tiers from the design.
         hideBelow="sm"
         offsetClassName="lg:-translate-x-6 lg:-rotate-[0.8deg]"
-        actor={{ kind: "agent", name: "Review Agent", provider: "openclaw" }}
+        actor={{ kind: "agent", name: t(($) => $.welcome.illustration.card4_actor_name), provider: "openclaw" }}
         issueId="MCA-42"
-        content="Reviewed Monday's draft — left 4 notes on tone. Standing by for the new one."
+        content={t(($) => $.welcome.illustration.card4_body)}
         status="in_review"
       />
       <PreviewCard
@@ -325,16 +317,17 @@ function ActivityPreview() {
         // Card 5 only renders on lg+; mobile/tablet stop at 4 cards.
         hideBelow="lg"
         offsetClassName="lg:translate-x-6 lg:rotate-[1deg]"
-        actor={{ kind: "agent", name: "Coding Agent", provider: "claude" }}
+        actor={{ kind: "agent", name: t(($) => $.welcome.illustration.card5_actor_name), provider: "claude" }}
         issueId="MCA-35"
         content={
           <>
-            Shipped the export feature <Mention>@you</Mention> flagged.
-            Preview link in the PR.
+            {t(($) => $.welcome.illustration.card5_body_prefix)}
+            <Mention>{t(($) => $.welcome.illustration.card5_mention_you)}</Mention>
+            {t(($) => $.welcome.illustration.card5_body_suffix)}
           </>
         }
         status="done"
-        timestamp="just now"
+        timestamp={t(($) => $.welcome.illustration.card5_timestamp)}
       />
     </div>
   );

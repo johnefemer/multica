@@ -41,8 +41,20 @@
       "card5_body_prefix": "已发布 ",
       "card5_body_suffix": " 标记的导出功能，PR 里附了预览链接。",
       "card5_mention_you": "@你",
-      "card5_timestamp": "刚刚"
-    }
+      "card5_timestamp": "刚刚",
+      "aria_label": "共享工作区中人与智能体协作动态的预览"
+    },
+    "by_the_end": "完成后，一个真正的智能体会回复你的第一个任务。",
+    "roadmap_eyebrow": "约 2 分钟 · 5 个简单步骤",
+    "roadmap": {
+      "team": "介绍一下你的团队",
+      "workspace": "为工作区命名",
+      "runtime": "连接运行时",
+      "agent": "创建第一个智能体",
+      "issue": "分配第一个任务"
+    },
+    "tagline": "每个任务、每个讨论、每个决定——由你的团队和智能体共同共享。",
+    "see_in_action": "看看实际效果"
   },
   "common": {
     "back": "返回",

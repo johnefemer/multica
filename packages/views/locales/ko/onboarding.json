@@ -41,8 +41,20 @@
       "card5_body_prefix": "",
       "card5_body_suffix": "님이 표시한 내보내기 기능을 배포했습니다. PR에 미리보기 링크가 있습니다.",
       "card5_mention_you": "@나",
-      "card5_timestamp": "방금 전"
-    }
+      "card5_timestamp": "방금 전",
+      "aria_label": "공유 워크스페이스에서 사람과 에이전트의 활동 미리보기"
+    },
+    "by_the_end": "마지막에는 실제 에이전트가 첫 태스크에 답장합니다.",
+    "roadmap_eyebrow": "약 2분 · 간단한 5단계",
+    "roadmap": {
+      "team": "팀에 대해 알려 주세요",
+      "workspace": "워크스페이스 이름 정하기",
+      "runtime": "런타임 연결하기",
+      "agent": "첫 에이전트 만들기",
+      "issue": "첫 태스크 할당하기"
+    },
+    "tagline": "모든 태스크, 모든 스레드, 모든 결정 — 팀과 에이전트가 함께 공유합니다.",
+    "see_in_action": "실제로 보기"
   },
   "common": {
     "back": "뒤로",

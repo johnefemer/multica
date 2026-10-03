@@ -27,3 +27,15 @@ describe("StepWelcome status labels", () => {
     expect(screen.queryByText("In Progress")).not.toBeInTheDocument();
   });
 });
+
+// Kensink: the fork's welcome copy (roadmap, tagline, CTAs) goes through the
+// locale bundles too, not just the status labels.
+describe("StepWelcome copy", () => {
+  it("renders the roadmap and CTA from the active locale", () => {
+    renderWithI18n(<StepWelcome onNext={vi.fn()} onSkip={vi.fn()} />, { locale: "zh-Hans" });
+
+    expect(screen.getByText("连接运行时")).toBeInTheDocument();
+    expect(screen.getByText("开始探索")).toBeInTheDocument();
+    expect(screen.queryByText("Connect a runtime")).not.toBeInTheDocument();
+  });
+});
