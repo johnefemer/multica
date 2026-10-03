@@ -12,8 +12,23 @@ Every workflow in `.github/workflows/` is disabled (`disabled_manually`), so a
 push to `main` no longer builds, releases, or deploys anything. Do not
 re-enable one to ship a change, and do not wait on a workflow run.
 
+Production is `162.4.35.231` (`root`, key `~/.ssh/id_betopia`; add a `Host
+agenthost` entry to `~/.ssh/config`). The checkout lives in
+`/opt/apps/agenthost`; its untracked `.deploy.env` sets
+`COMPOSE_FILES="docker-compose.selfhost.yml docker-compose.proxy.yml"`, and a
+separate `proxy` compose project (nginx-proxy + acme-companion) terminates TLS.
+
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 'bash /opt/multica/scripts/agenthost-deploy.sh'
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 'bash /opt/apps/agenthost/scripts/agenthost-deploy.sh'
+```
+
+**Back up the database before any deploy that adds migrations** — they run on
+backend start and are one-way:
+
+```bash
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 'cd /opt/apps/agenthost && \
+  docker compose -f docker-compose.selfhost.yml -f docker-compose.proxy.yml exec -T postgres \
+  sh -c "pg_dump -U \$POSTGRES_USER \$POSTGRES_DB" | gzip > backups/prod-$(date +%Y%m%d-%H%M%S).sql.gz'
 ```
 
 **Push first.** The script does `git reset --hard origin/main`, so it
@@ -30,23 +45,24 @@ the script runs:
 # From the repo root. --platform is required: prod is x86_64, dev Macs are arm64.
 docker buildx build --platform linux/amd64 -f Dockerfile \
   -t ghcr.io/johnefemer/multica-backend:kensink --push .
+# The web image reads REMOTE_API_URL at runtime (compose sets it); the
+# browser derives the WebSocket URL from its own origin.
 docker buildx build --platform linux/amd64 -f Dockerfile.web \
-  --build-arg REMOTE_API_URL=http://backend:8080 \
-  --build-arg NEXT_PUBLIC_WS_URL=wss://agenthost.pro/ws \
   --build-arg NEXT_PUBLIC_APP_VERSION=kensink \
   -t ghcr.io/johnefemer/multica-web:kensink --push .
 ```
 
-Build on a dev machine, not on the box: prod is 1 vCPU / 1.9 GB RAM with ~3 GB
-free disk, which is not enough for a Next.js build.
+Build on a dev machine and push to GHCR, so `:kensink` on GHCR always matches
+what runs — the deploy script pulls it. The docs container
+(`multica-docs:kensink`) has no Dockerfile in this repo; it is left as is.
 
 **Verify, don't assume.** `agenthost-deploy.sh` prints "Deploy complete" as long
 as `/health` answers, including when it restarted nothing. Confirm the container
 was actually replaced:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'cd /opt/multica && docker compose -f docker-compose.selfhost.yml ps'
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  'cd /opt/apps/agenthost && docker compose -f docker-compose.selfhost.yml -f docker-compose.proxy.yml ps'
 ```
 
 A `STATUS` of "Up 3 months" on the service you just changed means the new image

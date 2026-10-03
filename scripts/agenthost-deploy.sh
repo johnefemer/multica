@@ -4,7 +4,7 @@
 #
 # Run manually over SSH. The checkout path and compose file list come from the
 # host, so the same script serves both boxes:
-#   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 'bash /opt/multica/scripts/agenthost-deploy.sh'
+#   ssh -i ~/.ssh/id_betopia root@162.4.35.231 'bash /opt/apps/agenthost/scripts/agenthost-deploy.sh'
 #   ssh -i ~/.ssh/betopia.pem  root@162.4.35.231    'bash /opt/apps/agenthost/scripts/agenthost-deploy.sh'
 #
 # What it does:
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 # Resolve the checkout from this script's own location, so the same script
-# works on a host that installs to /opt/multica and one that uses
+# works on a host that installs to /opt/apps/agenthost and one that uses
 # /opt/apps/agenthost. $INSTALL_DIR still wins if the caller sets it.
 INSTALL_DIR="${INSTALL_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 

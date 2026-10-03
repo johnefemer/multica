@@ -118,14 +118,14 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AGENTHOST_SSH_KEY }}" > ~/.ssh/agenthost.pem
-          chmod 600 ~/.ssh/agenthost.pem
+          echo "${{ secrets.AGENTHOST_SSH_KEY }}" > ~/.ssh/id_betopia
+          chmod 600 ~/.ssh/id_betopia
           ssh-keyscan -H "${{ secrets.AGENTHOST_IP }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Pull and restart on agenthost
         run: |
-          ssh -i ~/.ssh/agenthost.pem ubuntu@${{ secrets.AGENTHOST_IP }} "
-            cd /opt/multica
+          ssh -i ~/.ssh/id_betopia ubuntu@${{ secrets.AGENTHOST_IP }} "
+            cd /opt/apps/agenthost
 
             # Ensure .env has our custom image pointers
             grep -q 'MULTICA_BACKEND_IMAGE' .env || \
@@ -151,4 +151,4 @@ jobs:
 
       - name: Cleanup SSH key
         if: always()
-        run: rm -f ~/.ssh/agenthost.pem
+        run: rm -f ~/.ssh/id_betopia

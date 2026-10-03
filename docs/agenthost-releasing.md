@@ -59,8 +59,8 @@ Workflows 1+2 fire on `server/**` changes; workflow 3 fires on `apps/docs/**`. D
                               ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  Job: deploy  (needs: [build-backend, build-frontend])       │
-│  SSH → ubuntu@54.82.211.103                                  │
-│  cd /opt/multica                                             │
+│  SSH → root@162.4.35.231                                  │
+│  cd /opt/apps/agenthost                                             │
 │  docker compose -f docker-compose.selfhost.yml pull backend  │
 │  docker compose ... up -d --no-deps backend                  │
 │  docker compose ... pull frontend                            │
@@ -108,7 +108,7 @@ Both EC2-hosted images live in **GHCR under `johnefemer`**, not upstream `multic
 | Backend (Go) | `ghcr.io/johnefemer/multica-backend` | `:kensink`, `:latest` |
 | Frontend (Next.js) | `ghcr.io/johnefemer/multica-web` | `:kensink`, `:latest` |
 
-The server's `/opt/multica/.env` pins the image references:
+The server's `/opt/apps/agenthost/.env` pins the image references:
 
 ```dotenv
 MULTICA_BACKEND_IMAGE=ghcr.io/johnefemer/multica-backend
@@ -155,7 +155,7 @@ When the rename first ships, Compose treats `agenthost` as a brand-new project: 
 After verifying the new stack is healthy:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 '
   docker rm -f multica-backend-1 multica-frontend-1 multica-postgres-1
 '
 ```
@@ -181,7 +181,7 @@ Recommended replacement strategy: prefer `service:<name>` (Compose service label
 After cutover, verify ingestion has rolled over:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker exec dd-agent agent status 2>&1 | grep -E "agenthost-(backend|frontend|postgres)"'
 ```
 
@@ -294,7 +294,7 @@ exec ./server
 ### Verifying a migration applied
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker exec agenthost-postgres-1 psql -U multica -d multica \
      -c "SELECT version FROM schema_migrations;"'
 ```
@@ -302,7 +302,7 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 Or check a specific constraint/column directly:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker exec agenthost-postgres-1 psql -U multica -d multica \
      -c "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = '"'"'issue_origin_type_check'"'"';"'
 ```
@@ -340,12 +340,12 @@ Use the manual workflow from GitHub → Actions → **Deploy to agenthost** → 
 
 ### Flow 3 — On-server build (emergency only)
 
-Use this when you need a deploy but can't/won't go through GHA. This is what builds from the `/opt/multica` checkout on EC2 instead of pulling from GHCR.
+Use this when you need a deploy but can't/won't go through GHA. This is what builds from the `/opt/apps/agenthost` checkout on EC2 instead of pulling from GHCR.
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 '
   set -e
-  cd /opt/multica
+  cd /opt/apps/agenthost
   git fetch origin main
   git reset --hard origin/main
 
@@ -501,7 +501,7 @@ Nothing automatic. Edits to `docker-compose.datadog.yml` are **not** in the path
 
 ### Configuration split
 
-- **Secrets** → `/opt/multica/.env` on the server (not in git). Currently: `DD_API_KEY`.
+- **Secrets** → `/opt/apps/agenthost/.env` on the server (not in git). Currently: `DD_API_KEY`.
 - **Non-secret config** → committed in `docker-compose.datadog.yml` (site, tags, log collection flags). Compose reads secrets via `${VAR:?...}` interpolation, which errors loudly if the `.env` var is missing — prevents a silent empty-key ship.
 
 ### Rotating `DD_API_KEY`
@@ -509,8 +509,8 @@ Nothing automatic. Edits to `docker-compose.datadog.yml` are **not** in the path
 1. Generate a new key in Datadog → Organization Settings → API Keys.
 2. Update `.env` on the server (don't echo the key in shell history):
    ```bash
-   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 bash << 'EOF'
-   cd /opt/multica
+   ssh -i ~/.ssh/id_betopia root@162.4.35.231 bash << 'EOF'
+   cd /opt/apps/agenthost
    if grep -q '^DD_API_KEY=' .env; then
      sed -i "s|^DD_API_KEY=.*|DD_API_KEY=<NEW_KEY_HERE>|" .env
    else
@@ -521,7 +521,7 @@ Nothing automatic. Edits to `docker-compose.datadog.yml` are **not** in the path
    ```
 3. Verify the new key is valid:
    ```bash
-   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+   ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
      'docker exec dd-agent agent status 2>&1 | grep -E "API key ending|API Key valid"'
    ```
    Expected: `API key ending with <last4>: API Key valid`.
@@ -530,8 +530,8 @@ Nothing automatic. Edits to `docker-compose.datadog.yml` are **not** in the path
 ### Restarting the agent (no config change)
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker compose -f /opt/multica/docker-compose.datadog.yml restart datadog-agent'
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  'docker compose -f /opt/apps/agenthost/docker-compose.datadog.yml restart datadog-agent'
 ```
 
 ### Updating the agent major version
@@ -539,8 +539,8 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 Edit the `image:` tag in `docker-compose.datadog.yml` (currently `gcr.io/datadoghq/agent:7`), commit, push. **Then** SSH and recreate:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
-  cd /opt/multica
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 '
+  cd /opt/apps/agenthost
   git pull origin kensink
   docker compose -f docker-compose.datadog.yml pull datadog-agent
   docker compose -f docker-compose.datadog.yml up -d --force-recreate datadog-agent
@@ -557,15 +557,15 @@ A common trip-hazard: the **compose service name** is `datadog-agent`, but the *
 
 ```bash
 # Container is healthy
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker ps --filter name=dd-agent --format "{{.Names}}\t{{.Status}}"'
 
 # Forwarder is shipping (not stuck/backoff)
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker exec dd-agent agent status 2>&1 | grep -E "API key ending|Transactions successfully"'
 
 # No auth errors in recent logs
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker logs dd-agent --since 5m 2>&1 | grep -iE "forbidden|unauthori|invalid.key|401|403" || echo "clean"'
 ```
 
@@ -581,19 +581,19 @@ curl -sf https://agenthost.pro/health
 curl -sf -o /dev/null -w "%{http_code}\n" https://docs.agenthost.pro/
 
 # Container status
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'docker compose -f /opt/multica/docker-compose.selfhost.yml ps'
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  'docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml ps'
 
 # Backend logs (recent)
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker logs agenthost-backend-1 --tail=50'
 
 # Which commit is deployed
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  'cd /opt/multica && git log -1 --oneline'
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  'cd /opt/apps/agenthost && git log -1 --oneline'
 
 # Which image digest is running
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker inspect agenthost-backend-1 --format "{{.Image}} {{.Config.Image}}"'
 ```
 
@@ -615,7 +615,7 @@ Images are tagged `:kensink` (moving) and `:latest` (moving). Neither pins to a 
 Migrations are **not** auto-reverted. If a migration breaks things:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'docker exec -it agenthost-backend-1 ./migrate down 1'
 ```
 
@@ -628,7 +628,7 @@ Then redeploy the previous backend image (Option A). Every migration **must** sh
 No automation yet. Before any risky migration (DDL that alters constraints, drops columns, etc.):
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
   docker exec agenthost-postgres-1 \
     pg_dump -U multica multica | gzip > ~/multica-backup-\$(date +%Y%m%d-%H%M).sql.gz
 "
@@ -643,7 +643,7 @@ Then `scp` it down if you want a local copy. See [kensink-deploy.md § Database 
 From [kensink-deploy.md:349](./kensink-deploy.md#L349) the EBS root was ~74% full at doc time. The GHA deploy job runs `docker image prune -f` after each release to reap dangling layers. If disk ever climbs past 85%:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   'df -h / && docker system df && docker system prune -af --volumes'
 ```
 
@@ -657,8 +657,8 @@ The auto-deploy step needs two GitHub Actions secrets on `johnefemer/multica`:
 
 | Secret | Value |
 |---|---|
-| `AGENTHOST_SSH_KEY` | Contents of `~/.ssh/agenthost.pem` (the entire PEM, including header/footer) |
-| `AGENTHOST_IP` | `54.82.211.103` |
+| `AGENTHOST_SSH_KEY` | Contents of `~/.ssh/id_betopia` (the entire PEM, including header/footer) |
+| `AGENTHOST_IP` | `162.4.35.231` |
 
 Plus `GITHUB_TOKEN` (auto-provided) with `packages: write` — granted via the job's `permissions:` block.
 
@@ -666,7 +666,7 @@ Plus `GITHUB_TOKEN` (auto-provided) with `packages: write` — granted via the j
 
 ## Integration OAuth secrets (server-side)
 
-OAuth integrations register lazily: the backend only mounts a provider when its `*_CLIENT_ID` env var is present at startup ([router.go:107](../server/cmd/server/router.go#L107)). Without the var, the backend silently skips registration and `/api/config` omits the provider's `client_id`. The integrations UI then renders the tile with a disabled "Connect" button (tooltip: `<PROVIDER>_CLIENT_ID not configured`). These vars live in `/opt/multica/.env` and the backend container must restart to pick them up.
+OAuth integrations register lazily: the backend only mounts a provider when its `*_CLIENT_ID` env var is present at startup ([router.go:107](../server/cmd/server/router.go#L107)). Without the var, the backend silently skips registration and `/api/config` omits the provider's `client_id`. The integrations UI then renders the tile with a disabled "Connect" button (tooltip: `<PROVIDER>_CLIENT_ID not configured`). These vars live in `/opt/apps/agenthost/.env` and the backend container must restart to pick them up.
 
 ### Required vars
 
@@ -680,16 +680,16 @@ See [docs/slack-app-setup.md](./slack-app-setup.md) for the Slack app creation w
 ### Applying new values
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 'cd /opt/multica && nano .env && \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 'cd /opt/apps/agenthost && nano .env && \
   docker compose -f docker-compose.selfhost.yml restart backend'
 ```
 
 For one-off rotation of a single key without an editor:
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  sed -i 's|^SLACK_CLIENT_SECRET=.*|SLACK_CLIENT_SECRET=<NEW>|' /opt/multica/.env
-  docker compose -f /opt/multica/docker-compose.selfhost.yml restart backend
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
+  sed -i 's|^SLACK_CLIENT_SECRET=.*|SLACK_CLIENT_SECRET=<NEW>|' /opt/apps/agenthost/.env
+  docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml restart backend
 "
 ```
 
@@ -697,8 +697,8 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
 
 ```bash
 # Server-side: vars present in .env
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "grep -E '^(GITHUB|SLACK)_CLIENT_ID' /opt/multica/.env"
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  "grep -E '^(GITHUB|SLACK)_CLIENT_ID' /opt/apps/agenthost/.env"
 
 # Client-side: /api/config exposes the public client_id (omitted when unset)
 curl -s https://agenthost.pro/api/config
@@ -716,7 +716,7 @@ The OAuth callback (`/auth/{provider}/callback`) intentionally has **no** auth m
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| GHA build succeeds, server still shows old code | `.env` on server has wrong image/tag | `ssh ... grep MULTICA_ /opt/multica/.env` — verify values match [kensink images](#image-naming) |
+| GHA build succeeds, server still shows old code | `.env` on server has wrong image/tag | `ssh ... grep MULTICA_ /opt/apps/agenthost/.env` — verify values match [kensink images](#image-naming) |
 | Migration error on boot, backend crash-loops | Bad `.up.sql` or conflicting schema | `docker logs agenthost-backend-1` to see the Postgres error; if safe, `./migrate down 1` and redeploy a fix |
 | Disk full mid-deploy | Layer accumulation | `docker system prune -af` then re-run deploy |
 | Health stays unhealthy after deploy | App-level crash after migrations | Tail logs — usually an env var missing (`GITHUB_CLIENT_ID`, etc.) |
@@ -725,8 +725,8 @@ The OAuth callback (`/auth/{provider}/callback`) intentionally has **no** auth m
 | `connection refused` on SSH from GHA | EC2 restarted, fresh fingerprint | The workflow does `ssh-keyscan` fresh each run, so this is rare. If persistent, check AWS Security Group still allows GHA runner IPs (they're wide) |
 | `kensink-install.sh` gives `Download failed` | `release-cli.yml` didn't run or failed | Check `gh run list --workflow=release-cli.yml -R johnefemer/multica`; re-run it manually if needed |
 | `agenthost version` shows an old build after install | User already had a binary, `install_or_upgrade_cli` path only reinstalls current — but install was successful. | Usually nothing — the script always overwrites. If truly stuck, `which agenthost` and remove stale copies in `~/.local/bin` and `/usr/local/bin` |
-| `dd-agent` restarts in a loop, log says `You must set an DD_API_KEY` | `.env` on server missing/empty `DD_API_KEY` after a compose file change | `grep ^DD_API_KEY= /opt/multica/.env` — if empty, populate and `docker compose -f docker-compose.datadog.yml up -d --force-recreate datadog-agent` |
-| Compose errors with `DD_API_KEY must be set in /opt/multica/.env` | Intended guardrail — no key set | Add `DD_API_KEY=<key>` to `.env`, then recreate the agent |
+| `dd-agent` restarts in a loop, log says `You must set an DD_API_KEY` | `.env` on server missing/empty `DD_API_KEY` after a compose file change | `grep ^DD_API_KEY= /opt/apps/agenthost/.env` — if empty, populate and `docker compose -f docker-compose.datadog.yml up -d --force-recreate datadog-agent` |
+| Compose errors with `DD_API_KEY must be set in /opt/apps/agenthost/.env` | Intended guardrail — no key set | Add `DD_API_KEY=<key>` to `.env`, then recreate the agent |
 
 ---
 
@@ -734,7 +734,7 @@ The OAuth callback (`/auth/{provider}/callback`) intentionally has **no** auth m
 
 - [ ] Migrations have a working `.down.sql`
 - [ ] New env vars added to `docker-compose.selfhost.yml` (interpolate from `.env`)
-- [ ] New env vars added to `/opt/multica/.env` on server *before* deploying code that needs them
+- [ ] New env vars added to `/opt/apps/agenthost/.env` on server *before* deploying code that needs them
 - [ ] Go code compiles (`cd server && go build ./...`)
 - [ ] If touching the frontend, `NEXT_PUBLIC_*` vars don't need rebuild args unless added to `build-args:` in [`build-kensink-images.yml`](../.github/workflows/build-kensink-images.yml)
 - [ ] DB backup taken if the migration is destructive

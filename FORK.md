@@ -141,8 +141,8 @@ Quick deploy via GitHub Actions:
 
 Manual deploy from your machine:
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "bash /opt/multica/scripts/agenthost-deploy.sh"
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  "bash /opt/apps/agenthost/scripts/agenthost-deploy.sh"
 ```
 
 ---
@@ -153,5 +153,5 @@ Add these in **Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 |--------|-------|
-| `AGENTHOST_SSH_KEY` | Full contents of `~/.ssh/agenthost.pem` |
-| `AGENTHOST_IP` | `54.82.211.103` |
+| `AGENTHOST_SSH_KEY` | Full contents of `~/.ssh/id_betopia` |
+| `AGENTHOST_IP` | `162.4.35.231` |

@@ -12,20 +12,20 @@ deployed, how to access it, and how to operate it day-to-day.
 |----------|-------|
 | **Name** | agenthost |
 | **Provider** | AWS EC2 |
-| **IP** | `54.82.211.103` |
+| **IP** | `162.4.35.231` |
 | **Domain** | `agenthost.pro` |
 | **OS** | Ubuntu 24.04 LTS (kernel 6.17.0-aws) |
 | **SSH user** | `ubuntu` |
-| **PEM key** | `~/.ssh/agenthost.pem` |
-| **Install dir** | `/opt/multica` |
+| **PEM key** | `~/.ssh/id_betopia` |
+| **Install dir** | `/opt/apps/agenthost` |
 | **Git branch** | `main` — active deploy line; `kensink` is a held stable snapshot, see [agenthost-releasing.md § TL;DR](./agenthost-releasing.md#tldr) |
 
 ### SSH access
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103
+ssh -i ~/.ssh/id_betopia root@162.4.35.231
 # or via domain
-ssh -i ~/.ssh/agenthost.pem ubuntu@agenthost.pro
+ssh -i ~/.ssh/id_betopia ubuntu@agenthost.pro
 ```
 
 ---
@@ -91,7 +91,7 @@ GitHub Container Registry. No local build is required on the server.
 
 ## Environment File
 
-Location on server: `/opt/multica/.env`
+Location on server: `/opt/apps/agenthost/.env`
 
 ```dotenv
 # ── Database ─────────────────────────────────────────────────
@@ -152,7 +152,7 @@ MULTICA_CODEX_TIMEOUT=20m
 ```
 
 > **Never commit `.env`** — it contains `JWT_SECRET` and `RESEND_API_KEY`.
-> Edit it directly on the server at `/opt/multica/.env`.
+> Edit it directly on the server at `/opt/apps/agenthost/.env`.
 
 ---
 
@@ -164,8 +164,8 @@ container. Config is version-controlled at `scripts/nginx/agenthost.conf`.
 ### Install / update config on server
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  sudo cp /opt/multica/scripts/nginx/agenthost.conf /etc/nginx/sites-available/multica
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
+  sudo cp /opt/apps/agenthost/scripts/nginx/agenthost.conf /etc/nginx/sites-available/multica
   sudo nginx -t && sudo systemctl reload nginx
 "
 ```
@@ -203,11 +203,11 @@ configured manually:
 
 ```bash
 # 1. Clone main branch (the active deploy line)
-sudo git clone --branch main https://github.com/johnefemer/multica.git /opt/multica
-sudo chown -R ubuntu:ubuntu /opt/multica
+sudo git clone --branch main https://github.com/johnefemer/multica.git /opt/apps/agenthost
+sudo chown -R ubuntu:ubuntu /opt/apps/agenthost
 
 # 2. Create .env
-cd /opt/multica
+cd /opt/apps/agenthost
 cp .env.example .env
 # Set JWT_SECRET, RESEND_API_KEY, domain URLs — see Environment File section above
 
@@ -237,16 +237,16 @@ sudo systemctl restart multica   # restart
 ### Quick status
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "docker compose -f /opt/multica/docker-compose.selfhost.yml ps"
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  "docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml ps"
 ```
 
 ### Full health check (all services)
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
   echo '── Containers ──'
-  docker compose -f /opt/multica/docker-compose.selfhost.yml ps
+  docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml ps
 
   echo ''
   echo '── Backend health ──'
@@ -266,15 +266,15 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
 
 ```bash
 # All services
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "docker compose -f /opt/multica/docker-compose.selfhost.yml logs --tail=50"
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  "docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml logs --tail=50"
 
 # Backend only (most useful for debugging auth/API issues)
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   "docker logs agenthost-backend-1 --tail=50 -f"
 
 # Frontend only
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
   "docker logs agenthost-frontend-1 --tail=50 -f"
 ```
 
@@ -290,32 +290,32 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 **Manually from your machine:**
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
-  "bash /opt/multica/scripts/agenthost-deploy.sh"
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 \
+  "bash /opt/apps/agenthost/scripts/agenthost-deploy.sh"
 ```
 
 ### Update a single env var
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  sed -i 's/^RESEND_API_KEY=.*/RESEND_API_KEY=your-new-key/' /opt/multica/.env
-  docker compose -f /opt/multica/docker-compose.selfhost.yml restart backend
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
+  sed -i 's/^RESEND_API_KEY=.*/RESEND_API_KEY=your-new-key/' /opt/apps/agenthost/.env
+  docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml restart backend
 "
 ```
 
 ### Restart the stack
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  docker compose -f /opt/multica/docker-compose.selfhost.yml restart
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
+  docker compose -f /opt/apps/agenthost/docker-compose.selfhost.yml restart
 "
 ```
 
 ### Full stop and start
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  cd /opt/multica
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
+  cd /opt/apps/agenthost
   docker compose -f docker-compose.selfhost.yml down
   docker compose -f docker-compose.selfhost.yml up -d
 "
@@ -324,8 +324,8 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
 ### Pull latest upstream images
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
-  cd /opt/multica
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
+  cd /opt/apps/agenthost
   docker compose -f docker-compose.selfhost.yml pull
   docker compose -f docker-compose.selfhost.yml up -d
 "
@@ -334,12 +334,12 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
 ### Database backup
 
 ```bash
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "
   docker exec agenthost-postgres-1 \
     pg_dump -U multica multica | gzip > ~/multica-backup-\$(date +%Y%m%d).sql.gz
 "
 # Copy backup locally
-scp -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103:~/multica-backup-*.sql.gz .
+scp -i ~/.ssh/id_betopia root@162.4.35.231:~/multica-backup-*.sql.gz .
 ```
 
 ---
@@ -358,7 +358,7 @@ scp -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103:~/multica-backup-*.sql.gz .
 
 ```bash
 # Check current disk
-ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "df -h / && docker system df"
+ssh -i ~/.ssh/id_betopia root@162.4.35.231 "df -h / && docker system df"
 ```
 
 ---
@@ -371,7 +371,7 @@ To enable HTTPS via Cloudflare proxy:
 2. Add/update the `agenthost` A record:
    - **Type:** A
    - **Name:** `agenthost`
-   - **IPv4:** `54.82.211.103`
+   - **IPv4:** `162.4.35.231`
    - **Proxy status:** Proxied (orange cloud ☁️)
 3. Go to **SSL/TLS** → set mode to **Flexible**
    (Cloudflare handles HTTPS externally; sends plain HTTP to your server on port 80)

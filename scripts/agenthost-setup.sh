@@ -3,13 +3,13 @@
 # agenthost-setup.sh — One-time provisioning for the agenthost EC2 instance
 #
 # Run this ONCE on a fresh Ubuntu server:
-#   ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 "bash -s" < scripts/agenthost-setup.sh
+#   ssh -i ~/.ssh/id_betopia root@162.4.35.231 "bash -s" < scripts/agenthost-setup.sh
 #
 # What it does:
 #   1. Installs Docker + Docker Compose plugin
 #   2. Adds the ubuntu user to the docker group
-#   3. Clones this fork into /opt/multica
-#   4. Creates /opt/multica/.env from .env.example with a generated JWT_SECRET
+#   3. Clones this fork into /opt/apps/agenthost
+#   4. Creates /opt/apps/agenthost/.env from .env.example with a generated JWT_SECRET
 #   5. Creates a systemd service so the stack restarts on reboot
 # =============================================================================
 set -euo pipefail
@@ -18,7 +18,7 @@ REPO_URL="https://github.com/johnefemer/multica.git"
 # main is the active deploy line (kensink itself is held as a stable
 # snapshot since 9412b08c). Override at runtime via DEPLOY_BRANCH=… if needed.
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
-INSTALL_DIR="/opt/multica"
+INSTALL_DIR="/opt/apps/agenthost"
 SERVICE_USER="ubuntu"
 
 echo "==> Updating package index..."

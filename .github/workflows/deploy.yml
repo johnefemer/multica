@@ -16,7 +16,7 @@ on:
 
 jobs:
   deploy:
-    name: SSH deploy → agenthost (54.82.211.103)
+    name: SSH deploy → agenthost (162.4.35.231)
     runs-on: ubuntu-latest
 
     # Guard: require explicit confirmation
@@ -31,23 +31,23 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AGENTHOST_SSH_KEY }}" > ~/.ssh/agenthost.pem
-          chmod 600 ~/.ssh/agenthost.pem
+          echo "${{ secrets.AGENTHOST_SSH_KEY }}" > ~/.ssh/id_betopia
+          chmod 600 ~/.ssh/id_betopia
           ssh-keyscan -H "${{ secrets.AGENTHOST_IP }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Copy latest deploy script to server
         run: |
-          scp -i ~/.ssh/agenthost.pem \
+          scp -i ~/.ssh/id_betopia \
             scripts/agenthost-deploy.sh \
-            ubuntu@${{ secrets.AGENTHOST_IP }}:/opt/multica/scripts/agenthost-deploy.sh
+            ubuntu@${{ secrets.AGENTHOST_IP }}:/opt/apps/agenthost/scripts/agenthost-deploy.sh
 
       - name: Run deploy on agenthost
         run: |
-          ssh -i ~/.ssh/agenthost.pem ubuntu@${{ secrets.AGENTHOST_IP }} \
-            "chmod +x /opt/multica/scripts/agenthost-deploy.sh && \
+          ssh -i ~/.ssh/id_betopia ubuntu@${{ secrets.AGENTHOST_IP }} \
+            "chmod +x /opt/apps/agenthost/scripts/agenthost-deploy.sh && \
              BRANCH=${{ github.event.inputs.branch }} \
-             bash /opt/multica/scripts/agenthost-deploy.sh"
+             bash /opt/apps/agenthost/scripts/agenthost-deploy.sh"
 
       - name: Cleanup SSH key
         if: always()
-        run: rm -f ~/.ssh/agenthost.pem
+        run: rm -f ~/.ssh/id_betopia
