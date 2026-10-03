@@ -114,3 +114,35 @@ gh release create kensink-latest dist/agenthost-cli-*.tar.gz dist/checksums.txt 
   --repo johnefemer/multica --target main --prerelease \
   --title "Agenthost CLI — kensink-latest ($VERSION)"
 ```
+
+## Desktop Release
+
+Desktop installers ship in the same `vX.Y.Z` GitHub release as the CLI, so
+`/releases/latest` carries both and `agenthost update` keeps working. The fork
+builds macOS (Apple Silicon + Intel) and Windows x64; the download page treats
+that set as complete. Builds are unsigned until there is an Apple Developer ID
+and a Windows code-signing certificate: macOS users must right-click → Open the
+first time, Windows shows SmartScreen, and macOS auto-update cannot apply
+ad-hoc-signed updates.
+
+```bash
+# One-time on Apple Silicon: Windows packaging runs x86 Wine.
+softwareupdate --install-rosetta --agree-to-license
+
+git checkout vX.Y.Z    # the version comes from `git describe`; build at the tag
+export CSC_IDENTITY_AUTO_DISCOVERY=false
+# Each run wipes apps/desktop/dist, so copy artifacts out between runs.
+env -u ELECTRON_RUN_AS_NODE pnpm --filter @multica/desktop package -- \
+  --mac --arm64 --x64 --publish never --config electron-builder.unsigned.yml
+mkdir -p /tmp/desktop-release && cp apps/desktop/dist/mac-*/{*.dmg,*.zip,*.blockmap,latest*.yml} /tmp/desktop-release/
+env -u ELECTRON_RUN_AS_NODE pnpm --filter @multica/desktop package -- \
+  --win --x64 --publish never --config electron-builder.unsigned.yml
+cp apps/desktop/dist/{*.exe,*.blockmap,latest.yml} /tmp/desktop-release/
+git checkout main
+
+gh release upload vX.Y.Z /tmp/desktop-release/* --clobber --repo johnefemer/multica
+```
+
+Pass architecture flags per run: they apply to every platform in that run, so
+`--win --arm64 --x64` would also build Windows ARM.
+

@@ -1,0 +1,7 @@
+# Kensink: release build without an Apple Developer ID or a Windows signing
+# certificate. macOS apps get an ad-hoc signature (CSC_IDENTITY_AUTO_DISCOVERY
+# =false) and skip notarization; Windows installers are unsigned. See
+# KENSINK.md → Desktop Release.
+extends: electron-builder.yml
+mac:
+  notarize: false
