@@ -5,7 +5,7 @@ import { Check, Copy, Terminal } from "lucide-react";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
 
 const INSTALL_CMD =
-  "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink/scripts/kensink-install.sh | bash";
+  "curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash";
 const SETUP_CMD =
   "agenthost setup self-host";
 
