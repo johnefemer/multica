@@ -124,7 +124,7 @@ export function applyWorktreeDevEnv(env, { root, log = false } = {}) {
   if (log) {
     console.log(
       `[dev:desktop] worktree isolation → renderer port ${env.DESKTOP_RENDERER_PORT}, ` +
-        `app "Multica Canary ${env.DESKTOP_APP_SUFFIX}"`,
+        `app "Agenthost Canary ${env.DESKTOP_APP_SUFFIX}"`,
     );
   }
   return env;

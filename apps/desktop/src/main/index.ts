@@ -62,6 +62,7 @@ import {
   NotificationGate,
   parseNativeNotificationPayload,
 } from "./notification-gate";
+import { APP_ID, DESKTOP_PROTOCOL, DEV_PRODUCT_NAME, PRODUCT_NAME } from "../shared/kensink";
 
 // Guards against registering the will-download handler more than once on the
 // same session. window.webContents.session is shared, and createWindow() can
@@ -121,7 +122,7 @@ if (process.platform !== "win32") {
   ]);
 }
 
-const PROTOCOL = "multica";
+const PROTOCOL = DESKTOP_PROTOCOL;
 const devLog = is.dev ? createBestEffortDevLog() : undefined;
 
 // Where the main process parks a freeze/crash breadcrumb until the next
@@ -557,8 +558,8 @@ function createIssueWindow(context: IssueWindowContext): void {
 // lock file. Default (no env var) keeps behavior unchanged — the common
 // single-worktree case still lands at "Multica Canary".
 const DEV_APP_NAME = process.env.DESKTOP_APP_SUFFIX
-  ? `Multica Canary ${process.env.DESKTOP_APP_SUFFIX}`
-  : "Multica Canary";
+  ? `${DEV_PRODUCT_NAME} ${process.env.DESKTOP_APP_SUFFIX}`
+  : DEV_PRODUCT_NAME;
 
 if (is.dev) {
   app.setName(DEV_APP_NAME);
@@ -570,7 +571,7 @@ if (is.dev) {
   // to "Multica", but anchoring it here makes WM_CLASS ↔ StartupWMClass
   // (declared in electron-builder.yml) survive a regression in
   // productName / the build pipeline. Must run before requestSingleInstanceLock().
-  app.setName("Multica");
+  app.setName(PRODUCT_NAME);
 }
 
 // --- Protocol registration -----------------------------------------------
@@ -637,7 +638,7 @@ if (!gotTheLock) {
     });
 
     electronApp.setAppUserModelId(
-      is.dev ? "ai.multica.desktop.dev" : "ai.multica.desktop",
+      is.dev ? `${APP_ID}.dev` : APP_ID,
     );
 
     // macOS: replace the default Electron dock icon with the bundled logo

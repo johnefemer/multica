@@ -1,5 +1,6 @@
 import { homedir } from "os";
 import { join } from "path";
+import { CLI_STATE_DIR } from "../shared/kensink";
 
 // Keep the Go impl in sync: server/cmd/multica/cmd_daemon.go healthPortForProfile.
 export const DEFAULT_HEALTH_PORT = 19514;
@@ -49,7 +50,7 @@ export function healthPortForProfile(profile: string): number {
 
 export function profileDir(profile: string): string {
   assertResolvedProfile(profile);
-  return join(homedir(), ".multica", "profiles", profile);
+  return join(homedir(), CLI_STATE_DIR, "profiles", profile);
 }
 
 export function profileConfigPath(profile: string): string {

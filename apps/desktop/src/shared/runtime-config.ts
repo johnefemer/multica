@@ -1,3 +1,5 @@
+import { PUBLIC_ORIGIN } from "./kensink";
+
 export interface RuntimeConfig {
   schemaVersion: 1;
   apiUrl: string;
@@ -15,9 +17,10 @@ export type RuntimeConfigResult =
 
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   schemaVersion: 1,
-  apiUrl: "https://api.multica.ai",
-  wsUrl: "wss://api.multica.ai/ws",
-  appUrl: "https://multica.ai",
+  // Kensink: agenthost.pro serves the app and the API from one origin.
+  apiUrl: PUBLIC_ORIGIN,
+  wsUrl: "wss://agenthost.pro/ws",
+  appUrl: PUBLIC_ORIGIN,
 });
 
 const LOCAL_DEV_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({

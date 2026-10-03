@@ -22,8 +22,8 @@ import { resolve } from "node:path";
 if (process.platform !== "darwin") process.exit(0);
 
 const DESIRED_NAME = process.env.DESKTOP_APP_SUFFIX
-  ? `Multica Canary ${process.env.DESKTOP_APP_SUFFIX}`
-  : "Multica Canary";
+  ? `Agenthost Canary ${process.env.DESKTOP_APP_SUFFIX}`
+  : "Agenthost Canary";
 
 const require = createRequire(import.meta.url);
 // `require('electron')` returns the path to the executable

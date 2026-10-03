@@ -9,6 +9,7 @@ import {
   type RuntimeConfigEnv,
   type RuntimeConfigResult,
 } from "../shared/runtime-config";
+import { CLI_STATE_DIR } from "../shared/kensink";
 
 export async function loadRuntimeConfig(options: {
   isDev: boolean;
@@ -41,7 +42,7 @@ export async function loadRuntimeConfig(options: {
 }
 
 export function desktopConfigPath(): string {
-  return join(app.getPath("home"), ".multica", "desktop.json");
+  return join(app.getPath("home"), CLI_STATE_DIR, "desktop.json");
 }
 
 function isMissingFileError(err: unknown): boolean {

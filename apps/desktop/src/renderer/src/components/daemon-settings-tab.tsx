@@ -18,6 +18,7 @@ import {
   formatUptime,
 } from "../../../shared/daemon-types";
 import { daemonStateLabel } from "./daemon-i18n";
+import { CLI_BINARY_NAME, PUBLIC_ORIGIN } from "../../../shared/kensink";
 
 // One row inside the diagnostics block. Values that are likely to be
 // long IDs / URLs render as monospaced + truncated with a tooltip.
@@ -128,8 +129,8 @@ export function DaemonSettingsTab() {
           <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <p className="min-w-0 text-body text-muted-foreground">
             {t(($) => $.desktop.daemon.external_description_before)}{" "}
-            <code className="font-mono text-caption">multica daemon start</code> /{" "}
-            <code className="font-mono text-caption">multica daemon stop</code>
+            <code className="font-mono text-caption">{CLI_BINARY_NAME} daemon start</code> /{" "}
+            <code className="font-mono text-caption">{CLI_BINARY_NAME} daemon stop</code>
             {t(($) => $.desktop.daemon.external_description_after)}
           </p>
         </div>
@@ -174,7 +175,7 @@ export function DaemonSettingsTab() {
               size="sm"
               onClick={() =>
                 window.desktopAPI.openExternal(
-                  "https://github.com/multica-ai/multica#cli-installation",
+                  `${PUBLIC_ORIGIN}/docs/cli`,
                 )
               }
             >

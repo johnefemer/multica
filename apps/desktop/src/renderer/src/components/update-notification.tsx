@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
+import { PUBLIC_ORIGIN } from "../../../shared/kensink";
 
 // Downloads run silently in the background (main process has
 // autoDownload=true). The renderer only renders UI once the package is fully
@@ -9,7 +10,7 @@ type UpdateState =
   | { status: "ready"; version: string };
 
 function changelogUrl(version: string): string {
-  return `https://multica.ai/changelog#release-${version.replace(/\./g, "-")}`;
+  return `${PUBLIC_ORIGIN}/changelog#release-${version.replace(/\./g, "-")}`;
 }
 
 export function UpdateNotification() {

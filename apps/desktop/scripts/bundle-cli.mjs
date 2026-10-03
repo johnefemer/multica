@@ -61,7 +61,8 @@ function normalizeRuntimeArch(arch) {
 }
 
 function binaryNameForPlatform(platform) {
-  return platform === "win32" ? "multica.exe" : "multica";
+  // Kensink: the fork ships the CLI as `agenthost` (see src/shared/kensink.ts).
+  return platform === "win32" ? "agenthost.exe" : "agenthost";
 }
 
 const targetPlatform = normalizeRuntimePlatform(

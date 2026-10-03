@@ -15,7 +15,7 @@ import {
   profileUserIdPath,
 } from "./daemon-profile";
 
-const MULTICA_DIR = join(homedir(), ".multica");
+const MULTICA_DIR = join(homedir(), ".agenthost");
 const DEFAULT_CLI_CONFIG = join(MULTICA_DIR, "config.json");
 
 describe("deriveProfileName", () => {

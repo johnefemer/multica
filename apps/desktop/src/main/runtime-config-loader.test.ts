@@ -47,9 +47,9 @@ describe("loadRuntimeConfig", () => {
       ok: true,
       config: {
         schemaVersion: 1,
-        apiUrl: "https://api.multica.ai",
-        wsUrl: "wss://api.multica.ai/ws",
-        appUrl: "https://multica.ai",
+        apiUrl: "https://agenthost.pro",
+        wsUrl: "wss://agenthost.pro/ws",
+        appUrl: "https://agenthost.pro",
       },
     });
   });
