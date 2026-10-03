@@ -13,7 +13,7 @@
 ## TL;DR
 
 ```
-git push origin kensink-v2
+git push origin main
 ```
 
 That's it for 95% of cases. Two workflows fan out from the push:
@@ -24,7 +24,7 @@ That's it for 95% of cases. Two workflows fan out from the push:
 
 Workflows 1+2 fire on `server/**` changes; workflow 3 fires on `apps/docs/**`. Docs ship independently of the main stack — a typo fix in `apps/docs/content/docs/cli.mdx` doesn't rebuild the backend or restart any prod container.
 
-> **Active deploy line:** `kensink-v2`, not `kensink`. Commit `9412b08c chore(deploy): switch deploy line from kensink to kensink-v2` switched every workflow trigger, checkout ref, and the `agenthost-deploy.sh` default. The `kensink` branch is now a held stable snapshot — pushing to it does nothing. Image tags (`:kensink`, `:latest`), the `kensink-latest` GitHub Release tag, and the `kensink-install.sh` filename are stable identifiers and were intentionally NOT renamed.
+> **Active deploy line:** `main`, not `kensink`. Commit `9412b08c chore(deploy): switch deploy line from kensink to main` switched every workflow trigger, checkout ref, and the `agenthost-deploy.sh` default. The `kensink` branch is now a held stable snapshot — pushing to it does nothing. Image tags (`:kensink`, `:latest`), the `kensink-latest` GitHub Release tag, and the `kensink-install.sh` filename are stable identifiers and were intentionally NOT renamed.
 
 > **Note:** The "Stack" section of [kensink-deploy.md](./kensink-deploy.md#L70-L79) mentions *upstream* `ghcr.io/multica-ai/*` images. That statement is outdated — the server now runs **kensink-forked** images from `ghcr.io/johnefemer/*:kensink`. This doc is authoritative on the release pipeline; update `kensink-deploy.md` when convenient.
 
@@ -35,12 +35,12 @@ Workflows 1+2 fire on `server/**` changes; workflow 3 fires on `apps/docs/**`. D
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Developer's machine                                         │
-│  git push origin kensink-v2                                  │
+│  git push origin main                                  │
 └───────────────────────────┬──────────────────────────────────┘
                             │
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  GitHub — johnefemer/multica@kensink-v2                      │
+│  GitHub — johnefemer/multica@main                      │
 │  Triggers: .github/workflows/build-kensink-images.yml        │
 │    • path filter: server/**, apps/web/**, packages/**,       │
 │      Dockerfile, Dockerfile.web, docker-compose.selfhost*    │
@@ -79,7 +79,7 @@ Workflows 1+2 fire on `server/**` changes; workflow 3 fires on `apps/docs/**`. D
 
 ### Trigger rules (which workflow fires when)
 
-All triggers below fire on pushes to `kensink-v2` (and only `kensink-v2`).
+All triggers below fire on pushes to `main` (and only `main`).
 
 | File changed | `build-kensink-images.yml` (Docker → EC2) | `release-cli.yml` (GitHub Release) | `deploy-docs-pages.yml` (CF Pages) |
 |---|:---:|:---:|:---:|
@@ -95,7 +95,7 @@ Key observations:
 - `build-kensink-images.yml` rebuilds **both** services on any match because the path filter is a single union. For per-service filtering you'd need to split the workflow.
 - `apps/docs/**` (the user-facing Fumadocs site) is on a **separate workflow + separate deploy target** — Cloudflare Pages, not EC2. A docs typo fix never restarts a prod container. The `docs/**` directory at the repo root is internal engineering docs (deploy runbooks, design specs) and is in no workflow's filter — editing those files ships nothing.
 - `docker-compose.datadog.yml` is **not** in any path filter, so changes to it don't trigger a rebuild — intentional, since the Datadog agent is an independent container (see [Datadog agent deploy](#datadog-agent-deploy)).
-- Pushes to `kensink` (the snapshot branch) trigger nothing. To revert the deploy line back to `kensink`, swap `kensink-v2` → `kensink` in the four files listed in `9412b08c`'s commit message.
+- Pushes to `kensink` (the snapshot branch) trigger nothing. To revert the deploy line back to `kensink`, swap `main` → `kensink` in the four files listed in `9412b08c`'s commit message.
 
 ---
 
@@ -243,7 +243,7 @@ These steps run once per environment and are not codified in the repo:
    - `CLOUDFLARE_API_TOKEN` — token with `Account > Cloudflare Pages: Edit` and `Account > Account Settings: Read`
    - `CLOUDFLARE_ACCOUNT_ID` — the agenthost account id (account `3ce23a68d0…`)
 
-After the first manual deploy (`pnpm --filter @multica/docs run build:cf && pnpm --filter @multica/docs run deploy:cf`), every push to `kensink-v2` touching `apps/docs/**` ships automatically.
+After the first manual deploy (`pnpm --filter @multica/docs run build:cf && pnpm --filter @multica/docs run deploy:cf`), every push to `main` touching `apps/docs/**` ships automatically.
 
 ### Verifying a docs deploy
 
@@ -260,7 +260,7 @@ wrangler pages deployment list --project-name=agenthost-docs | head -5
 
 ### Adding new docs content
 
-MDX files in `apps/docs/content/docs/` get picked up automatically by the `fumadocs-mdx` step. Add an `.mdx` file (and optionally a `.zh.mdx` sibling for the Chinese locale), commit, push to `kensink-v2`, and the new page is live within ~2 minutes — independent of the main EC2 deploy.
+MDX files in `apps/docs/content/docs/` get picked up automatically by the `fumadocs-mdx` step. Add an `.mdx` file (and optionally a `.zh.mdx` sibling for the Chinese locale), commit, push to `main`, and the new page is live within ~2 minutes — independent of the main EC2 deploy.
 
 ### Troubleshooting
 
@@ -315,14 +315,14 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 | # | Flow | When to use |
 |---|---|---|
-| 1 | **Push to `origin/kensink-v2`** → GHA auto-deploys | Default for every change |
+| 1 | **Push to `origin/main`** → GHA auto-deploys | Default for every change |
 | 2 | **Manually trigger `Deploy to agenthost` workflow** (`deploy.yml`) | Re-deploy without pushing new code — runs `scripts/agenthost-deploy.sh` on the server |
 | 3 | **SSH + build on server** with the build override | Emergency hotfix, GHA broken, iterating on a Docker/infra change |
 
 ### Flow 1 — Standard (push)
 
 ```bash
-git push origin kensink-v2
+git push origin main
 # Watch the run:
 gh run watch -R johnefemer/multica
 ```
@@ -331,9 +331,9 @@ Nothing else. If the workflow is green, prod is updated.
 
 ### Flow 2 — Re-deploy without a code change
 
-Use the manual workflow from GitHub → Actions → **Deploy to agenthost** → Run workflow → branch defaults to `kensink-v2` → type `deploy`. This runs [`scripts/agenthost-deploy.sh`](../scripts/agenthost-deploy.sh) which:
+Use the manual workflow from GitHub → Actions → **Deploy to agenthost** → Run workflow → branch defaults to `main` → type `deploy`. This runs [`scripts/agenthost-deploy.sh`](../scripts/agenthost-deploy.sh) which:
 
-1. Pulls the latest `kensink-v2` branch (already on the server) — overridable via `BRANCH=…`
+1. Pulls the latest `main` branch (already on the server) — overridable via `BRANCH=…`
 2. Runs `docker compose ... up -d --build --remove-orphans`
 
 ⚠️ Note: that script's `--build` is a no-op for backend/frontend because `docker-compose.selfhost.yml` has no `build:` directive on those services — it only re-pulls the existing GHCR tag. So this flow is useful for restarting with the *current* image, not for shipping code.
@@ -346,8 +346,8 @@ Use this when you need a deploy but can't/won't go through GHA. This is what bui
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 '
   set -e
   cd /opt/multica
-  git fetch origin kensink-v2
-  git reset --hard origin/kensink-v2
+  git fetch origin main
+  git reset --hard origin/main
 
   docker compose \
     -f docker-compose.selfhost.yml \
@@ -372,13 +372,13 @@ Key detail: the extra `-f docker-compose.selfhost.build.yml` override adds a `bu
 
 ## Agenthost CLI release
 
-The `agenthost` CLI is the binary that developers install on their local machines to connect as a runtime (see [kensink-runtime.md](./kensink-runtime.md)). It ships as a **rolling GitHub Release** — `kensink-latest` — which is deleted and recreated on every push to `kensink-v2` that changes `server/**` or `scripts/kensink-install.sh`.
+The `agenthost` CLI is the binary that developers install on their local machines to connect as a runtime (see [kensink-runtime.md](./kensink-runtime.md)). It ships as a **rolling GitHub Release** — `kensink-latest` — which is deleted and recreated on every push to `main` that changes `server/**` or `scripts/kensink-install.sh`.
 
 ### Pipeline
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  git push origin kensink-v2                                  │
+│  git push origin main                                  │
 └───────────────────────────┬──────────────────────────────────┘
                             │
                             ▼
@@ -395,7 +395,7 @@ The `agenthost` CLI is the binary that developers install on their local machine
 │    gh release delete kensink-latest                          │
 │    git push origin :refs/tags/kensink-latest                 │
 │    gh release create kensink-latest --prerelease             │
-│      --target kensink-v2 (points at current HEAD)            │
+│      --target main (points at current HEAD)            │
 │      dist/*.tar.gz                                           │
 └───────────────────────────┬──────────────────────────────────┘
                             │ downloads from
@@ -408,7 +408,7 @@ The `agenthost` CLI is the binary that developers install on their local machine
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  scripts/kensink-install.sh  (raw.githubusercontent.com URL  │
-│    on the kensink-v2 branch)                                 │
+│    on the main branch)                                 │
 │    Detects OS/arch, downloads the matching tarball,          │
 │    extracts `agenthost` to /usr/local/bin (or ~/.local/bin), │
 │    writes ~/.multica/config.json pointing at                 │
@@ -425,15 +425,15 @@ The upstream CLI is called `multica`. The kensink build renames it to **`agentho
 From the onboarding flow (and [kensink-runtime.md § Installation](./kensink-runtime.md#installation-for-runtime-operators)):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/main/scripts/kensink-install.sh | bash
 agenthost setup self-host --server-url https://agenthost.pro
 ```
 
-The install script uses a *fixed* URL — `kensink-latest` never changes. Every push that lands on `kensink-v2` with a backend change silently upgrades every future install to the new binary. Existing installs need to re-run the install command to pick up the new version.
+The install script uses a *fixed* URL — `kensink-latest` never changes. Every push that lands on `main` with a backend change silently upgrades every future install to the new binary. Existing installs need to re-run the install command to pick up the new version.
 
 ### Versioning model
 
-There is **no** semver tagging of the kensink CLI. It's one rolling tag. Pros: zero ceremony, always "what's on `kensink-v2`". Cons: no way for a client to pin to a specific build; no changelog beyond the commit log; every push overwrites the download URL.
+There is **no** semver tagging of the kensink CLI. It's one rolling tag. Pros: zero ceremony, always "what's on `main`". Cons: no way for a client to pin to a specific build; no changelog beyond the commit log; every push overwrites the download URL.
 
 If you ever need pinned builds:
 1. Create a second workflow that fires on `v*-kensink` tags and publishes a non-rolling release (e.g. `v0.2.3-kensink`).
@@ -444,11 +444,11 @@ If you ever need pinned builds:
 
 If you want to re-release without a code change (e.g. workflow fix, bumping the default server URL in `kensink-install.sh`):
 
-**GitHub UI:** Actions → **Release CLI (kensink)** → Run workflow → branch `kensink-v2` → Run.
+**GitHub UI:** Actions → **Release CLI (kensink)** → Run workflow → branch `main` → Run.
 
 **CLI:**
 ```bash
-gh workflow run release-cli.yml -R johnefemer/multica --ref kensink-v2
+gh workflow run release-cli.yml -R johnefemer/multica --ref main
 gh run watch -R johnefemer/multica
 ```
 
@@ -464,7 +464,7 @@ curl -fsSL -o /tmp/agenthost.tar.gz \
 tar -tzf /tmp/agenthost.tar.gz   # should list "agenthost"
 
 # End-to-end installer test
-bash <(curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/main/scripts/kensink-install.sh)
 agenthost version
 ```
 
@@ -472,17 +472,17 @@ agenthost version
 
 | | Upstream (`multica`) | Kensink (`agenthost`) |
 |---|---|---|
-| Source | `multica-ai/multica@main` | `johnefemer/multica@kensink-v2` |
+| Source | `multica-ai/multica@main` | `johnefemer/multica@main` |
 | Binary name | `multica` | `agenthost` |
 | Release workflow | [`release.yml`](../.github/workflows/release.yml) | [`release-cli.yml`](../.github/workflows/release-cli.yml) |
-| Trigger | `v*.*.*` tag on main | any push to `kensink-v2` touching `server/**` |
+| Trigger | `v*.*.*` tag on main | any push to `main` touching `server/**` |
 | GitHub Release | `v0.1.23`, immutable | `kensink-latest`, rolling |
 | Archive name | `multica-cli-<version>-<os>-<arch>.tar.gz` | `agenthost-cli-<os>-<arch>.tar.gz` |
 | Distribution | GitHub Releases + `multica-ai/homebrew-tap` | GitHub Releases only |
 | Install | `install.sh` or `brew install multica-ai/tap/multica` | `kensink-install.sh` |
 | Default server | None (user configures) | `https://agenthost.pro` prewired |
 
-`CLAUDE.md` still describes the upstream tag-and-release flow ("A CLI release must accompany every Production deployment"). That doesn't apply to kensink — our CLI releases automatically on every relevant push to `kensink-v2`.
+`CLAUDE.md` still describes the upstream tag-and-release flow ("A CLI release must accompany every Production deployment"). That doesn't apply to kensink — our CLI releases automatically on every relevant push to `main`.
 
 ---
 

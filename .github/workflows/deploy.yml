@@ -1,14 +1,14 @@
 name: Deploy to agenthost
 
 # Manual trigger — you choose when to deploy.
-# Optionally override the branch (defaults to kensink-v2 — the active line).
+# Optionally override the branch (defaults to main — the active line).
 on:
   workflow_dispatch:
     inputs:
       branch:
         description: "Branch to deploy"
         required: false
-        default: "kensink-v2"
+        default: "main"
       confirm:
         description: "Type 'deploy' to confirm"
         required: true

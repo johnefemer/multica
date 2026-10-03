@@ -9,14 +9,14 @@ fork does differently. See FORK.md for the upstream sync workflow.
 **Deploy with the local script over SSH. Never with GitHub Actions.**
 
 Every workflow in `.github/workflows/` is disabled (`disabled_manually`), so a
-push to `kensink-v2` no longer builds, releases, or deploys anything. Do not
+push to `main` no longer builds, releases, or deploys anything. Do not
 re-enable one to ship a change, and do not wait on a workflow run.
 
 ```bash
 ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 'bash /opt/multica/scripts/agenthost-deploy.sh'
 ```
 
-**Push first.** The script does `git reset --hard origin/kensink-v2`, so it
+**Push first.** The script does `git reset --hard origin/main`, so it
 deploys what is on the remote, not your working tree.
 
 **A push plus the script does not ship code on its own.** The compose stack runs
@@ -79,7 +79,7 @@ cd ..
 gh release delete kensink-latest --yes --repo johnefemer/multica || true
 git push origin :refs/tags/kensink-latest || true
 gh release create kensink-latest dist/agenthost-cli-*.tar.gz dist/checksums.txt \
-  --repo johnefemer/multica --target kensink-v2 --prerelease \
+  --repo johnefemer/multica --target main --prerelease \
   --title "Agenthost CLI — kensink-latest"
 ```
 

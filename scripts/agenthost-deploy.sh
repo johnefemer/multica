@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# agenthost-deploy.sh — Deploy the latest kensink-v2 branch on an agenthost host
+# agenthost-deploy.sh — Deploy the latest main branch on an agenthost host
 #
 # Run manually over SSH. The checkout path and compose file list come from the
 # host, so the same script serves both boxes:
@@ -8,7 +8,7 @@
 #   ssh -i ~/.ssh/betopia.pem  root@162.4.35.231    'bash /opt/apps/agenthost/scripts/agenthost-deploy.sh'
 #
 # What it does:
-#   1. Pulls latest changes from origin/kensink-v2 (or $BRANCH if overridden)
+#   1. Pulls latest changes from origin/main (or $BRANCH if overridden)
 #   2. Rebuilds and restarts Docker Compose services (zero-downtime rolling)
 #   3. Waits for the backend health-check
 #   4. Prints status
@@ -31,9 +31,9 @@ if [ -f .deploy.env ]; then
   . ./.deploy.env
 fi
 
-# Respect $BRANCH from caller (deploy.yml passes it); fall back to kensink-v2
+# Respect $BRANCH from caller (deploy.yml passes it); fall back to main
 # (the active deploy line; kensink itself is held as a stable snapshot).
-BRANCH="${BRANCH:-kensink-v2}"
+BRANCH="${BRANCH:-main}"
 COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.selfhost.yml}"
 HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}"
 HEALTH_RETRIES=30

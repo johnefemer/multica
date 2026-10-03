@@ -50,7 +50,7 @@ func runUpdate(_ *cobra.Command, _ []string) error {
 		output, err := cli.UpdateViaBrew()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", output)
-			return fmt.Errorf("update failed: %w\nYou can also re-run the install script: curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/kensink-v2/scripts/kensink-install.sh | bash", err)
+			return fmt.Errorf("update failed: %w\nYou can also re-run the install script: curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/main/scripts/kensink-install.sh | bash", err)
 		}
 		fmt.Fprintln(os.Stderr, "Update complete.")
 		return nil

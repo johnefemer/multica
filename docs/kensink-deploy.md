@@ -18,7 +18,7 @@ deployed, how to access it, and how to operate it day-to-day.
 | **SSH user** | `ubuntu` |
 | **PEM key** | `~/.ssh/agenthost.pem` |
 | **Install dir** | `/opt/multica` |
-| **Git branch** | `kensink-v2` — active deploy line; `kensink` is a held stable snapshot, see [agenthost-releasing.md § TL;DR](./agenthost-releasing.md#tldr) |
+| **Git branch** | `main` — active deploy line; `kensink` is a held stable snapshot, see [agenthost-releasing.md § TL;DR](./agenthost-releasing.md#tldr) |
 
 ### SSH access
 
@@ -202,8 +202,8 @@ Docker was pre-installed on the EC2 instance. The repo was cloned and `.env`
 configured manually:
 
 ```bash
-# 1. Clone kensink-v2 branch (the active deploy line)
-sudo git clone --branch kensink-v2 https://github.com/johnefemer/multica.git /opt/multica
+# 1. Clone main branch (the active deploy line)
+sudo git clone --branch main https://github.com/johnefemer/multica.git /opt/multica
 sudo chown -R ubuntu:ubuntu /opt/multica
 
 # 2. Create .env
@@ -282,11 +282,11 @@ ssh -i ~/.ssh/agenthost.pem ubuntu@54.82.211.103 \
 
 ## Day-to-Day Operations
 
-### Deploy latest kensink-v2 changes
+### Deploy latest main changes
 
 **Via GitHub Actions (recommended):**
 1. Go to **Actions → Deploy to agenthost → Run workflow**
-2. Branch: `kensink-v2` (default), type `deploy` → Run
+2. Branch: `main` (default), type `deploy` → Run
 
 **Manually from your machine:**
 ```bash

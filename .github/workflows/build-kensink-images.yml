@@ -1,6 +1,6 @@
 name: Build & Push Kensink Images
 
-# Builds custom backend + frontend images from the kensink-v2 branch
+# Builds custom backend + frontend images from the main branch
 # (the active deploy line; see 9412b08c) and pushes them to GHCR.
 # The agenthost server then pulls these instead of the upstream
 # multica-ai images.
@@ -15,7 +15,7 @@ name: Build & Push Kensink Images
 
 on:
   push:
-    branches: [kensink-v2]
+    branches: [main]
     paths:
       - "server/**"
       - "apps/web/**"
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink-v2
+          ref: main
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink-v2
+          ref: main
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -113,7 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink-v2
+          ref: main
 
       - name: Set up SSH
         run: |

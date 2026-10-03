@@ -19,7 +19,7 @@ name: Deploy Docs (Cloudflare Pages)
 
 on:
   push:
-    branches: [kensink-v2]
+    branches: [main]
     paths:
       - "apps/docs/**"
       - "packages/ui/**"
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kensink-v2
+          ref: main
 
       - uses: pnpm/action-setup@v4
         with:
