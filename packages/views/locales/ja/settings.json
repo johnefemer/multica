@@ -404,7 +404,8 @@
       "billing": "請求とプラン",
       "code": "コード",
       "channels": "メッセージング",
-      "apps": "接続済みアプリ"
+      "apps": "接続済みアプリ",
+      "integrations": "連携"
     },
     "groups": {
       "personal": "個人",

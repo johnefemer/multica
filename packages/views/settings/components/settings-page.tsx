@@ -253,7 +253,7 @@ export function SettingsPage({ extraDeviceTabs = [] }: SettingsPageProps = {}) {
               adminOnly: true,
             }),
             // Kensink: GitHub OAuth integration (import issues, webhooks).
-            entry("integrations", "Integrations", Plug, <IntegrationsTab />, {
+            entry("integrations", t(($) => $.page.tabs.integrations), Plug, <IntegrationsTab />, {
               adminOnly: true,
             }),
             ...(pluginsEnabled

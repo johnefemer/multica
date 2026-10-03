@@ -78,27 +78,35 @@ everything else in `.github/workflows/`, so **pushing a tag no longer publishes
 anything** and the binaries behind the install URL go stale until someone builds
 them. Build and upload locally instead.
 
-The `kensink-latest` rolling pre-release is what
-`scripts/kensink-install.sh` downloads:
+Every release is a versioned, non-prerelease GitHub release `vX.Y.Z`, which
+is what `agenthost update` and the daemon's auto-update read
+(`/releases/latest`), plus a refresh of the rolling `kensink-latest`
+pre-release that `scripts/kensink-install.sh` downloads. Bump the patch
+version by default (`v0.6.2` → `v0.6.3`) unless the user specifies one. Keep
+the fork at or above the upstream version it is synced to: the server compares
+daemon CLI versions, and the updater only accepts a plain `X.Y.Z`.
 
 ```bash
+VERSION=v0.6.3   # next version
 cd server
 for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
-  GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 \
-    go build -ldflags="-s -w" -o ../bin/agenthost ./cmd/multica
+  GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build \
+    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -o ../bin/agenthost ./cmd/multica
   mkdir -p ../dist
   tar -czf "../dist/agenthost-cli-${target%/*}-${target#*/}.tar.gz" -C ../bin agenthost
 done
 cd ..
 # `agenthost update` verifies the download against this manifest.
 (cd dist && shasum -a 256 agenthost-cli-*.tar.gz > checksums.txt)
+
+git tag "$VERSION" && git push origin "$VERSION"
+gh release create "$VERSION" dist/agenthost-cli-*.tar.gz dist/checksums.txt \
+  --repo johnefemer/multica --verify-tag --latest --title "Agenthost CLI $VERSION"
+
 gh release delete kensink-latest --yes --repo johnefemer/multica || true
 git push origin :refs/tags/kensink-latest || true
 gh release create kensink-latest dist/agenthost-cli-*.tar.gz dist/checksums.txt \
   --repo johnefemer/multica --target main --prerelease \
-  --title "Agenthost CLI — kensink-latest"
+  --title "Agenthost CLI — kensink-latest ($VERSION)"
 ```
-
-For a versioned `v0.x.x` release, bump the patch version by default (e.g.
-`v0.1.12` → `v0.1.13`) unless the user specifies one, and run GoReleaser locally
-(`goreleaser release --clean`) rather than pushing the tag and waiting.

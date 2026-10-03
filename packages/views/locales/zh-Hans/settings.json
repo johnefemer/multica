@@ -404,7 +404,8 @@
       "billing": "账单与套餐",
       "code": "代码",
       "channels": "消息渠道",
-      "apps": "已连接应用"
+      "apps": "已连接应用",
+      "integrations": "集成"
     },
     "groups": {
       "personal": "个人",
