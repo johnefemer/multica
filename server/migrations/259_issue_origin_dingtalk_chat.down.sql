@@ -9,7 +9,9 @@
 -- rare and supervised, where a silently untrusted constraint would be worse.
 -- Same reasoning as 249_issue_subscriber_delegated.down.sql.
 ALTER TABLE issue DROP CONSTRAINT IF EXISTS issue_origin_type_check;
+-- Kensink: keep 'integration' (fork migration 060_issue_origin_type_integration);
+-- dropping it rejects GitHub-imported issues.
 ALTER TABLE issue ADD CONSTRAINT issue_origin_type_check
-    CHECK (origin_type IN ('autopilot', 'quick_create', 'lark_chat', 'slack_chat', 'agent_create'))
+    CHECK (origin_type IN ('autopilot', 'integration', 'quick_create', 'lark_chat', 'slack_chat', 'agent_create'))
     NOT VALID;
 ALTER TABLE issue VALIDATE CONSTRAINT issue_origin_type_check;

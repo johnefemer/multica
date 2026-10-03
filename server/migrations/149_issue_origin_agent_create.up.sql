@@ -9,5 +9,7 @@
 -- agent_task_queue row), different label because this is the normal create path
 -- rather than the daemon quick-create flow.
 ALTER TABLE issue DROP CONSTRAINT IF EXISTS issue_origin_type_check;
+-- Kensink: keep 'integration' (fork migration 060_issue_origin_type_integration);
+-- dropping it rejects GitHub-imported issues.
 ALTER TABLE issue ADD CONSTRAINT issue_origin_type_check
-    CHECK (origin_type IN ('autopilot', 'quick_create', 'lark_chat', 'slack_chat', 'agent_create'));
+    CHECK (origin_type IN ('autopilot', 'integration', 'quick_create', 'lark_chat', 'slack_chat', 'agent_create'));
