@@ -79,6 +79,8 @@ const WORKSPACE_ROUTES: readonly RoutePattern[] = [
   ["skills"],
   ["skills", ":id"],
   ["settings"],
+  // Kensink: GitHub / Slack integrations page.
+  ["integrations"],
   ["attachments", ":id", "preview"],
 ];
 

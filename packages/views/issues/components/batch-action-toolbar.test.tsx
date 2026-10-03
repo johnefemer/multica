@@ -27,6 +27,9 @@ vi.mock("../../i18n", () => ({
 
 // Render each picker as a probe that surfaces the value the toolbar passed in,
 // so the test asserts the wiring (real `commonIssueFields` runs underneath).
+// Kensink: the bulk project move reads the project list; not under test here.
+vi.mock("../../projects/components/project-picker", () => ({ ProjectPicker: () => null }));
+
 vi.mock("./pickers", () => ({
   StatusPicker: ({ status }: { status: string | null }) => (
     <div data-testid="status-picker" data-status={status ?? "__none__"} />

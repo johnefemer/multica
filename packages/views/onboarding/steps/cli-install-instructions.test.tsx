@@ -25,6 +25,6 @@ describe("CliInstallInstructions", () => {
     await user.click(screen.getByRole("tab", { name: "Windows" }));
 
     expect(screen.getByText(WINDOWS_CMD)).toBeInTheDocument();
-    expect(screen.getByText("multica setup")).toBeInTheDocument();
+    expect(screen.getByText("agenthost setup self-host")).toBeInTheDocument();
   });
 });

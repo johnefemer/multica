@@ -8,8 +8,9 @@ import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
 import { cn } from "@multica/ui/lib/utils";
 import { DragStrip } from "@multica/views/platform";
 import { STATUS_CONFIG } from "@multica/core/issues/config";
-import type { IssueStatus } from "@multica/core/types";
+import type { BuiltInIssueStatus } from "@multica/core/types";
 import { StatusIcon } from "../../issues/components/status-icon";
+import { useT } from "../../i18n";
 import { ProviderLogo } from "../../runtimes/components/provider-logo";
 
 /**
@@ -83,7 +84,7 @@ export function StepWelcome({
             </h1>
 
             <div className="flex flex-col gap-3.5">
-              <p className="text-base leading-relaxed text-foreground/85 sm:text-lg">
+              <p className="text-base leading-relaxed text-foreground sm:text-lg">
                 Assign them work like you&apos;d assign a colleague — they
                 pick it up, update status, and comment when done.
               </p>
@@ -169,11 +170,11 @@ function Roadmap() {
           <li key={label} className="flex items-center gap-3 text-sm">
             <span
               aria-hidden
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-semibold text-foreground/70"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-semibold text-muted-foreground"
             >
               {i + 1}
             </span>
-            <span className="text-foreground/85">{label}</span>
+            <span className="text-foreground">{label}</span>
           </li>
         ))}
       </ol>
@@ -367,7 +368,7 @@ function PreviewCard({
   actor: ActivityActor;
   issueId: string;
   content: React.ReactNode;
-  status?: Extract<IssueStatus, "in_progress" | "done" | "in_review">;
+  status?: Extract<BuiltInIssueStatus, "in_progress" | "done" | "in_review">;
   timestamp?: string;
   offsetClassName?: string;
   hideBelow?: "sm" | "md" | "lg";
@@ -401,7 +402,7 @@ function PreviewCard({
         </span>
       </div>
 
-      <p className="mt-2.5 break-words text-sm leading-snug text-foreground/85">
+      <p className="mt-2.5 break-words text-sm leading-snug text-foreground">
         {content}
       </p>
 
@@ -435,9 +436,12 @@ function StatusFooter({
   status,
   timestamp,
 }: {
-  status: IssueStatus;
+  status: BuiltInIssueStatus;
   timestamp?: string;
 }) {
+  // Built-in keys resolve their label from i18n like `useStatusLabel` does
+  // (MUL-6243); `STATUS_CONFIG.label` is the server's English seed.
+  const { t } = useT("issues");
   const cfg = STATUS_CONFIG[statusCategoryOfKey(status)];
   return (
     <div className="mt-3 flex items-center gap-2 text-xs">
@@ -454,7 +458,7 @@ function StatusFooter({
             status === "in_progress" && "animate-pulse",
           )}
         />
-        {cfg.label}
+        {t(($) => $.status[status])}
       </span>
       {timestamp && (
         <>

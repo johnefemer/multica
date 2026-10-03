@@ -37,6 +37,9 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 // toolbar passes in, so we exercise handleBatchStatus / handleBatchAssignee.
 const ACTIVE_STATUSES = ["todo", "in_progress", "in_review", "blocked"] as const;
 const TERMINAL_STATUSES = ["done", "cancelled"] as const;
+// Kensink: the bulk project move reads the project list; not under test here.
+vi.mock("../../projects/components/project-picker", () => ({ ProjectPicker: () => null }));
+
 vi.mock("./pickers", () => ({
   StatusPicker: ({ onUpdate }: { onUpdate: (u: Partial<UpdateIssueRequest>) => void }) => (
     <div>

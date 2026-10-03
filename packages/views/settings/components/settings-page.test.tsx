@@ -224,7 +224,8 @@ describe("SettingsPage information architecture", () => {
     renderWithI18n(<SettingsPage />);
     expect(
       within(nav()).queryByRole("link", {
-        name: /^(Issue|Chat|GitHub|Labs|Integrations|Repositories)$/,
+        // Kensink keeps its own Integrations tab (GitHub/Slack OAuth).
+        name: /^(Issue|Chat|GitHub|Labs|Repositories)$/,
       }),
     ).not.toBeInTheDocument();
   });

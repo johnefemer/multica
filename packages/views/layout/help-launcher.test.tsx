@@ -108,9 +108,9 @@ describe("HelpLauncher", () => {
   });
 
   it.each([
-    ["en", "https://multica.ai/docs"],
-    ["zh-Hans", "https://multica.ai/docs/zh"],
-    ["fr", "https://multica.ai/docs/fr"],
+    ["en", "https://agenthost.pro/docs"],
+    ["zh-Hans", "https://agenthost.pro/docs/zh"],
+    ["fr", "https://agenthost.pro/docs/fr"],
   ])("links Docs to the %s docs", (language, href) => {
     i18nState.language = language;
     render(<HelpLauncher />);

@@ -120,6 +120,7 @@ vi.mock("@multica/core/runtimes/mutations", () => ({
     isPending: false,
   }),
   useDeleteRuntime: () => ({ mutate: vi.fn(), isPending: false, mutateAsync: vi.fn() }),
+  useUpdateRuntimeSettings: () => ({ mutate: vi.fn(), isPending: false }),
   useUnbindAgentsAndDeleteRuntime: () => ({
     mutate: vi.fn(),
     isPending: false,
