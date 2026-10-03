@@ -74,9 +74,11 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
   tar -czf "../dist/agenthost-cli-${target%/*}-${target#*/}.tar.gz" -C ../bin agenthost
 done
 cd ..
+# `agenthost update` verifies the download against this manifest.
+(cd dist && shasum -a 256 agenthost-cli-*.tar.gz > checksums.txt)
 gh release delete kensink-latest --yes --repo johnefemer/multica || true
 git push origin :refs/tags/kensink-latest || true
-gh release create kensink-latest dist/agenthost-cli-*.tar.gz \
+gh release create kensink-latest dist/agenthost-cli-*.tar.gz dist/checksums.txt \
   --repo johnefemer/multica --target kensink-v2 --prerelease \
   --title "Agenthost CLI — kensink-latest"
 ```

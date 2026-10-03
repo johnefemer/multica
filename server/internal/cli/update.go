@@ -36,6 +36,10 @@ const defaultReleaseAPIBaseURL = "https://api.github.com"
 // MULTICA_RELEASE_API_BASE_URL points at a GitHub Releases API-compatible
 // mirror. MULTICA_RELEASE_DOWNLOAD_BASE_URL points at an artifact mirror
 // serving /<tag>/<asset-name>; when unset, the release-provided URLs win.
+// releaseRepo is the GitHub repository the CLI updates from. Kensink: the
+// fork publishes its own agenthost builds.
+const releaseRepo = "johnefemer/multica"
+
 const releaseAPIBaseURLEnv = "MULTICA_RELEASE_API_BASE_URL"
 const releaseDownloadBaseURLEnv = "MULTICA_RELEASE_DOWNLOAD_BASE_URL"
 
@@ -174,11 +178,12 @@ func releaseAssetCandidates(targetVersion, goos, goarch string) []string {
 	tag := normalizeReleaseTag(targetVersion)
 	version := strings.TrimPrefix(tag, "v")
 	ext := releaseArchiveExtension(goos)
-	// Our fork publishes assets as agenthost-cli-{os}-{arch}.tar.gz
 	return []string{
+		// Kensink: the fork publishes agenthost-cli-{os}-{arch}.{ext}.
 		fmt.Sprintf("agenthost-cli-%s-%s.%s", goos, goarch, ext),
-		// Legacy names for fallback
+		// Upstream's versioned name, then its legacy name.
 		fmt.Sprintf("multica-cli-%s-%s-%s.%s", version, goos, goarch, ext),
+		fmt.Sprintf("multica_%s_%s.%s", goos, goarch, ext),
 	}
 }
 
@@ -254,7 +259,7 @@ func verifyAssetSHA256(data []byte, expectedHex, assetName string) error {
 
 func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, releaseAPIBaseURL()+"/repos/multica-ai/multica/releases/tags/"+url.PathEscape(tag), nil)
+	req, err := http.NewRequest(http.MethodGet, releaseAPIBaseURL()+"/repos/"+releaseRepo+"/releases/tags/"+url.PathEscape(tag), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +285,7 @@ func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
 // FetchLatestRelease fetches the latest release tag from the multica GitHub repo.
 func FetchLatestRelease() (*GitHubRelease, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, releaseAPIBaseURL()+"/repos/multica-ai/multica/releases/latest", nil)
+	req, err := http.NewRequest(http.MethodGet, releaseAPIBaseURL()+"/repos/"+releaseRepo+"/releases/latest", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +462,7 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 	}
 
 	// Extract the binary from the archive.
-	binaryName := "multica"
+	binaryName := "agenthost" // Kensink: the fork ships the CLI as agenthost
 	if runtime.GOOS == "windows" {
 		binaryName = "agenthost.exe"
 	}

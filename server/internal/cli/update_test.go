@@ -22,6 +22,7 @@ func TestReleaseAssetCandidates(t *testing.T) {
 			goos:          "darwin",
 			goarch:        "arm64",
 			wantAssets: []string{
+				"agenthost-cli-darwin-arm64.tar.gz",
 				"multica-cli-1.2.3-darwin-arm64.tar.gz",
 				"multica_darwin_arm64.tar.gz",
 			},
@@ -32,6 +33,7 @@ func TestReleaseAssetCandidates(t *testing.T) {
 			goos:          "linux",
 			goarch:        "amd64",
 			wantAssets: []string{
+				"agenthost-cli-linux-amd64.tar.gz",
 				"multica-cli-1.2.3-linux-amd64.tar.gz",
 				"multica_linux_amd64.tar.gz",
 			},
@@ -42,6 +44,7 @@ func TestReleaseAssetCandidates(t *testing.T) {
 			goos:          "windows",
 			goarch:        "amd64",
 			wantAssets: []string{
+				"agenthost-cli-windows-amd64.zip",
 				"multica-cli-1.2.3-windows-amd64.zip",
 				"multica_windows_amd64.zip",
 			},

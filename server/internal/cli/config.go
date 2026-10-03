@@ -9,8 +9,13 @@ import (
 	"strings"
 )
 
+// cliDirName is the per-user CLI state directory under $HOME (Kensink fork:
+// ~/.agenthost, where existing fork installs keep their config and login).
+const cliDirName = ".agenthost"
+
 const (
-	defaultCLIConfigPath = ".multica/config.json"
+	// Kensink: the fork keeps CLI state under ~/.agenthost (see cliDirName).
+	defaultCLIConfigPath = cliDirName + "/config.json"
 
 	// TaskConfigRootEnv points daemon-managed CLI invocations at a private,
 	// per-task Multica config directory. It is deliberately Multica-specific:
@@ -226,8 +231,8 @@ func CLIConfigPath() (string, error) {
 }
 
 // CLIConfigPathForProfile returns the config file path for the given profile.
-// An empty profile returns the default path (~/.multica/config.json).
-// A named profile returns ~/.multica/profiles/<name>/config.json.
+// An empty profile returns the default path (~/.agenthost/config.json).
+// A named profile returns ~/.agenthost/profiles/<name>/config.json.
 // When TaskConfigRootEnv is set by the daemon, the same profile layout is
 // rooted directly below that private task directory instead of the user's home.
 func CLIConfigPathForProfile(profile string) (string, error) {
@@ -249,11 +254,11 @@ func CLIConfigPathForProfile(profile string) (string, error) {
 	if taskLocal {
 		return filepath.Join(root, "profiles", profile, "config.json"), nil
 	}
-	return filepath.Join(root, ".multica", "profiles", profile, "config.json"), nil
+	return filepath.Join(root, cliDirName, "profiles", profile, "config.json"), nil
 }
 
 // ProfileDir returns the base directory for a profile's state files (pid, log).
-// An empty profile returns ~/.multica/. A named profile returns ~/.multica/profiles/<name>/.
+// An empty profile returns ~/.agenthost/. A named profile returns ~/.agenthost/profiles/<name>/.
 // Task invocations resolve the equivalent paths below TaskConfigRootEnv.
 func ProfileDir(profile string) (string, error) {
 	root, taskLocal, err := multicaConfigRoot()
@@ -269,12 +274,12 @@ func ProfileDir(profile string) (string, error) {
 		if taskLocal {
 			return root, nil
 		}
-		return filepath.Join(root, ".multica"), nil
+		return filepath.Join(root, cliDirName), nil
 	}
 	if taskLocal {
 		return filepath.Join(root, "profiles", profile), nil
 	}
-	return filepath.Join(root, ".multica", "profiles", profile), nil
+	return filepath.Join(root, cliDirName, "profiles", profile), nil
 }
 
 func multicaConfigRoot() (root string, taskLocal bool, err error) {

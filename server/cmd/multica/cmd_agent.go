@@ -289,8 +289,9 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 }
 
 const (
-	defaultCloudServerURL = "https://api.multica.ai"
-	defaultCloudAppURL    = "https://multica.ai"
+	// Kensink: the fork serves API and app from one origin.
+	defaultCloudServerURL = "https://agenthost.pro"
+	defaultCloudAppURL    = "https://agenthost.pro"
 )
 
 func tryResolveServerURL(cmd *cobra.Command) string {

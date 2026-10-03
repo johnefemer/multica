@@ -82,6 +82,13 @@ install_cli_binary() {
     warn "Installed to $bin_dir — restart your shell or run: export PATH=\"$bin_dir:\$PATH\""
   fi
   rm -rf "$tmp_dir"
+  # Agent prompts and skills written upstream call `multica`; alias it.
+  if ! command_exists multica || [ -L "$bin_dir/multica" ]; then
+    ln -sf agenthost "$bin_dir/multica" 2>/dev/null \
+      || sudo ln -sf agenthost "$bin_dir/multica" 2>/dev/null \
+      || warn "Could not create the multica alias in $bin_dir"
+  fi
+
   ok "agenthost CLI installed → $bin_dir/agenthost"
 }
 

@@ -24,9 +24,9 @@ var (
 var debugFlag bool
 
 var rootCmd = &cobra.Command{
-	Use:           "multica",
-	Short:         "Multica CLI — local agent runtime and management tool",
-	Long:          "Work seamlessly with Multica from the command line.",
+	Use:           "agenthost",
+	Short:         "Agenthost CLI — local agent runtime and management tool",
+	Long:          "Work seamlessly with Agenthost from the command line.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

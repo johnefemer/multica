@@ -8734,6 +8734,10 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	if selfBin, err := resolveSelfExecutable(); err == nil {
 		binDir := filepath.Dir(selfBin)
 		agentEnv["PATH"] = binDir + string(os.PathListSeparator) + os.Getenv("PATH")
+		// Kensink: also expose this binary as `multica` (see kensink_cli_alias.go).
+		if alias := cliAliasDir(selfBin); alias != "" {
+			agentEnv["PATH"] = alias + string(os.PathListSeparator) + agentEnv["PATH"]
+		}
 	}
 	// Point Codex to the per-task CODEX_HOME so it discovers skills natively
 	// without polluting the system ~/.codex/skills/.
