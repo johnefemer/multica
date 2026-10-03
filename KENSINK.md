@@ -93,8 +93,12 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
   GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o ../bin/agenthost ./cmd/multica
+  # CLIs built before v0.6.2 self-update by extracting a file named `multica`,
+  # so ship the binary under both names (a real copy, not a link).
+  cp ../bin/agenthost ../bin/multica
   mkdir -p ../dist
-  tar -czf "../dist/agenthost-cli-${target%/*}-${target#*/}.tar.gz" -C ../bin agenthost
+  # COPYFILE_DISABLE keeps macOS tar from adding ._ AppleDouble entries.
+  COPYFILE_DISABLE=1 tar -czf "../dist/agenthost-cli-${target%/*}-${target#*/}.tar.gz" -C ../bin agenthost multica
 done
 cd ..
 # `agenthost update` verifies the download against this manifest.
