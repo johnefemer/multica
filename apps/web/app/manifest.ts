@@ -14,13 +14,9 @@ import type { MetadataRoute } from "next";
  * /login too. All three are pinned in manifest.test.ts, because a launcher
  * icon has no URL bar to recover from a wrong destination.
  *
- * The icons under /icons are generated, not hand-drawn. To regenerate after a
- * brand change, edit public/icons/icon.svg and run from public/icons:
- *
- *   sips -s format png --resampleHeightWidth 512 512 icon.svg --out icon-maskable-512.png
- *   sips -s format png --resampleHeightWidth 180 180 icon.svg --out apple-touch-icon.png
- *   sips -s format png --resampleHeightWidth 512 512 ../../../desktop/build/icon.png --out icon-512.png
- *   sips -s format png --resampleHeightWidth 192 192 ../../../desktop/build/icon.png --out icon-192.png
+ * The icons under /icons are generated, not hand-drawn. Kensink fork: they
+ * derive from the Agenthost favicon set (public/favicon); after a brand change,
+ * replace that set and run `python3 scripts/kensink-icons.py` from the repo root.
  *
  * The two `any` icons come from the desktop app icon so an installed web app
  * and an installed desktop app show the same artwork; the maskable one is
