@@ -3180,6 +3180,7 @@ func (d *Daemon) registerRuntimesForWorkspaceBatchLocked(ctx context.Context, wo
 	}
 	d.logger.Debug("register response", "workspace_id", workspaceID, "runtimes", len(resp.Runtimes), "repos", len(resp.Repos), "repos_version", resp.ReposVersion)
 	d.recordBuiltinVersionsSent(workspaceID, runtimes)
+	d.applyRegisteredGitHubToken(workspaceID, resp)
 	return resp, profileSig, nil
 }
 
@@ -3227,39 +3228,7 @@ func (d *Daemon) registerBuiltinRuntimesForWorkspaceLocked(ctx context.Context, 
 	d.logger.Debug("builtin register response", "workspace_id", workspaceID, "runtimes", len(resp.Runtimes))
 	d.recordBuiltinVersionsSent(workspaceID, runtimes)
 
-	// Kensink: extract the P1 token for *this* workspace. Runtimes within one
-	// workspace share a token pool, so the first non-empty one stands for the
-	// workspace; runtimes in other workspaces are registered by their own call
-	// and must not be reached by this one's credential.
-	var settingsTok string
-	for _, tok := range resp.GitHubTokens {
-		if tok != "" {
-			settingsTok = tok
-			break
-		}
-	}
-	d.tokenMu.Lock()
-	if d.ghTokenSettings == nil {
-		d.ghTokenSettings = map[string]string{}
-	}
-	if settingsTok != "" {
-		d.ghTokenSettings[workspaceID] = settingsTok
-	} else {
-		// Re-registration after the PAT was cleared upstream must drop the
-		// stale entry, not keep serving the old credential.
-		delete(d.ghTokenSettings, workspaceID)
-	}
-	d.tokenMu.Unlock()
-
-	// Push this workspace's token to the repo cache, plus the machine-wide
-	// fallback that covers workspaces with none of their own.
-	if tc, ok := d.repoCache.(interface {
-		SetWorkspaceToken(string, string)
-		SetDefaultToken(string)
-	}); ok {
-		tc.SetWorkspaceToken(workspaceID, settingsTok)
-		tc.SetDefaultToken(d.machineGitHubToken())
-	}
+	d.applyRegisteredGitHubToken(workspaceID, resp)
 	return resp, nil
 }
 
