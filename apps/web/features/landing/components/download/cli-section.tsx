@@ -6,7 +6,7 @@ import { CliInstallCommand } from "@multica/views/common/cli-install-command";
 import { copyText } from "@multica/ui/lib/clipboard";
 import { useLocale } from "../../i18n";
 
-const SETUP_CMD = "multica setup";
+const SETUP_CMD = "agenthost setup self-host --server-url https://agenthost.pro";
 
 /**
  * The landing palette bypasses the product tokens, so the shared platform

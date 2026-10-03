@@ -235,7 +235,7 @@ function InstallationRow({
 // telegramDocsUrl points at the Telegram integration guide on the docs site,
 // localized like the Slack docs link.
 function telegramDocsUrl(lang: string | undefined): string {
-  return `https://multica.ai/docs${docsLocalePrefix(lang)}/telegram-bot-integration`;
+  return `https://agenthost.pro/docs${docsLocalePrefix(lang)}/telegram-bot-integration`;
 }
 
 // TelegramAgentBindButton is the per-agent CTA on the agent detail page.

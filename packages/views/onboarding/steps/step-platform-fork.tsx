@@ -379,21 +379,21 @@ function CliWaitingStatus({ dialogOpen }: { dialogOpen: boolean }) {
         {stage === "normal" && (
           <>
             {t(($) => $.step_platform.stage_normal_prefix)}
-            <span className="font-mono">{"multica setup"}</span>
+            <span className="font-mono">{"agenthost setup"}</span>
             {t(($) => $.step_platform.stage_normal_suffix)}
           </>
         )}
         {stage === "midway" && (
           <>
             {t(($) => $.step_platform.stage_midway_prefix)}
-            <span className="font-mono">{"multica setup"}</span>
+            <span className="font-mono">{"agenthost setup"}</span>
             {t(($) => $.step_platform.stage_midway_suffix)}
           </>
         )}
         {stage === "slow" && (
           <>
             {t(($) => $.step_platform.stage_slow_prefix)}
-            <span className="font-mono">{"multica setup"}</span>
+            <span className="font-mono">{"agenthost setup"}</span>
             {t(($) => $.step_platform.stage_slow_suffix)}
           </>
         )}

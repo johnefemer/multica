@@ -19,10 +19,10 @@ export function WebhookEventFilterSection({
   const [newEvent, setNewEvent] = useState("");
   const [newActions, setNewActions] = useState("");
   const docsHref = i18n.language?.startsWith("zh")
-    ? `https://multica.ai/docs/zh/autopilots#${encodeURIComponent("事件过滤")}`
+    ? `https://agenthost.pro/docs/zh/autopilots#${encodeURIComponent("事件过滤")}`
     : i18n.language?.startsWith("fr")
-      ? `https://multica.ai/docs/fr/autopilots#${encodeURIComponent("filtres-dévénements")}`
-      : "https://multica.ai/docs/autopilots#event-filters";
+      ? `https://agenthost.pro/docs/fr/autopilots#${encodeURIComponent("filtres-dévénements")}`
+      : "https://agenthost.pro/docs/autopilots#event-filters";
 
   const addFilter = () => {
     const event = newEvent.trim();

@@ -799,7 +799,7 @@ function InstallationRow({
 // prefixes (English has none), matching the convention used elsewhere in the
 // app for doc links.
 function dingtalkDocsUrl(lang: string | undefined): string {
-  return `https://multica.ai/docs${docsLocalePrefix(lang)}/dingtalk-bot-integration`;
+  return `https://agenthost.pro/docs${docsLocalePrefix(lang)}/dingtalk-bot-integration`;
 }
 
 // DingTalkAgentBindButton is the per-agent CTA exposed from the agent detail

@@ -243,7 +243,7 @@ const SLACK_BYO_VIDEO_URL = "";
 // prefixes (English has none), matching the convention used elsewhere in the
 // app for doc links (e.g. the autopilots webhook docs link).
 function slackDocsUrl(lang: string | undefined): string {
-  return `https://multica.ai/docs${docsLocalePrefix(lang)}/slack-bot-integration`;
+  return `https://agenthost.pro/docs${docsLocalePrefix(lang)}/slack-bot-integration`;
 }
 
 // SlackAgentBindButton is the per-agent CTA exposed from the agent detail page.

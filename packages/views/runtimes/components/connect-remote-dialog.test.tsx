@@ -89,13 +89,13 @@ describe("ConnectRemoteDialog", () => {
   it("uses cloud setup commands by default", () => {
     const { baseElement } = renderDialog();
 
-    expect(baseElement).toHaveTextContent("multica setup");
-    expect(baseElement).not.toHaveTextContent("multica setup self-host");
+    expect(baseElement).toHaveTextContent("agenthost setup");
+    expect(baseElement).not.toHaveTextContent("agenthost setup self-host");
     expect(baseElement).toHaveTextContent(
-      "multica config set server_url https://api.multica.ai",
+      "agenthost config set server_url https://agenthost.pro",
     );
     expect(baseElement).toHaveTextContent(
-      "multica config set app_url https://multica.ai",
+      "agenthost config set app_url https://agenthost.pro",
     );
   });
 
@@ -106,13 +106,13 @@ describe("ConnectRemoteDialog", () => {
     });
 
     expect(baseElement).toHaveTextContent(
-      "multica setup self-host --server-url https://api.example.com --app-url https://app.example.com",
+      "agenthost setup self-host --server-url https://api.example.com --app-url https://app.example.com",
     );
     expect(baseElement).toHaveTextContent(
-      "multica config set server_url https://api.example.com",
+      "agenthost config set server_url https://api.example.com",
     );
     expect(baseElement).toHaveTextContent(
-      "multica config set app_url https://app.example.com",
+      "agenthost config set app_url https://app.example.com",
     );
   });
 
@@ -136,7 +136,7 @@ describe("ConnectRemoteDialog", () => {
   it("transitions from setup instructions to the connected state", async () => {
     const { baseElement } = renderDialog();
 
-    expect(baseElement).toHaveTextContent("multica setup");
+    expect(baseElement).toHaveTextContent("agenthost setup");
     act(() => {
       wsEventState.handler?.({ runtime_id: "rt-test" });
     });
@@ -147,6 +147,6 @@ describe("ConnectRemoteDialog", () => {
         screen.getByRole("button", { name: "Create an agent" }),
       ).toBeInTheDocument();
     });
-    expect(baseElement).not.toHaveTextContent("multica setup");
+    expect(baseElement).not.toHaveTextContent("agenthost setup");
   });
 });

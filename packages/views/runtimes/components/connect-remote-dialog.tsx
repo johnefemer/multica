@@ -37,8 +37,9 @@ import { useT } from "../../i18n";
 
 type Step = "instructions" | "success";
 
-const CLOUD_SERVER_URL = "https://api.multica.ai";
-const CLOUD_APP_URL = "https://multica.ai";
+// Kensink: agenthost.pro serves the app and the API from one origin.
+const CLOUD_SERVER_URL = "https://agenthost.pro";
+const CLOUD_APP_URL = "https://agenthost.pro";
 
 function normalizeCommandURL(url: string | undefined) {
   return url?.trim().replace(/\/+$/, "") ?? "";
@@ -49,19 +50,19 @@ function daemonCommands(serverUrl: string | undefined, appUrl: string | undefine
   const normalizedAppUrl = normalizeCommandURL(appUrl);
   if (normalizedServerUrl && normalizedAppUrl) {
     return {
-      setupCmd: `multica setup self-host --server-url ${normalizedServerUrl} --app-url ${normalizedAppUrl}`,
-      tokenCmd: `multica config set server_url ${normalizedServerUrl}
-multica config set app_url ${normalizedAppUrl}
-multica login --token <YOUR_TOKEN>
+      setupCmd: `agenthost setup self-host --server-url ${normalizedServerUrl} --app-url ${normalizedAppUrl}`,
+      tokenCmd: `agenthost config set server_url ${normalizedServerUrl}
+agenthost config set app_url ${normalizedAppUrl}
+agenthost login --token <YOUR_TOKEN>
 multica daemon start`,
     };
   }
 
   return {
-    setupCmd: "multica setup",
-    tokenCmd: `multica config set server_url ${CLOUD_SERVER_URL}
-multica config set app_url ${CLOUD_APP_URL}
-multica login --token <YOUR_TOKEN>
+    setupCmd: "agenthost setup",
+    tokenCmd: `agenthost config set server_url ${CLOUD_SERVER_URL}
+agenthost config set app_url ${CLOUD_APP_URL}
+agenthost login --token <YOUR_TOKEN>
 multica daemon start`,
   };
 }
@@ -340,7 +341,7 @@ function TroubleshootingDetails({ tokenCmd }: { tokenCmd: string }) {
                 CODE_LIGATURE_CLASS,
               )}
             >
-              {"multica daemon status"}
+              {"agenthost daemon status"}
             </code>
           </li>
           <li className="flex items-center gap-1.5">
@@ -352,7 +353,7 @@ function TroubleshootingDetails({ tokenCmd }: { tokenCmd: string }) {
                 CODE_LIGATURE_CLASS,
               )}
             >
-              {"multica daemon logs -f"}
+              {"agenthost daemon logs -f"}
             </code>
           </li>
         </ul>

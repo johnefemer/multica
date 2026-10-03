@@ -37,6 +37,6 @@ describe("CliSection", () => {
     await user.click(screen.getByRole("tab", { name: "Windows" }));
 
     expect(screen.getByText(WINDOWS_CMD)).toBeInTheDocument();
-    expect(screen.getByText("multica setup")).toBeInTheDocument();
+    expect(screen.getByText("agenthost setup self-host --server-url https://agenthost.pro")).toBeInTheDocument();
   });
 });

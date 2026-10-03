@@ -511,7 +511,7 @@ function larkDevConsoleHost(region?: string): string {
 // larkDocsUrl points at the Lark/Feishu integration guide, localized the
 // same way as the Telegram and Slack docs links.
 function larkDocsUrl(lang: string | undefined): string {
-  return `https://multica.ai/docs${docsLocalePrefix(lang)}/lark-bot-integration`;
+  return `https://agenthost.pro/docs${docsLocalePrefix(lang)}/lark-bot-integration`;
 }
 
 function LarkAgentBotConnectedBadge({
