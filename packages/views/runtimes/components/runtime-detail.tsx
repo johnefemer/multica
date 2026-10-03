@@ -447,7 +447,7 @@ export function RuntimeDetail({
               canDelete={!!canDelete}
               onDelete={() => setDeleteOpen(true)}
             />
-            {runtime.runtime_mode === "local" && (
+            {runtime.runtime_mode === "local" && canEditRuntime && (
               <div className="rounded-lg border">
                 <div className="border-b px-4 py-2.5">
                   <span className="text-caption font-semibold">GitHub Integration</span>

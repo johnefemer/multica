@@ -1449,6 +1449,12 @@ func (h *Handler) UpdateRuntimeSettings(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	// The GitHub token authenticates every agent on that machine, so only the
+	// runtime's owner or a workspace admin may set it, as for other runtime edits.
+	if !canEditRuntime(member, rt) {
+		writeError(w, http.StatusForbidden, "only the runtime owner or a workspace admin can change runtime settings")
+		return
+	}
 
 	// Parse the settings patch. Accepts a flat JSON object of string keys/values.
 	// An explicit null or empty string for a key removes that key by setting it to null.
