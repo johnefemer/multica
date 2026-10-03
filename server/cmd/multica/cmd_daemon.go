@@ -1073,7 +1073,7 @@ func runDaemonForeground(cmd *cobra.Command) error {
 	cfg.CLIVersion = version
 	// Set by the Electron Desktop app when it spawns the CLI so the server
 	// can mark those runtimes as "managed" and hide CLI self-update UI.
-	cfg.LaunchedBy = os.Getenv("AGENTHOST_LAUNCHED_BY")
+	cfg.LaunchedBy = os.Getenv("MULTICA_LAUNCHED_BY")
 
 	ctx, stop := notifyShutdownContext(context.Background())
 	defer stop()
@@ -2295,7 +2295,7 @@ func profilesRootDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".multica", "profiles"), nil
+	return filepath.Join(home, cli.CLIDirName, "profiles"), nil
 }
 
 func samePath(a, b string) bool {

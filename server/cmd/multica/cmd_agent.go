@@ -279,10 +279,10 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 
 	client := cli.NewAPIClient(serverURL, workspaceID, token)
 	// When running inside a daemon task, attribute actions to the agent.
-	if agentID := os.Getenv("AGENTHOST_AGENT_ID"); agentID != "" {
+	if agentID := os.Getenv("MULTICA_AGENT_ID"); agentID != "" {
 		client.AgentID = agentID
 	}
-	if taskID := os.Getenv("AGENTHOST_TASK_ID"); taskID != "" {
+	if taskID := os.Getenv("MULTICA_TASK_ID"); taskID != "" {
 		client.TaskID = taskID
 	}
 	return client, nil
@@ -372,7 +372,7 @@ func normalizeAPIBaseURL(raw string) string {
 // inAgentExecutionContext reports whether the CLI has explicit task identity
 // markers from a daemon-managed agent task.
 func inAgentExecutionContext() bool {
-	return os.Getenv("AGENTHOST_AGENT_ID") != "" || os.Getenv("AGENTHOST_TASK_ID") != ""
+	return os.Getenv("MULTICA_AGENT_ID") != "" || os.Getenv("MULTICA_TASK_ID") != ""
 }
 
 // inDaemonManagedExecutionContext reports whether the CLI is being invoked
@@ -484,7 +484,7 @@ func daemonTaskContextMarkerPath() string {
 }
 
 func resolveWorkspaceID(cmd *cobra.Command) string {
-	val := cli.FlagOrEnv(cmd, "workspace-id", "AGENTHOST_WORKSPACE_ID", "")
+	val := cli.FlagOrEnv(cmd, "workspace-id", "MULTICA_WORKSPACE_ID", "")
 	if val != "" {
 		return val
 	}

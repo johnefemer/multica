@@ -9,13 +9,13 @@ import (
 	"strings"
 )
 
-// cliDirName is the per-user CLI state directory under $HOME (Kensink fork:
+// CLIDirName is the per-user CLI state directory under $HOME (Kensink fork:
 // ~/.agenthost, where existing fork installs keep their config and login).
-const cliDirName = ".agenthost"
+const CLIDirName = ".agenthost"
 
 const (
-	// Kensink: the fork keeps CLI state under ~/.agenthost (see cliDirName).
-	defaultCLIConfigPath = cliDirName + "/config.json"
+	// Kensink: the fork keeps CLI state under ~/.agenthost (see CLIDirName).
+	defaultCLIConfigPath = CLIDirName + "/config.json"
 
 	// TaskConfigRootEnv points daemon-managed CLI invocations at a private,
 	// per-task Multica config directory. It is deliberately Multica-specific:
@@ -254,7 +254,7 @@ func CLIConfigPathForProfile(profile string) (string, error) {
 	if taskLocal {
 		return filepath.Join(root, "profiles", profile, "config.json"), nil
 	}
-	return filepath.Join(root, cliDirName, "profiles", profile, "config.json"), nil
+	return filepath.Join(root, CLIDirName, "profiles", profile, "config.json"), nil
 }
 
 // ProfileDir returns the base directory for a profile's state files (pid, log).
@@ -274,12 +274,12 @@ func ProfileDir(profile string) (string, error) {
 		if taskLocal {
 			return root, nil
 		}
-		return filepath.Join(root, cliDirName), nil
+		return filepath.Join(root, CLIDirName), nil
 	}
 	if taskLocal {
 		return filepath.Join(root, "profiles", profile), nil
 	}
-	return filepath.Join(root, cliDirName, "profiles", profile), nil
+	return filepath.Join(root, CLIDirName, "profiles", profile), nil
 }
 
 func multicaConfigRoot() (root string, taskLocal bool, err error) {

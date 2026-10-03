@@ -71,10 +71,10 @@ func init() {
 }
 
 func resolveToken(cmd *cobra.Command) string {
-	for _, key := range []string{"AGENTHOST_TOKEN", "MULTICA_TOKEN"} {
-		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-			return v
-		}
+	// AGENTHOST_TOKEN reaches here through applyForkEnvAliases, which never
+	// overrides a daemon-injected MULTICA_TOKEN with an inherited member token.
+	if v := strings.TrimSpace(os.Getenv("MULTICA_TOKEN")); v != "" {
+		return v
 	}
 	// Inside a daemon-managed task, never fall back to the user-global config
 	// token: that silent fallback is how agent writes land as the wrong actor.

@@ -204,7 +204,7 @@ type Overrides struct {
 // and optional CLI flag overrides.
 func LoadConfig(overrides Overrides) (Config, error) {
 	// Server URL: override > env > default
-	rawServerURL := envOrDefault("AGENTHOST_SERVER_URL", DefaultServerURL)
+	rawServerURL := envOrDefault("MULTICA_SERVER_URL", DefaultServerURL)
 	if overrides.ServerURL != "" {
 		rawServerURL = overrides.ServerURL
 	}
@@ -296,7 +296,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Durations: override > env > default
-	pollInterval, err := durationFromEnv("AGENTHOST_DAEMON_POLL_INTERVAL", DefaultPollInterval)
+	pollInterval, err := durationFromEnv("MULTICA_DAEMON_POLL_INTERVAL", DefaultPollInterval)
 	if err != nil {
 		return Config{}, err
 	}
@@ -314,7 +314,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		return Config{}, fmt.Errorf("MULTICA_DAEMON_WS_CLAIM_POLL_INTERVAL must be positive (got %s)", wsClaimPollInterval)
 	}
 
-	heartbeatInterval, err := durationFromEnv("AGENTHOST_DAEMON_HEARTBEAT_INTERVAL", DefaultHeartbeatInterval)
+	heartbeatInterval, err := durationFromEnv("MULTICA_DAEMON_HEARTBEAT_INTERVAL", DefaultHeartbeatInterval)
 	if err != nil {
 		return Config{}, err
 	}
@@ -322,7 +322,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		heartbeatInterval = overrides.HeartbeatInterval
 	}
 
-	agentTimeout, err := durationFromEnv("AGENTHOST_AGENT_TIMEOUT", DefaultAgentTimeout)
+	agentTimeout, err := durationFromEnv("MULTICA_AGENT_TIMEOUT", DefaultAgentTimeout)
 	if err != nil {
 		return Config{}, err
 	}
@@ -471,7 +471,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		codexTurnInterruptTimeout = DefaultCodexTurnInterruptTimeout
 	}
 
-	maxConcurrentTasks, err := intFromEnv("AGENTHOST_DAEMON_MAX_CONCURRENT_TASKS", DefaultMaxConcurrentTasks)
+	maxConcurrentTasks, err := intFromEnv("MULTICA_DAEMON_MAX_CONCURRENT_TASKS", DefaultMaxConcurrentTasks)
 	if err != nil {
 		return Config{}, err
 	}
@@ -488,7 +488,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	// mDNS state, profile switch) no longer mints a new runtime identity.
 	// Callers may still pin a specific id via AGENTHOST_DAEMON_ID or the
 	// override field (e.g. for tests or embedded environments).
-	daemonID := strings.TrimSpace(os.Getenv("AGENTHOST_DAEMON_ID"))
+	daemonID := strings.TrimSpace(os.Getenv("MULTICA_DAEMON_ID"))
 	if overrides.DaemonID != "" {
 		daemonID = overrides.DaemonID
 	}
@@ -517,12 +517,12 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	// canonical id was itself promoted from a pre-change profile file).
 	legacyDaemonIDs = filterLegacyIDs(legacyDaemonIDs, daemonID)
 
-	deviceName := envOrDefault("AGENTHOST_DAEMON_DEVICE_NAME", host)
+	deviceName := envOrDefault("MULTICA_DAEMON_DEVICE_NAME", host)
 	if overrides.DeviceName != "" {
 		deviceName = overrides.DeviceName
 	}
 
-	runtimeName := envOrDefault("AGENTHOST_AGENT_RUNTIME_NAME", DefaultRuntimeName)
+	runtimeName := envOrDefault("MULTICA_AGENT_RUNTIME_NAME", DefaultRuntimeName)
 	if overrides.RuntimeName != "" {
 		runtimeName = overrides.RuntimeName
 	}
@@ -540,18 +540,18 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Keep env after task: env > default (false)
-	keepEnv := os.Getenv("AGENTHOST_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("AGENTHOST_KEEP_ENV_AFTER_TASK") == "1"
+	keepEnv := os.Getenv("MULTICA_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("MULTICA_KEEP_ENV_AFTER_TASK") == "1"
 
 	// GC config: env > defaults
 	gcEnabled := true
-	if v := os.Getenv("AGENTHOST_GC_ENABLED"); v == "false" || v == "0" {
+	if v := os.Getenv("MULTICA_GC_ENABLED"); v == "false" || v == "0" {
 		gcEnabled = false
 	}
-	gcInterval, err := durationFromEnv("AGENTHOST_GC_INTERVAL", DefaultGCInterval)
+	gcInterval, err := durationFromEnv("MULTICA_GC_INTERVAL", DefaultGCInterval)
 	if err != nil {
 		return Config{}, err
 	}
-	gcTTL, err := durationFromEnv("AGENTHOST_GC_TTL", DefaultGCTTL)
+	gcTTL, err := durationFromEnv("MULTICA_GC_TTL", DefaultGCTTL)
 	if err != nil {
 		return Config{}, err
 	}
