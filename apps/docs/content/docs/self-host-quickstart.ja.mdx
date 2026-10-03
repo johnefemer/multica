@@ -1,24 +1,24 @@
 ---
 title: セルフホストクイックスタート
-description: Docker Compose で Multica を起動し、ログインして、最初の実行用コンピュータを接続します。
+description: Docker Compose で Agenthost を起動し、ログインして、最初の実行用コンピュータを接続します。
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
 
-Multica のセルフホストは 2 つの部分に分かれます。
+Agenthost のセルフホストは 2 つの部分に分かれます。
 
 | 構成要素 | 実行するもの | 置く場所 |
 |---|---|---|
-| **Multica サービス** | Web、API、PostgreSQL | Docker をインストールした 1 台のマシン |
-| **実行用コンピュータ** | Multica デーモンと AI コーディングツール | 開発者が実際に作業するコンピュータ |
+| **Agenthost サービス** | Web、API、PostgreSQL | Docker をインストールした 1 台のマシン |
+| **実行用コンピュータ** | Agenthost デーモンと AI コーディングツール | 開発者が実際に作業するコンピュータ |
 
-両者は同じマシンでも、別々のマシンでも構いません。セルフホストで置き換えるのは Multica Cloud の部分だけです。
+両者は同じマシンでも、別々のマシンでも構いません。セルフホストで置き換えるのは Agenthost Cloud の部分だけです。
 
-このページでは Docker Compose を使います。Kubernetes でのデプロイは、リポジトリの [Self-hosting guide](https://github.com/multica-ai/multica/blob/main/SELF_HOSTING.md#kubernetes-deployment-alternative) を参照してください。
+このページでは Docker Compose を使います。Kubernetes でのデプロイは、リポジトリの [Self-hosting guide](https://github.com/johnefemer/multica/blob/main/SELF_HOSTING.md#kubernetes-deployment-alternative) を参照してください。
 
 ## 始める前に
 
-Multica サービスを実行するマシンには次が必要です。
+Agenthost サービスを実行するマシンには次が必要です。
 
 - Docker Engine または Docker Desktop（`docker compose` が実行できること）
 - Git、Make、curl、OpenSSL
@@ -31,16 +31,16 @@ docker info
 docker compose version
 ```
 
-Multica は Compose v2（`docker compose`）を使います。旧版の `docker-compose` v1 はサポートされません。
+Agenthost は Compose v2（`docker compose`）を使います。旧版の `docker-compose` v1 はサポートされません。
 
-実行用コンピュータには、Claude Code、Codex、Cursor などの [AI コーディングツール](/providers)を最低 1 つインストールし、ログインしておく必要があります。Multica CLI はステップ 5 でインストールします。
+実行用コンピュータには、Claude Code、Codex、Cursor などの [AI コーディングツール](/providers)を最低 1 つインストールし、ログインしておく必要があります。Agenthost CLI はステップ 5 でインストールします。
 
-## 1. Multica を起動する
+## 1. Agenthost を起動する
 
 サービスを実行するマシンで次を実行します。
 
 ```bash
-git clone --depth 1 https://github.com/multica-ai/multica.git
+git clone --depth 1 https://github.com/johnefemer/multica.git
 cd multica
 make selfhost
 ```
@@ -49,7 +49,7 @@ make selfhost
 
 1. `.env.example` から `.env` を作成する
 2. `JWT_SECRET`、PostgreSQL パスワード、`MULTICA_VCS_SECRET_KEY`（セルフホストの Git 連携用の暗号化キー）をランダム生成する
-3. PostgreSQL、Multica backend、Multica frontend のイメージを取得する
+3. PostgreSQL、Agenthost backend、Agenthost frontend のイメージを取得する
 4. 永続化ボリュームを作成し、3 つのコンテナを起動する
 5. backend がヘルスチェックに応答し始めるまで待機する
 
@@ -92,7 +92,7 @@ backend コンテナは起動のたびにデータベースの migration を実�
 
 ### ローカルアクセス
 
-[http://localhost:3000](http://localhost:3000) をそのまま開きます。後で `multica setup self-host` を実行するときも、URL を渡す必要はありません。
+[http://localhost:3000](http://localhost:3000) をそのまま開きます。後で `agenthost setup self-host` を実行するときも、URL を渡す必要はありません。
 
 ### リモートアクセス
 
@@ -100,7 +100,7 @@ Docker Compose はデフォルトで `3000` と `8080` を `127.0.0.1` だけに
 
 以下では 2 つのドメインを例にします。
 
-- `app.example.com`: Multica Web
+- `app.example.com`: Agenthost Web
 - `api.example.com`: API、ヘルスチェック、デーモン接続
 
 まず `.env` に公開 URL を設定します。
@@ -142,7 +142,7 @@ api.example.com {
 
 ```text
 multica.example.com {
-    # CLI の到達確認: `multica setup` は <server-url>/health に GET を送り 200 を要求する。
+    # CLI の到達確認: `agenthost setup` は <server-url>/health に GET を送り 200 を要求する。
     # 古い frontend はこのパスを転送しないため、backend に直接ルーティングする
     handle /health {
         reverse_proxy 127.0.0.1:8080
@@ -170,7 +170,7 @@ multica.example.com {
 }
 ```
 
-単一オリジンでは、2 つの URL をどちらもそこに向けます（`.env` の `FRONTEND_ORIGIN` と `MULTICA_APP_URL`、および `multica setup self-host` の `--server-url` と `--app-url`）。
+単一オリジンでは、2 つの URL をどちらもそこに向けます（`.env` の `FRONTEND_ORIGIN` と `MULTICA_APP_URL`、および `agenthost setup self-host` の `--server-url` と `--app-url`）。
 
 Caddy が TLS 証明書を取得し、WebSocket を転送します。`.env` を変更したら、`up -d` でコンテナを作り直して新しい設定を反映します。
 
@@ -217,30 +217,30 @@ docker compose -f docker-compose.selfhost.yml logs backend \
 作業はデーモンを実行しているユーザーの全権限で動作し、そのユーザーが読み書きできるものはすべて読み書きできます。個人アカウントではなく、専用の Unix ユーザー、コンテナ、または VM でデーモンを実行してください。[セキュリティモデル](/security-model)を参照してください。
 </Callout>
 
-まず Multica CLI をインストールします。
+まず Agenthost CLI をインストールします。
 
 **macOS / Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/johnefemer/multica/main/scripts/kensink-install.sh | bash
 ```
 
 **Windows PowerShell**
 
 ```powershell
-irm https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.ps1 | iex
+# Windows: run the macOS / Linux command inside WSL
 ```
 
-Multica サービスがこのコンピュータでも動いている場合は、次を実行します。
+Agenthost サービスがこのコンピュータでも動いている場合は、次を実行します。
 
 ```bash
-multica setup self-host
+agenthost setup self-host
 ```
 
-Multica サービスが別のマシンで動いている場合は、先ほど設定した 2 つの URL を渡します。
+Agenthost サービスが別のマシンで動いている場合は、先ほど設定した 2 つの URL を渡します。
 
 ```bash
-multica setup self-host \
+agenthost setup self-host \
   --server-url https://api.example.com \
   --app-url https://app.example.com
 ```
@@ -250,7 +250,7 @@ multica setup self-host \
 接続状態を確認します。
 
 ```bash
-multica daemon status
+agenthost daemon status
 ```
 
 正常であれば、出力に次が表示されます。
@@ -261,13 +261,13 @@ multica daemon status
 
 ## 6. 最初の実行を完了する
 
-Multica に戻ります。ランタイム一覧にオンラインのランタイムが表示されたら、エージェントを作成し、最初のタスクを割り当てます。
+Agenthost に戻ります。ランタイム一覧にオンラインのランタイムが表示されたら、エージェントを作成し、最初のタスクを割り当てます。
 
 実行ログが完了になり、タイムラインにエージェントの返信が現れれば、セルフホストのサービス、実行用コンピュータ、AI コーディングツールがつながっています。詳しい手順は[クイックスタート](/cloud-quickstart)のステップ 3〜5 を参照してください。
 
 ## よく使う管理コマンド
 
-以下のコマンドはすべて `multica` リポジトリのディレクトリで実行します。
+以下のコマンドはすべて `agenthost` リポジトリのディレクトリで実行します。
 
 ```bash
 # 状態を確認する
@@ -309,7 +309,7 @@ docker compose -f docker-compose.selfhost.yml up -d
 
 ### `git pull` が実際に更新するもの
 
-`git pull` が更新するのは **`docker-compose.selfhost.yml` そのもの**です — 新しい環境変数、新しいサービス、変更された healthcheck。新しい Multica のバージョンを取得する仕組み**ではありません**。
+`git pull` が更新するのは **`docker-compose.selfhost.yml` そのもの**です — 新しい環境変数、新しいサービス、変更された healthcheck。新しい Agenthost のバージョンを取得する仕組み**ではありません**。
 
 実際に動くバージョンを決めるのは `docker compose pull` で、そのタグが今どのイメージを指しているかを GHCR に問い合わせます。したがって数か月更新していない checkout でも今日の `latest` イメージを取得できますし、逆に `git pull` だけではイメージを取得してコンテナを作り直すまで何も変わりません。
 
@@ -339,7 +339,7 @@ docker compose -f docker-compose.selfhost.yml exec -T postgres \
 **`pg_dump` を直接 `gzip` にパイプしないでください。** シェルはパイプラインの**最後**のコマンドの終了ステータスを返すため、`pg_dump … | gzip > backup.sql.gz` はダンプが失敗しても `0` で終了し、形式としては完全に正当な、中身が空の20バイトのアーカイブが残ります。先にファイルへリダイレクトすれば `pg_dump` 自身の終了ステータスが効くようになり、`&&` は実際に成功したダンプだけを圧縮します。
 </Callout>
 
-`POSTGRES_USER` / `POSTGRES_DB` を `multica` のデフォルトから変更している場合は、`.env` の値に置き換えてください。データは `multica_pgdata` という名前付きボリュームにあり、`docker compose down` では消えませんが、`down -v` では消えます。
+`POSTGRES_USER` / `POSTGRES_DB` を `agenthost` のデフォルトから変更している場合は、`.env` の値に置き換えてください。データは `multica_pgdata` という名前付きボリュームにあり、`docker compose down` では消えませんが、`down -v` では消えます。
 
 ### migration は自動で実行されます
 
@@ -366,7 +366,7 @@ HTTP 200 かつ両方のチェックが `ok` でない場合、新しいバー�
 
 Helm には独自のアップグレード経路があります。values ファイルで `images.backend.tag` / `images.frontend.tag` に目的のリリースを設定し、`helm upgrade` を実行してください。タグを変えると Pod スペックが変わるため、Kubernetes が新しいイメージを取得して Deployment をロールします — これが確実な経路です。
 
-`kubectl -n multica rollout restart` はそれ単体ではアップグレードになりません。チャートは `pullPolicy: IfNotPresent` を同梱しているため（`deploy/helm/multica/values.yaml`）、そのタグをすでにキャッシュしているノードでは古いイメージが再利用され、restart しても何も変わりません — `MULTICA_IMAGE_TAG` の固定と同種の落とし穴です。浮動タグでこの方法を使いたい場合は、先に `images.backend.pullPolicy` / `images.frontend.pullPolicy` を `Always` に設定してください。リポジトリの [Self-hosting guide](https://github.com/multica-ai/multica/blob/main/SELF_HOSTING.md#kubernetes-deployment-alternative) を参照してください。
+`kubectl -n multica rollout restart` はそれ単体ではアップグレードになりません。チャートは `pullPolicy: IfNotPresent` を同梱しているため（`deploy/helm/multica/values.yaml`）、そのタグをすでにキャッシュしているノードでは古いイメージが再利用され、restart しても何も変わりません — `MULTICA_IMAGE_TAG` の固定と同種の落とし穴です。浮動タグでこの方法を使いたい場合は、先に `images.backend.pullPolicy` / `images.frontend.pullPolicy` を `Always` に設定してください。リポジトリの [Self-hosting guide](https://github.com/johnefemer/multica/blob/main/SELF_HOSTING.md#kubernetes-deployment-alternative) を参照してください。
 
 <Callout type="warning">
 `docker compose down` は `pgdata` と `backend_uploads` を保持します。`-v` を付けると、データベースを含むこれらのボリュームが削除されます。インスタンスを消去するつもりがない限り、`docker compose down -v` を実行しないでください。
@@ -379,8 +379,8 @@ Helm には独自のアップグレード経路があります。values ファ�
 | `/readyz` が `ok` を返さない | `docker compose -f docker-compose.selfhost.yml logs backend postgres` を実行する。 |
 | 認証コードが届かない | コードを一度リクエストし、backend のログで `Verification code` を探す。 |
 | `setup self-host` が server に到達できないと報告する | 実行用コンピュータから `https://api.example.com/health` をリクエストし、DNS、TLS、リバースプロキシがすべて到達可能か確認する。404 が返る場合、プロキシが `/health` をこのパスを転送しない古い web リリースに向けているため、backend へ直接ルーティングすること（[トラブルシューティング](/troubleshooting#multica-setup-がサーバーに到達できないと報告する)）。 |
-| デーモンが `Agents` を表示しない | AI コーディングツールが `PATH` にありログイン済みであることを確認し、`multica daemon restart` を実行する。 |
-| タスクがキューにとどまり続ける | `multica daemon status` を実行し、デーモンが起動していてワークスペースに接続していることを確認する。 |
+| デーモンが `Agents` を表示しない | AI コーディングツールが `PATH` にありログイン済みであることを確認し、`agenthost daemon restart` を実行する。 |
+| タスクがキューにとどまり続ける | `agenthost daemon status` を実行し、デーモンが起動していてワークスペースに接続していることを確認する。 |
 
 その他のケースは[トラブルシューティング](/troubleshooting)を参照してください。
 
@@ -388,5 +388,5 @@ Helm には独自のアップグレード経路があります。values ファ�
 
 - [ログインとサインアップ設定](/auth-setup) — メール、Google ログイン、サインアップ範囲を設定する。
 - [環境変数](/environment-variables) — サーバー設定の完全なリファレンス。
-- [Self-hosting guide](https://github.com/multica-ai/multica/blob/main/SELF_HOSTING.md) — Kubernetes、アップグレード、手動デプロイ。
+- [Self-hosting guide](https://github.com/johnefemer/multica/blob/main/SELF_HOSTING.md) — Kubernetes、アップグレード、手動デプロイ。
 - [デスクトップアプリ](/desktop-app) — デスクトップアプリをセルフホストのサービスに接続する。

@@ -63,13 +63,13 @@ export const baseOptions: BaseLayoutProps = {
     {
       icon: <GitHubMark />,
       text: externalLinkText("GitHub"),
-      url: "https://github.com/multica-ai/multica",
+      url: "https://github.com/johnefemer/multica",
       external: true,
     },
     {
       icon: <AgenthostMark />,
       text: externalLinkText("Agenthost"),
-      url: "https://multica.ai",
+      url: "https://agenthost.pro",
       external: true,
     },
   ],

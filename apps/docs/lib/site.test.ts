@@ -43,11 +43,11 @@ describe("docsAlternates", () => {
     const { docsAlternates } = await import("./site");
 
     expect(docsAlternates(["agents"])).toEqual({
-      canonical: "https://www.multica.ai/docs/agents",
+      canonical: "https://agenthost.pro/docs/agents",
       languages: {
-        en: "https://www.multica.ai/docs/agents",
-        zh: "https://www.multica.ai/docs/zh/agents",
-        "x-default": "https://www.multica.ai/docs/agents",
+        en: "https://agenthost.pro/docs/agents",
+        zh: "https://agenthost.pro/docs/zh/agents",
+        "x-default": "https://agenthost.pro/docs/agents",
       },
     });
   });
@@ -63,12 +63,12 @@ describe("docsAlternates", () => {
     const { docsAlternates } = await import("./site");
 
     expect(docsAlternates(["agents"])).toEqual({
-      canonical: "https://www.multica.ai/docs/agents",
+      canonical: "https://agenthost.pro/docs/agents",
       languages: {
-        en: "https://www.multica.ai/docs/agents",
-        zh: "https://www.multica.ai/docs/zh/agents",
-        ko: "https://www.multica.ai/docs/ko/agents",
-        "x-default": "https://www.multica.ai/docs/agents",
+        en: "https://agenthost.pro/docs/agents",
+        zh: "https://agenthost.pro/docs/zh/agents",
+        ko: "https://agenthost.pro/docs/ko/agents",
+        "x-default": "https://agenthost.pro/docs/agents",
       },
     });
   });
@@ -78,12 +78,12 @@ describe("docsAlternates", () => {
     const { docsAlternates } = await import("./site");
 
     expect(docsAlternates(["agents"])).toEqual({
-      canonical: "https://www.multica.ai/docs/agents",
+      canonical: "https://agenthost.pro/docs/agents",
       languages: {
-        en: "https://www.multica.ai/docs/agents",
-        zh: "https://www.multica.ai/docs/zh/agents",
-        ja: "https://www.multica.ai/docs/ja/agents",
-        "x-default": "https://www.multica.ai/docs/agents",
+        en: "https://agenthost.pro/docs/agents",
+        zh: "https://agenthost.pro/docs/zh/agents",
+        ja: "https://agenthost.pro/docs/ja/agents",
+        "x-default": "https://agenthost.pro/docs/agents",
       },
     });
   });
@@ -93,12 +93,12 @@ describe("docsAlternates", () => {
     const { docsAlternates } = await import("./site");
 
     expect(docsAlternates(["agents"])).toEqual({
-      canonical: "https://www.multica.ai/docs/agents",
+      canonical: "https://agenthost.pro/docs/agents",
       languages: {
-        en: "https://www.multica.ai/docs/agents",
-        zh: "https://www.multica.ai/docs/zh/agents",
-        fr: "https://www.multica.ai/docs/fr/agents",
-        "x-default": "https://www.multica.ai/docs/agents",
+        en: "https://agenthost.pro/docs/agents",
+        zh: "https://agenthost.pro/docs/zh/agents",
+        fr: "https://agenthost.pro/docs/fr/agents",
+        "x-default": "https://agenthost.pro/docs/agents",
       },
     });
   });
@@ -107,11 +107,11 @@ describe("docsAlternates", () => {
     const { docsAlternates } = await import("./site");
 
     expect(docsAlternates([])).toEqual({
-      canonical: "https://www.multica.ai/docs",
+      canonical: "https://agenthost.pro/docs",
       languages: {
-        en: "https://www.multica.ai/docs",
-        zh: "https://www.multica.ai/docs/zh",
-        "x-default": "https://www.multica.ai/docs",
+        en: "https://agenthost.pro/docs",
+        zh: "https://agenthost.pro/docs/zh",
+        "x-default": "https://agenthost.pro/docs",
       },
     });
   });

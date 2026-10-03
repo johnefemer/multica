@@ -1,13 +1,13 @@
 ---
 title: モバイルアプリ (iOS)
-description: ソースコードから Multica を iPhone にインストールし、Cloud またはセルフホストインスタンスに接続します。
+description: ソースコードから Agenthost を iPhone にインストールし、Cloud またはセルフホストインスタンスに接続します。
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
 
-Multica の iOS クライアントはまだ App Store にありません。Mac で公開されているソースリポジトリから Release 版をビルドし、自分の iPhone にインストールできます。Android クライアントはまだ提供されていません。
+Agenthost の iOS クライアントはまだ App Store にありません。Mac で公開されているソースリポジトリから Release 版をビルドし、自分の iPhone にインストールできます。Android クライアントはまだ提供されていません。
 
-インストールしたアプリはデフォルトで Multica Cloud に接続し、既存のアカウントでそのままサインインできます。ワークスペース、タスク、コメント、実行履歴はすべてサーバー側に保存されるため、Web や Desktop から手動で同期する必要はありません。
+インストールしたアプリはデフォルトで Agenthost Cloud に接続し、既存のアカウントでそのままサインインできます。ワークスペース、タスク、コメント、実行履歴はすべてサーバー側に保存されるため、Web や Desktop から手動で同期する必要はありません。
 
 ## 事前準備
 
@@ -26,7 +26,7 @@ Xcode や実機の開発環境がまだ設定されていない場合は、先�
 リポジトリをクローンして依存関係をインストールします:
 
 ```bash
-git clone https://github.com/multica-ai/multica.git
+git clone https://github.com/johnefemer/multica.git
 cd multica
 pnpm install
 ```
@@ -56,7 +56,7 @@ export EXPO_BUNDLE_IDENTIFIER_PROD=com.yourname.multica
 pnpm ios:mobile:device:prod:release
 ```
 
-この値はあなたの Apple Developer team で利用できれば十分で、Multica のアカウントやワークスペースには影響しません。
+この値はあなたの Apple Developer team で利用できれば十分で、Agenthost のアカウントやワークスペースには影響しません。
 
 ## 更新
 
@@ -87,7 +87,7 @@ EXPO_PUBLIC_WEB_URL=https://app.example.com
 `.env.production` を直接編集すると、現在のチェックアウトの本番設定が変わります。個人の値は gitignore された `.env.production.local` に書いてください。
 </Callout>
 
-モバイルの開発、Simulator の使用、staging への接続については、リポジトリの [`apps/mobile/README.md`](https://github.com/multica-ai/multica/blob/main/apps/mobile/README.md) を参照してください。
+モバイルの開発、Simulator の使用、staging への接続については、リポジトリの [`apps/mobile/README.md`](https://github.com/johnefemer/multica/blob/main/apps/mobile/README.md) を参照してください。
 
 ## 次のステップ
 

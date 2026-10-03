@@ -1,11 +1,11 @@
 ---
 title: 環境変数
-description: セルフホスト Multica でよく使うサーバー、ストレージ、連携、ランタイムの設定。
+description: セルフホスト Agenthost でよく使うサーバー、ストレージ、連携、ランタイムの設定。
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
 
-Multica はプロセス起動時に環境変数を読み込みます。変更後は、該当する API・Web・デーモンのプロセスを再起動してください。Docker Compose の `docker compose restart` は `.env` を再読み込みしません。`up -d` でコンテナを再作成して初めて反映されます。
+Agenthost はプロセス起動時に環境変数を読み込みます。変更後は、該当する API・Web・デーモンのプロセスを再起動してください。Docker Compose の `docker compose restart` は `.env` を再読み込みしません。`up -d` でコンテナを再作成して初めて反映されます。
 
 このページにはデプロイ運用者向けの設定のみを載せています。テスト用変数や内部実行用の変数は扱いません。グループ別のリファレンスとして使い、完全なデプロイ手順は[セルフホストクイックスタート](/self-host-quickstart)を参照してください。
 
@@ -30,7 +30,7 @@ MULTICA_PUBLIC_URL=https://api.multica.example.com
 
 | 変数 | デフォルト | 説明 |
 |---|---|---|
-| `DATABASE_URL` | ローカルの `multica` データベース | PostgreSQL 接続文字列 |
+| `DATABASE_URL` | ローカルの `agenthost` データベース | PostgreSQL 接続文字列 |
 | `DATABASE_MAX_CONNS` | `25` | API プロセスあたりの最大データベース接続数 |
 | `DATABASE_MIN_CONNS` | `5` | API プロセスが保持する最小接続数 |
 | `DATABASE_SEARCH_WORK_MEM_MB` | `64` | 検索プランの各ノードに対する PostgreSQL `work_mem` 上限（MB）。`1`～`64` で引き下げ、`0` でデータベース／セッションの既定値を使用 |
@@ -58,7 +58,7 @@ primary とレプリカの接続上限は独立しています。全 API プロ�
 | `FRONTEND_ORIGIN` | 空 | ユーザーがアクセスするフロントエンドの origin。CORS、cookie、招待リンクに使われます |
 | `MULTICA_APP_URL` | `FRONTEND_ORIGIN` にフォールバック | ユーザーが到達できる Web アドレス。CLI ログインとアカウント連携リンクが使います |
 | `MULTICA_PUBLIC_URL` | 空 | 公開 API アドレス。webhook URL とランタイム接続案内に使われます |
-| `MULTICA_DAEMON_SERVER_URL` | `MULTICA_PUBLIC_URL`、次に `MULTICA_APP_URL` / `FRONTEND_ORIGIN` にフォールバック | API プロセスが `multica setup self-host` コマンドに埋め込むサーバー URL。デーモンから到達する API URL が公開 webhook URL と異なる場合に設定します |
+| `MULTICA_DAEMON_SERVER_URL` | `MULTICA_PUBLIC_URL`、次に `MULTICA_APP_URL` / `FRONTEND_ORIGIN` にフォールバック | API プロセスが `agenthost setup self-host` コマンドに埋め込むサーバー URL。デーモンから到達する API URL が公開 webhook URL と異なる場合に設定します |
 | `CORS_ALLOWED_ORIGINS` | 空 | 追加で許可する HTTP origin。カンマ区切り |
 | `ALLOWED_ORIGINS` | CORS / フロントエンド設定にフォールバック | WebSocket origin の許可リスト。カンマ区切り |
 | `COOKIE_DOMAIN` | 空 | フロントエンドと API の host が異なり、ブラウザが API ドメインへ直接アクセスする場合は必須。単一ドメイン構成では空のまま |
@@ -119,7 +119,7 @@ allowlist の正確な判定順序は[ログインとサインアップ](/auth-s
 
 ## 添付ファイルストレージ
 
-`S3_BUCKET` が未設定の場合、Multica はローカルディスクを使います。
+`S3_BUCKET` が未設定の場合、Agenthost はローカルディスクを使います。
 
 ### S3 または互換ストレージ
 
@@ -220,7 +220,7 @@ allowlist の正確な判定順序は[ログインとサインアップ](/auth-s
 API key と base URL の両方が空の場合、このレイヤーは無効になり、上流へのリクエストを一切行いません。上記 2 つの機能はどちらも何も送信しなくなります。このレイヤーからチャットの内容をデプロイ外へ出せないポリシーでは、これがサポートされた構成です。セッションはクライアントが最初のメッセージから生成したタイトルをそのまま使い、フォローアップ質問のボタンは表示されず、他の機能への影響はありません。
 
 <Callout type="info">
-これは補助生成レイヤーのみに関する説明です。エージェントの実行は別のデータ経路です。エージェントがチャットに応答するとき、デーモンはそのエージェントの AI コーディングツールをツール自身の資格情報で実行し、上記の `MULTICA_LLM_*` 設定をツールへ渡すことはありません。（エージェント自身が必要とする実行単位の Multica 接続用変数は、デーモンが別途注入します。）上記の変数を空にしてもこの経路には影響しないため、エージェントのランタイム設定側で制御してください。
+これは補助生成レイヤーのみに関する説明です。エージェントの実行は別のデータ経路です。エージェントがチャットに応答するとき、デーモンはそのエージェントの AI コーディングツールをツール自身の資格情報で実行し、上記の `MULTICA_LLM_*` 設定をツールへ渡すことはありません。（エージェント自身が必要とする実行単位の Agenthost 接続用変数は、デーモンが別途注入します。）上記の変数を空にしてもこの経路には影響しないため、エージェントのランタイム設定側で制御してください。
 </Callout>
 
 ## デーモン設定
@@ -229,7 +229,7 @@ API key と base URL の両方が空の場合、このレイヤーは無効に�
 
 | 変数 | デフォルト | 説明 |
 |---|---|---|
-| `MULTICA_SERVER_URL` | `ws://localhost:8080/ws` | Multica API / WebSocket アドレス。`http(s)` も受け付けます |
+| `MULTICA_SERVER_URL` | `ws://localhost:8080/ws` | Agenthost API / WebSocket アドレス。`http(s)` も受け付けます |
 | `MULTICA_DAEMON_DEVICE_NAME` | ホスト名 | ランタイム一覧に表示されるデバイス名 |
 | `MULTICA_AGENT_RUNTIME_NAME` | `Local Agent` | ランタイムの表示名 |
 | `MULTICA_DAEMON_POLL_INTERVAL` | `30s` | ウェイクイベントがないときの実行ポーリング間隔 |
@@ -246,14 +246,14 @@ API key と base URL の両方が空の場合、このレイヤーは無効に�
 | `MULTICA_CODEX_TURN_INTERRUPT_TIMEOUT` | `2s` | キャンセル後に Codex app-server が `turn/interrupt` を確認し `turn/completed` を送信するまでの猶予時間。プロセスを強制終了する前に最終トークン使用量を保持します。特に遅いホストでは daemon ログに記録された割り込み遅延を基に調整できます |
 | `MULTICA_DAEMON_AUTO_UPDATE` | Cloud は `true`、セルフホストは `false` | CLI の更新を自動でチェックして適用するか |
 | `MULTICA_DAEMON_AUTO_UPDATE_INTERVAL` | `6h` | 更新チェックの間隔 |
-| `MULTICA_DAEMON_AUTO_RELOAD` | `true` | 帯域外で置き換えられた `multica` バイナリ（`brew upgrade`、再ダウンロード、ローカルビルド）へ再起動して追従するかどうか。`MULTICA_DAEMON_AUTO_UPDATE` とは独立 |
+| `MULTICA_DAEMON_AUTO_RELOAD` | `true` | 帯域外で置き換えられた `agenthost` バイナリ（`brew upgrade`、再ダウンロード、ローカルビルド）へ再起動して追従するかどうか。`MULTICA_DAEMON_AUTO_UPDATE` とは独立 |
 | `MULTICA_WORKSPACES_ROOT` | `~/multica_workspaces` | 実行用作業ディレクトリのルート |
 | `MULTICA_AGENT_TEMP_BASE` | `/tmp`（Linux/macOS） | Linux/macOS 専用。作業ごとのプライベート一時ディレクトリの親ディレクトリ。既存かつ書き込み可能な絶対パスである必要があり、無効な値の場合は `/tmp` にフォールバックせず作業の開始に失敗します。短いパスを選んでください。子ツールがその配下に AF_UNIX ソケットを作成する場合があり、`sun_path` の上限は Linux で 108 バイト、macOS で 104 バイトです |
 | `MULTICA_KEEP_ENV_AFTER_TASK` | `false` | デバッグ用に実行ディレクトリを保持 |
 
 デーモンがエージェント作業に注入する内部コンテキストについては、[作業ランタイム環境](/daemon-runtimes#作業ランタイム環境)を参照してください。
 
-各 AI コーディングツールは `MULTICA_<PROVIDER>_PATH` でコマンドパスを上書きでき、モデル上書き対応ツールでは `MULTICA_<PROVIDER>_MODEL` も利用できます。QwenPaw と MiniMax Code にはモデル変数がなく、MiniMax Code のパス変数は `MULTICA_MCODE_PATH` です。詳しくは [AI コーディングツール比較](/providers#モデルの取得元) を参照してください。DeepSeek Harness は `MULTICA_DSH_PATH` と `MULTICA_DSH_MODEL` に対応しています（値は dsh のモデルカタログにあるモデル ID、例: `deepseek-official/deepseek-chat`）。 DeepSeek Harness はさらに `MULTICA_DSH_PROFILE_BUNDLE` に対応しています。`multica` プロファイルが存在しない場合にインストールするバンドルを指定するもので、カンマ区切りで複数の候補を順に試します。各項目は npm のパッケージ名、ディレクトリ、またはパック済み tarball です。既定では未設定です。Multica が利用する `--stdio` プロトコルはこのプロファイルが提供するため、未設定の場合は DSH のインストールには手を加えず、デーモンは使用できないランタイムを登録する代わりにプロファイルの欠落を報告します。Multica 自身のブリッジはまだ公開 npm レジストリにないため、値の選び方は[エージェントランタイムのインストール](/install-agent-runtime)を参照してください。ここに設定した値は追加の確認なしに各デーモンホストの DSH ホームへインストールされるので、サプライチェーンの判断として扱ってください。`MULTICA_DSH_PROFILE_BUNDLE` が有効にするインストールは範囲を意図的に限定しています。実行はデーモンのライフタイムにつき最大 1 回、プローブがプロファイルの不在を確認できた場合のみです。失敗時はパッケージマネージャー自身の出力をログに記録し、再試行はデーモンの再起動後のみ行います。プローブがタイムアウトした場合や、このデーモンが扱わないプロトコルバージョンを返した場合は報告のみで、上書きインストールは行いません。意図して用意されたプロファイルをデーモンが上書きすることはありません。調査はデーモンログで `DSH runtime profile` を検索してください。取り消す場合は `$DSH_HOME/profiles/multica`（既定は `~/.dsh/profiles/multica`）を削除します。`MULTICA_DSH_PLUGIN_PATH` はインストール時に pnpm を解決するディレクトリを上書きします。`dsh plugin` が転送する pnpm は macOS でも Windows でも DSH Desktop 独自の runtime-commands ディレクトリに置かれており、デーモンはそれを自動で見つけて PATH の先頭に追加します（新しい Desktop が使うバージョン付きの構成も含みます）。したがってこの変数が必要なのは、デーモンが見つけられない場所にインストールされている場合か、独自の pnpm を使わせたい場合だけです。設定すると自動探索は完全に置き換わり、指定したディレクトリが存在しなければ、インストールは同梱の pnpm ではなくデーモンの `PATH` 上の pnpm にフォールバックします。Linux には DSH Desktop がないため、常に `PATH` が使われます。ZeroClaw は `MULTICA_ZEROCLAW_PATH` に対応しますが、モデル変数はありません。モデルは ZeroClaw のエージェント設定で管理します。マシン全体のデフォルト引数 `MULTICA_<PROVIDER>_ARGS` は、現在 Claude Code、Codex、CodeBuddy、Qwen Code、QwenPaw の 5 ツールに対応しています。対応する変数は `MULTICA_CLAUDE_ARGS`、`MULTICA_CODEX_ARGS`、`MULTICA_CODEBUDDY_ARGS`、`MULTICA_QWEN_ARGS`、`MULTICA_QWENPAW_ARGS` です。例:
+各 AI コーディングツールは `MULTICA_<PROVIDER>_PATH` でコマンドパスを上書きでき、モデル上書き対応ツールでは `MULTICA_<PROVIDER>_MODEL` も利用できます。QwenPaw と MiniMax Code にはモデル変数がなく、MiniMax Code のパス変数は `MULTICA_MCODE_PATH` です。詳しくは [AI コーディングツール比較](/providers#モデルの取得元) を参照してください。DeepSeek Harness は `MULTICA_DSH_PATH` と `MULTICA_DSH_MODEL` に対応しています（値は dsh のモデルカタログにあるモデル ID、例: `deepseek-official/deepseek-chat`）。 DeepSeek Harness はさらに `MULTICA_DSH_PROFILE_BUNDLE` に対応しています。`agenthost` プロファイルが存在しない場合にインストールするバンドルを指定するもので、カンマ区切りで複数の候補を順に試します。各項目は npm のパッケージ名、ディレクトリ、またはパック済み tarball です。既定では未設定です。Agenthost が利用する `--stdio` プロトコルはこのプロファイルが提供するため、未設定の場合は DSH のインストールには手を加えず、デーモンは使用できないランタイムを登録する代わりにプロファイルの欠落を報告します。Agenthost 自身のブリッジはまだ公開 npm レジストリにないため、値の選び方は[エージェントランタイムのインストール](/install-agent-runtime)を参照してください。ここに設定した値は追加の確認なしに各デーモンホストの DSH ホームへインストールされるので、サプライチェーンの判断として扱ってください。`MULTICA_DSH_PROFILE_BUNDLE` が有効にするインストールは範囲を意図的に限定しています。実行はデーモンのライフタイムにつき最大 1 回、プローブがプロファイルの不在を確認できた場合のみです。失敗時はパッケージマネージャー自身の出力をログに記録し、再試行はデーモンの再起動後のみ行います。プローブがタイムアウトした場合や、このデーモンが扱わないプロトコルバージョンを返した場合は報告のみで、上書きインストールは行いません。意図して用意されたプロファイルをデーモンが上書きすることはありません。調査はデーモンログで `DSH runtime profile` を検索してください。取り消す場合は `$DSH_HOME/profiles/multica`（既定は `~/.dsh/profiles/multica`）を削除します。`MULTICA_DSH_PLUGIN_PATH` はインストール時に pnpm を解決するディレクトリを上書きします。`dsh plugin` が転送する pnpm は macOS でも Windows でも DSH Desktop 独自の runtime-commands ディレクトリに置かれており、デーモンはそれを自動で見つけて PATH の先頭に追加します（新しい Desktop が使うバージョン付きの構成も含みます）。したがってこの変数が必要なのは、デーモンが見つけられない場所にインストールされている場合か、独自の pnpm を使わせたい場合だけです。設定すると自動探索は完全に置き換わり、指定したディレクトリが存在しなければ、インストールは同梱の pnpm ではなくデーモンの `PATH` 上の pnpm にフォールバックします。Linux には DSH Desktop がないため、常に `PATH` が使われます。ZeroClaw は `MULTICA_ZEROCLAW_PATH` に対応しますが、モデル変数はありません。モデルは ZeroClaw のエージェント設定で管理します。マシン全体のデフォルト引数 `MULTICA_<PROVIDER>_ARGS` は、現在 Claude Code、Codex、CodeBuddy、Qwen Code、QwenPaw の 5 ツールに対応しています。対応する変数は `MULTICA_CLAUDE_ARGS`、`MULTICA_CODEX_ARGS`、`MULTICA_CODEBUDDY_ARGS`、`MULTICA_QWEN_ARGS`、`MULTICA_QWENPAW_ARGS` です。例:
 
 ```dotenv
 MULTICA_CLAUDE_PATH=/opt/bin/claude
@@ -264,22 +264,22 @@ Cursor の検証済みバックグラウンドクリーンアップには、Linu
 
 所有している Cursor のバックグラウンドプロセスは、実行が正常に完了したときにも停止されます。したがって、その実行が起動したバックグラウンドサーバーが意図的に終了処理後まで生き残ることはありません。macOS は保持された元の親プロセスの識別子によって後から生まれた子プロセスを認識できますが、観測前に中間プロセスが消えた連鎖は証明できません。そのようなプロセス、追跡対象のグループから外れた作業、および継続的な所有権や送信のエラーは、バックグラウンド作業を残す可能性があります。確認できなかったクリーンアップはログに記録され、「クリーンアップ成功」による回復ウィンドウを与えることはありません。数値の PID やプロセスグループだけを根拠に未知のプロセスを終了させることはありません。
 
-優先順位はコマンドラインフラグ → 環境変数 → `~/.multica/config.json` → 組み込みデフォルトです。watchdog の動作は[デーモンとランタイム](/daemon-runtimes)を参照してください。
+優先順位はコマンドラインフラグ → 環境変数 → `~/.agenthost/config.json` → 組み込みデフォルトです。watchdog の動作は[デーモンとランタイム](/daemon-runtimes)を参照してください。
 
 ### デーモン設定の永続化
 
-デーモン側のよく使う設定は、シェルの環境変数に頼らず `~/.multica/config.json` に書き込むこともできます。名前付きプロファイルの設定ファイルは `~/.multica/profiles/<name>/config.json` にあります:
+デーモン側のよく使う設定は、シェルの環境変数に頼らず `~/.agenthost/config.json` に書き込むこともできます。名前付きプロファイルの設定ファイルは `~/.agenthost/profiles/<name>/config.json` にあります:
 
 ```bash
-multica config set poll_interval 10s
-multica config show
+agenthost config set poll_interval 10s
+agenthost config show
 ```
 
 サポートされるキー:
 
 | キー | デフォルト | 説明 |
 |---|---|---|
-| `server_url` | `ws://localhost:8080/ws` | Multica API / WebSocket アドレス |
+| `server_url` | `ws://localhost:8080/ws` | Agenthost API / WebSocket アドレス |
 | `app_url` | 空 | ブラウザログインに使う Web アドレス |
 | `workspace_id` | 空 | デフォルトのワークスペース |
 | `device_name` | ホスト名 | ランタイム一覧に表示されるデバイス名 |
@@ -299,7 +299,7 @@ multica config show
 値のルール:
 
 - duration 系のキーは正の Go duration（`10s`、`2h` など）を受け付け、`0s` と負の値は拒否されます。唯一の例外は `agent_timeout` で、`0s` は有効な値として実行時間上限を明示的に無効化します。
-- 空文字列を渡すと永続化された値がクリアされ、環境変数または組み込みデフォルトに戻ります。例: `multica config set poll_interval ""`。
+- 空文字列を渡すと永続化された値がクリアされ、環境変数または組み込みデフォルトに戻ります。例: `agenthost config set poll_interval ""`。
 - `max_concurrent_tasks` には非負の整数が必要です。
 - 相対パスの `workspaces_root` は保存時に絶対パスへ変換されます。
 
