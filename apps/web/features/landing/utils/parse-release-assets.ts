@@ -5,9 +5,9 @@
  * installer artifacts are relevant on the /download page.
  *
  * Desktop artifact naming (see apps/desktop/electron-builder.yml):
- *   multica-desktop-{version}-mac-{arch}.{dmg|zip}
- *   multica-desktop-{version}-windows-{arch}.exe
- *   multica-desktop-{version}-linux-{arch}.{AppImage|deb|rpm}
+ *   agenthost-desktop-{version}-mac-{arch}.{dmg|zip}
+ *   agenthost-desktop-{version}-windows-{arch}.exe
+ *   agenthost-desktop-{version}-linux-{arch}.{AppImage|deb|rpm}
  *
  * Linux arch appears as amd64 / x86_64 / arm64 / aarch64 depending
  * on the format; we normalize to amd64 and arm64.
@@ -34,7 +34,7 @@ export interface DownloadAssets {
 }
 
 const DESKTOP_ARTIFACT_RE =
-  /^multica-desktop-[^-]+-(mac|windows|linux)-([a-z0-9_]+)\.(dmg|zip|exe|AppImage|deb|rpm)$/i;
+  /^agenthost-desktop-[^-]+-(mac|windows|linux)-([a-z0-9_]+)\.(dmg|zip|exe|AppImage|deb|rpm)$/i;
 
 function normalizeLinuxArch(arch: string): "amd64" | "arm64" | null {
   const a = arch.toLowerCase();
@@ -105,19 +105,14 @@ export function hasAnyAsset(assets: DownloadAssets): boolean {
  * adding an optional key to `DownloadAssets` later (a universal Mac
  * build, say) can't silently redefine what "complete" means.
  */
+// Kensink: the fork ships macOS (both chips) and Windows x64 only, so a
+// release with those is complete; Linux and Windows ARM are not built.
 const REQUIRED_ASSET_KEYS: (keyof DownloadAssets)[] = [
   "macArm64Dmg",
   "macArm64Zip",
   "macX64Dmg",
   "macX64Zip",
   "winX64Exe",
-  "winArm64Exe",
-  "linuxAmd64AppImage",
-  "linuxAmd64Deb",
-  "linuxAmd64Rpm",
-  "linuxArm64AppImage",
-  "linuxArm64Deb",
-  "linuxArm64Rpm",
 ];
 
 /**
