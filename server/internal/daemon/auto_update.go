@@ -54,7 +54,7 @@ var detectSelfVersion = func(ctx context.Context, path string) (string, error) {
 func ParseSelfVersion(raw string) string {
 	line, _, _ := strings.Cut(raw, "\n")
 	line = strings.TrimSpace(line)
-	if fields := strings.Fields(line); len(fields) >= 2 && fields[0] == "multica" {
+	if fields := strings.Fields(line); len(fields) >= 2 && (fields[0] == "multica" || fields[0] == "agenthost") {
 		return fields[1]
 	}
 	return line
