@@ -3554,7 +3554,7 @@ env_key = "NEW_API_KEY"
 	// Daemon-managed sandbox / multi-agent / memory blocks must all be
 	// re-applied on top of the fresh copy — PR correctness depends on it.
 	for _, marker := range []string{
-		multicaManagedBeginMarker,
+		agenthostManagedBeginMarker,
 		multicaMultiAgentBeginMarker,
 		multicaMemoryFeatureBeginMarker,
 		multicaMemoryConfigBeginMarker,
@@ -3660,7 +3660,7 @@ env_key = "OLD_API_KEY"
 		}
 	}
 	for _, marker := range []string{
-		multicaManagedBeginMarker,
+		agenthostManagedBeginMarker,
 		multicaMultiAgentBeginMarker,
 		multicaMemoryFeatureBeginMarker,
 		multicaMemoryConfigBeginMarker,
@@ -3686,7 +3686,7 @@ func TestEnsureCodexSandboxConfigCreatesDefaultLinux(t *testing.T) {
 		t.Fatalf("failed to read config.toml: %v", err)
 	}
 	s := string(data)
-	if !strings.Contains(s, multicaManagedBeginMarker) || !strings.Contains(s, multicaManagedEndMarker) {
+	if !strings.Contains(s, agenthostManagedBeginMarker) || !strings.Contains(s, agenthostManagedEndMarker) {
 		t.Errorf("missing managed block markers, got:\n%s", s)
 	}
 	if !strings.Contains(s, `sandbox_mode = "danger-full-access"`) {
@@ -3804,7 +3804,7 @@ func TestEnsureCodexSandboxConfigIsIdempotent(t *testing.T) {
 	}
 	data, _ := os.ReadFile(configPath)
 	// The managed block should appear exactly once.
-	if n := strings.Count(string(data), multicaManagedBeginMarker); n != 1 {
+	if n := strings.Count(string(data), agenthostManagedBeginMarker); n != 1 {
 		t.Errorf("expected exactly 1 managed block, got %d in:\n%s", n, data)
 	}
 }
@@ -3901,8 +3901,8 @@ trust = "always"
 	data, _ := os.ReadFile(configPath)
 	s := string(data)
 
-	beginIdx := strings.Index(s, multicaManagedBeginMarker)
-	endIdx := strings.Index(s, multicaManagedEndMarker)
+	beginIdx := strings.Index(s, agenthostManagedBeginMarker)
+	endIdx := strings.Index(s, agenthostManagedEndMarker)
 	tableIdx := strings.Index(s, "[permissions.multica]")
 	if beginIdx < 0 || endIdx < 0 || tableIdx < 0 {
 		t.Fatalf("expected managed block and user table to both be present, got:\n%s", s)
@@ -3930,7 +3930,7 @@ trust = "always"
 	if string(data2) != s {
 		t.Errorf("second pass should be idempotent:\n--- first ---\n%s\n--- second ---\n%s", s, data2)
 	}
-	if n := strings.Count(string(data2), multicaManagedBeginMarker); n != 1 {
+	if n := strings.Count(string(data2), agenthostManagedBeginMarker); n != 1 {
 		t.Errorf("expected exactly one managed block after idempotent rewrite, got %d", n)
 	}
 }
@@ -3949,12 +3949,12 @@ func TestEnsureCodexSandboxConfigMovesLegacyTrailingBlockToTop(t *testing.T) {
 [permissions.multica]
 trust = "always"
 
-` + multicaManagedBeginMarker + `
+` + agenthostManagedBeginMarker + `
 sandbox_mode = "workspace-write"
 
 [sandbox_workspace_write]
 network_access = true
-` + multicaManagedEndMarker + `
+` + agenthostManagedEndMarker + `
 `
 	os.WriteFile(configPath, []byte(legacy), 0o644)
 
@@ -3965,12 +3965,12 @@ network_access = true
 	data, _ := os.ReadFile(configPath)
 	s := string(data)
 
-	beginIdx := strings.Index(s, multicaManagedBeginMarker)
+	beginIdx := strings.Index(s, agenthostManagedBeginMarker)
 	tableIdx := strings.Index(s, "[permissions.multica]")
 	if beginIdx < 0 || tableIdx < 0 || beginIdx > tableIdx {
 		t.Errorf("expected managed block to be hoisted above [permissions.multica], got:\n%s", s)
 	}
-	if strings.Count(s, multicaManagedBeginMarker) != 1 {
+	if strings.Count(s, agenthostManagedBeginMarker) != 1 {
 		t.Errorf("expected exactly one managed block, got:\n%s", s)
 	}
 	// The old inline `[sandbox_workspace_write]` header must be gone — the
@@ -4257,7 +4257,7 @@ func TestPrepareCodexHomeFailsClosedWhenSandboxWriteFails(t *testing.T) {
 	// Reused per-task home still holding the prior run's danger-full-access.
 	codexHome := t.TempDir()
 	configPath := filepath.Join(codexHome, "config.toml")
-	stale := multicaManagedBeginMarker + "\nsandbox_mode = \"danger-full-access\"\n" + multicaManagedEndMarker + "\n"
+	stale := agenthostManagedBeginMarker + "\nsandbox_mode = \"danger-full-access\"\n" + agenthostManagedEndMarker + "\n"
 	if err := os.WriteFile(configPath, []byte(stale), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -4315,7 +4315,7 @@ func TestPrepareCodexHomeWritesManagedSandboxBlock(t *testing.T) {
 		t.Fatalf("config.toml not created: %v", err)
 	}
 	s := string(data)
-	if !strings.Contains(s, multicaManagedBeginMarker) {
+	if !strings.Contains(s, agenthostManagedBeginMarker) {
 		t.Errorf("config.toml missing managed block, got:\n%s", s)
 	}
 	if !strings.Contains(s, `sandbox_mode = "danger-full-access"`) {
@@ -4377,7 +4377,7 @@ func TestReuseRestoresCodexHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.toml not found in reused CodexHome: %v", err)
 	}
-	if !strings.Contains(string(data), multicaManagedBeginMarker) {
+	if !strings.Contains(string(data), agenthostManagedBeginMarker) {
 		t.Error("reused config.toml missing agenthost-managed block")
 	}
 }

@@ -512,7 +512,7 @@ features.multi_agent = true
 
 	data, _ := os.ReadFile(configPath)
 	got := string(data)
-	if !strings.Contains(got, multicaManagedBeginMarker) {
+	if !strings.Contains(got, agenthostManagedBeginMarker) {
 		t.Errorf("expected sandbox managed block, got:\n%s", got)
 	}
 	if !strings.Contains(got, multicaMultiAgentBeginMarker) {
