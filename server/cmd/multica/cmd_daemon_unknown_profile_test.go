@@ -24,7 +24,7 @@ func mkProfiles(t *testing.T, names ...string) string {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	for _, name := range names {
-		dir := filepath.Join(home, ".multica", "profiles", filepath.FromSlash(name))
+		dir := filepath.Join(home, ".agenthost", "profiles", filepath.FromSlash(name))
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("create profile %q: %v", name, err)
 		}

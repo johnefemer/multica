@@ -103,7 +103,7 @@ func TestRunConfigCommandsUseTaskLocalConfigWithoutTouchingOwner(t *testing.T) {
 	t.Setenv("MULTICA_TASK_ID", "task-test")
 	t.Setenv("MULTICA_TASK_CONFIG_ROOT", taskRoot)
 
-	ownerPath := filepath.Join(ownerHome, ".multica", "config.json")
+	ownerPath := filepath.Join(ownerHome, ".agenthost", "config.json")
 	if err := os.MkdirAll(filepath.Dir(ownerPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestRunConfigCommandsFailClosedWithoutTaskRoot(t *testing.T) {
 	t.Setenv("MULTICA_TASK_ID", "task-test")
 	t.Setenv("MULTICA_TASK_CONFIG_ROOT", "")
 
-	ownerPath := filepath.Join(ownerHome, ".multica", "config.json")
+	ownerPath := filepath.Join(ownerHome, ".agenthost", "config.json")
 	if err := os.MkdirAll(filepath.Dir(ownerPath), 0o755); err != nil {
 		t.Fatal(err)
 	}

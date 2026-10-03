@@ -337,7 +337,7 @@ func TestRunWorkspaceSwitch(t *testing.T) {
 
 		// Verify the staging profile config landed in the expected path.
 		path, _ := cli.CLIConfigPathForProfile("staging")
-		wantSuffix := filepath.Join(".multica", "profiles", "staging", "config.json")
+		wantSuffix := filepath.Join(".agenthost", "profiles", "staging", "config.json")
 		if !strings.HasSuffix(path, wantSuffix) {
 			t.Errorf("staging config path = %q, want suffix %q", path, wantSuffix)
 		}

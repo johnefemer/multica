@@ -794,7 +794,7 @@ func TestPrepareWithRepoContext(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"agenthost repo checkout",
+		"multica repo checkout",
 		"https://github.com/org/backend",
 		"[--ref <branch-or-sha>]",
 		"https://github.com/org/frontend",
@@ -1505,7 +1505,7 @@ func TestInjectRuntimeConfigCodex(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "Agenthost Agent Runtime") {
+	if !strings.Contains(s, "Multica Agent Runtime") {
 		t.Error("AGENTS.md missing meta skill header")
 	}
 	// Listed by on-disk slug rather than the display name (MUL-5529).
@@ -1530,7 +1530,7 @@ func TestInjectRuntimeConfigNoSkills(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "agenthost issue get") {
+	if !strings.Contains(s, "multica issue get") {
 		t.Error("should reference multica CLI even without skills")
 	}
 	if strings.Contains(s, "## Skills") {
@@ -2008,7 +2008,7 @@ func TestInjectRuntimeConfigOpencode(t *testing.T) {
 	}
 
 	s := string(content)
-	if !strings.Contains(s, "Agenthost Agent Runtime") {
+	if !strings.Contains(s, "Multica Agent Runtime") {
 		t.Error("AGENTS.md missing meta skill header")
 	}
 	// Listed by on-disk slug rather than the display name (MUL-5529).
@@ -2257,7 +2257,7 @@ func TestPrepareWithRepoContextOpencode(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"agenthost repo checkout",
+		"multica repo checkout",
 		"https://github.com/org/backend",
 	} {
 		if !strings.Contains(s, want) {
@@ -2299,7 +2299,7 @@ func TestInjectRuntimeConfigRequiresExplicitCommentPost(t *testing.T) {
 			}
 			s := string(data)
 
-			// The workflow must contain an explicit `agenthost issue comment add`
+			// The workflow must contain an explicit `multica issue comment add`
 			// invocation for this issue — not just a prose mention of posting.
 			mustContain := []string{
 				// MUL-5442 cross-channel dedup: the brief states the loop shape; the
@@ -2318,7 +2318,7 @@ func TestInjectRuntimeConfigRequiresExplicitCommentPost(t *testing.T) {
 			// output is not user-visible. This is the second line of defense
 			// in case the agent skips past the workflow steps.
 			for _, want := range []string{
-				"Final results MUST be delivered via `agenthost issue comment add`",
+				"Final results MUST be delivered via `multica issue comment add`",
 				"does NOT see your terminal output",
 			} {
 				if !strings.Contains(s, want) {

@@ -194,7 +194,7 @@ func TestPrepareReasonixTaskStateHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareReasonixTaskStateHome: %v", err)
 	}
-	want := filepath.Join(home, ".multica", "profiles", "work", "reasonix-state", "runtime-1", "agent_2")
+	want := filepath.Join(home, ".agenthost", "profiles", "work", "reasonix-state", "runtime-1", "agent_2")
 	if got != want {
 		t.Fatalf("state home = %q, want %q", got, want)
 	}
@@ -216,7 +216,7 @@ func TestPrepareDshTaskSessionRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareDshTaskSessionRoot: %v", err)
 	}
-	want := filepath.Join(home, ".multica", "profiles", "work", "dsh-sessions", "runtime-1", "agent_2")
+	want := filepath.Join(home, ".agenthost", "profiles", "work", "dsh-sessions", "runtime-1", "agent_2")
 	if got != want {
 		t.Fatalf("session root = %q, want %q", got, want)
 	}
@@ -818,7 +818,7 @@ func TestBuildPromptContainsIssueID(t *testing.T) {
 	// Prompt should contain the issue ID and CLI hint.
 	for _, want := range []string{
 		issueID,
-		"agenthost issue get",
+		"multica issue get",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("prompt missing %q", want)
@@ -1152,7 +1152,7 @@ func TestBuildPromptCommentTriggered(t *testing.T) {
 		commentContent,
 		"Focus on THIS comment",
 		commentID,
-		"agenthost issue comment add " + issueID + " --parent " + commentID,
+		"multica issue comment add " + issueID + " --parent " + commentID,
 		"do NOT reuse --parent values from previous turns",
 		// MUL-5442 (2026-08-06): with the generic no-reply rule retired,
 		// the reply command is framed as a plain imperative again — the
@@ -1165,7 +1165,7 @@ func TestBuildPromptCommentTriggered(t *testing.T) {
 	}
 
 	// Should still contain CLI hint for fetching issue context.
-	if !strings.Contains(prompt, "agenthost issue get") {
+	if !strings.Contains(prompt, "multica issue get") {
 		t.Fatal("prompt missing CLI hint for issue context")
 	}
 }
@@ -1256,7 +1256,7 @@ func TestBuildPromptCommentTriggeredNoContent(t *testing.T) {
 		Agent:            &AgentData{Name: "Test"},
 	}, "claude")
 
-	if !strings.Contains(prompt, "agenthost issue get") {
+	if !strings.Contains(prompt, "multica issue get") {
 		t.Fatal("prompt missing CLI hint")
 	}
 }

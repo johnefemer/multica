@@ -18,17 +18,17 @@ import (
 )
 
 const (
-	authURL     = "https://github.com/login/oauth/authorize"
-	tokenURL    = "https://github.com/login/oauth/access_token"
-	apiBase     = "https://api.github.com"
+	authURL  = "https://github.com/login/oauth/authorize"
+	tokenURL = "https://github.com/login/oauth/access_token"
+	apiBase  = "https://api.github.com"
 	// Scopes requested: repo (issues+PRs+code), read:org, read:user, admin:repo_hook
 	defaultScope = "repo,read:org,read:user,admin:repo_hook"
 )
 
 // Provider implements integration.Provider for GitHub OAuth.
 type Provider struct {
-	clientID     string
-	clientSecret string
+	clientID      string
+	clientSecret  string
 	webhookSecret string
 }
 

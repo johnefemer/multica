@@ -77,8 +77,8 @@ type UserResponse struct {
 	// accounts created through the email-code or Google flow, "Change
 	// password" once one exists. The hash itself is never serialised.
 	HasPassword bool   `json:"has_password"`
-	CreatedAt               string          `json:"created_at"`
-	UpdatedAt               string          `json:"updated_at"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 // MaxProfileDescriptionLen caps the user-supplied profile_description body.

@@ -143,6 +143,16 @@ var workspaceDeletionManifest = map[string]workspaceDeleteAction{
 	"workspace":                          workspaceDelete,
 	"workspace_invitation":               workspaceDelete,
 	"workspace_share_link":               workspaceDelete,
+
+	// Kensink fork tables. The workspace-owned ones are removed by their
+	// workspace_id FKs (ON DELETE CASCADE / SET NULL), not by the deletion plan.
+	"chat_channel_binding":      workspaceDelete,
+	"chat_user_link":            workspaceDelete,
+	"cli_auth_code":             workspaceDeleteKeep,
+	"integration_connection":    workspaceDelete,
+	"integration_webhook_event": workspaceDeleteDetach,
+	"planning_lead":             workspaceDeleteKeep,
+	"slack_pending_chat_pick":   workspaceDelete,
 }
 
 func TestWorkspaceDeletionManifestCoversPublicSchema(t *testing.T) {
