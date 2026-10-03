@@ -28,11 +28,11 @@ export const INSTALL_RUNTIME_ISSUE_TITLE = {
   ja: "runtime を接続して Mika と始める",
 } as const;
 
-const en = `Welcome to Multica.
+const en = `Welcome to Agenthost.
 
-Agents need a runtime before they can execute work. You can still use Multica as a lightweight project-management workspace while you install one.
+Agents need a runtime before they can execute work. You can still use Agenthost as a lightweight project-management workspace while you install one.
 
-## Try Multica first
+## Try Agenthost first
 
 Before the runtime is ready, you can:
 
@@ -57,10 +57,10 @@ For English users, the fastest first path is Codex:
 4. Confirm your terminal can find it:
    which codex
    codex --version
-5. Wait for Multica to pick it up. A running daemon re-checks for newly
+5. Wait for Agenthost to pick it up. A running daemon re-checks for newly
    installed CLIs every couple of minutes, so no restart is normally needed.
    To apply it immediately:
-   multica daemon restart
+   agenthost daemon restart
    In the desktop app, open any local runtime and click Restart. Quitting and
    reopening the app is NOT enough — the daemon keeps running in the background.
 6. Return to Runtimes and refresh. You should see a Codex runtime online.
@@ -70,9 +70,9 @@ Codex reference: https://developers.openai.com/codex/cli
 
 Mika will turn one real goal into an issue, start it with the right agent, and suggest reusable specialists when your workflow needs them.`;
 
-const zh = `欢迎来到 Multica。
+const zh = `欢迎来到 Agenthost。
 
-智能体需要先连上运行时才能执行工作。运行时还没准备好时,你也可以先把 Multica 当作轻量项目管理工具体验起来。
+智能体需要先连上运行时才能执行工作。运行时还没准备好时,你也可以先把 Agenthost 当作轻量项目管理工具体验起来。
 
 ## 先体验项目管理功能
 
@@ -100,9 +100,9 @@ const zh = `欢迎来到 Multica。
 3. 在你想让 Kimi 工作的项目目录里启动一次:
    kimi
 4. 首次启动后输入 /login,按提示完成 Kimi Code 或 API key 配置。
-5. 等 Multica 识别到它。运行中的守护进程每隔几分钟会重新检查一次新装的 CLI,通常不需要重启。
+5. 等 Agenthost 识别到它。运行中的守护进程每隔几分钟会重新检查一次新装的 CLI,通常不需要重启。
    想立刻生效:
-   multica daemon restart
+   agenthost daemon restart
    桌面端请打开任意一个本机 runtime 并点 Restart。退出再打开 app 是不够的 —— 守护进程会继续在后台运行。
 6. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Kimi 运行时。
 7. 打开"运行时"页面。页面会显示 **和 Mika 开始**；点击后会创建 Mika，并进入引导式的首次对话。
@@ -143,7 +143,7 @@ runtime이 준비되기 전에는 다음을 해볼 수 있습니다:
 5. Multica가 인식할 때까지 기다립니다. 실행 중인 daemon은 몇 분마다 새로 설치된 CLI를
    다시 확인하므로 보통 재시작이 필요하지 않습니다.
    바로 적용하려면:
-   multica daemon restart
+   agenthost daemon restart
    데스크톱 앱에서는 아무 로컬 runtime을 열고 Restart를 누르세요. 앱을 종료하고 다시 여는
    것만으로는 충분하지 않습니다 — daemon은 백그라운드에서 계속 실행됩니다.
 6. Runtimes로 돌아가 새로고침합니다. Codex runtime이 online으로 보여야 합니다.
@@ -153,11 +153,11 @@ Codex 참고 문서: https://developers.openai.com/codex/cli
 
 Mika가 실제 목표 하나를 태스크로 만들고 적합한 에이전트와 실행을 시작하며, 워크플로에 필요할 때 재사용 가능한 specialist를 제안합니다.`;
 
-const ja = `Multica へようこそ。
+const ja = `Agenthost へようこそ。
 
-agent が作業を実行するには、まず runtime が必要です。runtime をインストールしている間も、Multica を軽量なプロジェクト管理ワークスペースとして先に使うことができます。
+agent が作業を実行するには、まず runtime が必要です。runtime をインストールしている間も、Agenthost を軽量なプロジェクト管理ワークスペースとして先に使うことができます。
 
-## まず Multica を使ってみる
+## まず Agenthost を使ってみる
 
 runtime が準備できる前に、次のことを試せます:
 
@@ -182,10 +182,10 @@ runtime が準備できる前に、次のことを試せます:
 4. ターミナルから見つけられるか確認します:
    which codex
    codex --version
-5. Multica が認識するまで待ちます。動作中の daemon は数分ごとに新しくインストールされた
+5. Agenthost が認識するまで待ちます。動作中の daemon は数分ごとに新しくインストールされた
    CLI を再チェックするため、通常は再起動は不要です。
    すぐに反映したい場合:
-   multica daemon restart
+   agenthost daemon restart
    デスクトップアプリではローカル runtime を開いて Restart を押してください。アプリを終了して
    開き直すだけでは不十分です — daemon はバックグラウンドで動き続けます。
 6. Runtimes に戻って再読み込みします。Codex runtime が online と表示されるはずです。

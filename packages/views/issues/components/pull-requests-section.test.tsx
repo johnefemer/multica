@@ -111,7 +111,7 @@ describe("PullRequestsSection (MUL-7429)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Link" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Multica hasn’t received this PR yet. Check that its repository is connected.",
+      "Agenthost hasn’t received this PR yet. Check that its repository is connected.",
     );
   });
 
