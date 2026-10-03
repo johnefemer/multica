@@ -20,9 +20,8 @@ import (
 // workspaceCoAuthoredByEnabled gates the prepare-commit-msg hook installed in
 // agent worktrees. RFC MUL-2414 adds the `github_enabled` master switch:
 // when it is explicitly false the hook must NOT be installed even if
-// `co_authored_by_enabled` is true. The function also defaults to true
-// whenever settings are absent or malformed so existing workspaces keep
-// their historical behavior.
+// `co_authored_by_enabled` is true. Kensink fork: the trailer is opt-in, so
+// absent or malformed settings leave it off.
 func TestWorkspaceCoAuthoredByEnabled(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -30,10 +29,10 @@ func TestWorkspaceCoAuthoredByEnabled(t *testing.T) {
 		settings string
 		want     bool
 	}{
-		{"unknown workspace defaults on", false, "", true},
-		{"registered workspace, nil settings defaults on", true, "", true},
-		{"empty object defaults on", true, "{}", true},
-		{"co_authored_by absent defaults on", true, `{"github_enabled":true}`, true},
+		{"unknown workspace defaults off", false, "", false},
+		{"registered workspace, nil settings defaults off", true, "", false},
+		{"empty object defaults off", true, "{}", false},
+		{"co_authored_by absent defaults off", true, `{"github_enabled":true}`, false},
 		{"co_authored_by true", true, `{"co_authored_by_enabled":true}`, true},
 		{"co_authored_by false", true, `{"co_authored_by_enabled":false}`, false},
 		{
@@ -48,7 +47,7 @@ func TestWorkspaceCoAuthoredByEnabled(t *testing.T) {
 			`{"github_enabled":true,"co_authored_by_enabled":false}`,
 			false,
 		},
-		{"malformed settings defaults on", true, `not json`, true},
+		{"malformed settings defaults off", true, `not json`, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -270,20 +269,21 @@ func TestRefreshTrackedWorkspaceSettingsAppliesToggle(t *testing.T) {
 	t.Parallel()
 
 	const workspaceID = "ws-1"
-	settings := `{"co_authored_by_enabled":false}`
+	// Kensink: the trailer is opt-in, so the toggle under test turns it on.
+	settings := `{"co_authored_by_enabled":true}`
 	d, cache := newCoAuthoredByStateDaemon(t, workspaceID, &settings)
 
-	if !d.workspaceCoAuthoredByEnabled(workspaceID) {
-		t.Fatal("precondition: workspace should start with the default (enabled) verdict")
+	if d.workspaceCoAuthoredByEnabled(workspaceID) {
+		t.Fatal("precondition: workspace should start with the default (disabled) verdict")
 	}
 
 	d.refreshTrackedWorkspaceSettings(context.Background())
 
-	if d.workspaceCoAuthoredByEnabled(workspaceID) {
-		t.Error("daemon still reports the trailer as enabled after the workspace disabled it")
+	if !d.workspaceCoAuthoredByEnabled(workspaceID) {
+		t.Error("daemon still reports the trailer as disabled after the workspace enabled it")
 	}
-	if cache.lastWrite(t) {
-		t.Error("published state = enabled, want disabled")
+	if !cache.lastWrite(t) {
+		t.Error("published state = disabled, want enabled")
 	}
 }
 

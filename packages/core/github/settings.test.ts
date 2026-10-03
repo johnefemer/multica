@@ -7,20 +7,21 @@ function ws(settings: Record<string, unknown>): Pick<Workspace, "settings"> {
 }
 
 describe("deriveGitHubSettings", () => {
-  it("defaults every flag to true when workspace is null", () => {
+  // Kensink: every flag defaults on except the opt-in co-author trailer.
+  it("defaults every flag but coAuthor to true when workspace is null", () => {
     expect(deriveGitHubSettings(null)).toEqual({
       enabled: true,
       prSidebar: true,
-      coAuthor: true,
+      coAuthor: false,
       autoLinkPRs: true,
     });
   });
 
-  it("defaults every flag to true on empty settings", () => {
+  it("defaults every flag but coAuthor to true on empty settings", () => {
     expect(deriveGitHubSettings(ws({}))).toEqual({
       enabled: true,
       prSidebar: true,
-      coAuthor: true,
+      coAuthor: false,
       autoLinkPRs: true,
     });
   });
@@ -45,7 +46,7 @@ describe("deriveGitHubSettings", () => {
   it("each sub-flag can be flipped independently when master is on", () => {
     expect(
       deriveGitHubSettings(ws({ github_pr_sidebar_enabled: false })),
-    ).toMatchObject({ enabled: true, prSidebar: false, coAuthor: true, autoLinkPRs: true });
+    ).toMatchObject({ enabled: true, prSidebar: false, coAuthor: false, autoLinkPRs: true });
 
     expect(
       deriveGitHubSettings(ws({ co_authored_by_enabled: false })),
@@ -53,7 +54,11 @@ describe("deriveGitHubSettings", () => {
 
     expect(
       deriveGitHubSettings(ws({ github_auto_link_prs_enabled: false })),
-    ).toMatchObject({ enabled: true, prSidebar: true, coAuthor: true, autoLinkPRs: false });
+    ).toMatchObject({ enabled: true, prSidebar: true, coAuthor: false, autoLinkPRs: false });
+
+    expect(
+      deriveGitHubSettings(ws({ co_authored_by_enabled: true })),
+    ).toMatchObject({ enabled: true, prSidebar: true, coAuthor: true, autoLinkPRs: true });
   });
 
   it("treats non-false values (true, null, missing) as enabled", () => {

@@ -23,7 +23,8 @@ export function deriveGitHubSettings(
   return {
     enabled,
     prSidebar: enabled && s.github_pr_sidebar_enabled !== false,
-    coAuthor: enabled && s.co_authored_by_enabled !== false,
+    // Kensink: opt-in, matching the daemon (the trailer credits Multica).
+    coAuthor: enabled && s.co_authored_by_enabled === true,
     autoLinkPRs: enabled && s.github_auto_link_prs_enabled !== false,
   };
 }

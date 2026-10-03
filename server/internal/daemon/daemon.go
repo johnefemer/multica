@@ -3510,8 +3510,9 @@ func (d *Daemon) workspaceLastRepoSyncErr(workspaceID string) string {
 }
 
 // workspaceCoAuthoredByEnabled returns whether the Co-authored-by hook should
-// be installed for the given workspace. Defaults to true when either setting
-// is absent (new workspaces, older servers that don't send settings).
+// be installed for the given workspace. Kensink fork: opt-in — the trailer
+// credits Multica's identity, so it stays off unless a workspace enables
+// `co_authored_by_enabled` (kensink-v2 never added it).
 //
 // The hook is gated by BOTH the GitHub master switch (`github_enabled`) and
 // the dedicated co-author switch (`co_authored_by_enabled`) so flipping the
@@ -3522,20 +3523,20 @@ func (d *Daemon) workspaceCoAuthoredByEnabled(workspaceID string) bool {
 	defer d.mu.Unlock()
 	ws, ok := d.workspaces[workspaceID]
 	if !ok || len(ws.settings) == 0 {
-		return true // default: enabled
+		return false
 	}
 	var s struct {
 		GitHubEnabled       *bool `json:"github_enabled"`
 		CoAuthoredByEnabled *bool `json:"co_authored_by_enabled"`
 	}
 	if err := json.Unmarshal(ws.settings, &s); err != nil {
-		return true // default: enabled when payload is malformed
+		return false
 	}
 	if s.GitHubEnabled != nil && !*s.GitHubEnabled {
 		return false
 	}
 	if s.CoAuthoredByEnabled == nil {
-		return true // default: enabled
+		return false
 	}
 	return *s.CoAuthoredByEnabled
 }

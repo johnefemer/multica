@@ -234,11 +234,12 @@ describe("CodeTab — pull requests", () => {
     const user = userEvent.setup();
     render(<CodeTab />, { wrapper: Wrapper });
 
+    // Kensink: the trailer is opt-in, so the first click turns it on.
     await user.click(screen.getByRole("switch", { name: "Co-authored-by trailer" }));
 
     await waitFor(() => {
       expect(mockUpdateWorkspace).toHaveBeenCalledWith("workspace-1", {
-        settings: { pr_merge_status: "done", co_authored_by_enabled: false },
+        settings: { pr_merge_status: "done", co_authored_by_enabled: true },
       });
     });
   });
