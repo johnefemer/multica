@@ -3882,7 +3882,7 @@ export function createZhDict(
         altZip: "或下载 .zip",
       },
       macIntel: {
-        title: "Multica for macOS",
+        title: "Agenthost for macOS",
         sub: "Intel · 内置守护进程，无需配置",
         primary: "下载 (.dmg)",
         altZip: "或下载 .zip",

@@ -4,7 +4,7 @@ import {
   hasCompleteAssetSet,
   type DownloadAssets,
 } from "../../utils/parse-release-assets";
-import { AppleIcon, LinuxIcon, WindowsIcon } from "./os-icons";
+import { AppleIcon, WindowsIcon } from "./os-icons";
 
 interface Props {
   assets: DownloadAssets;
@@ -76,57 +76,9 @@ export function AllPlatforms({
               },
             ]}
             unavailable={d.unavailable}
-          />
-          <Row
-            icon={<WindowsIcon className="text-[#0a0d12]" />}
-            label={d.winArm64Label}
-            formats={[
-              {
-                label: d.formatExe,
-                href: assets.winArm64Exe,
-              },
-            ]}
-            unavailable={d.unavailable}
-          />
-          <Row
-            icon={<LinuxIcon className="text-[#0a0d12]" />}
-            label={d.linuxX64Label}
-            formats={[
-              {
-                label: d.formatAppImage,
-                href: assets.linuxAmd64AppImage,
-              },
-              {
-                label: d.formatDeb,
-                href: assets.linuxAmd64Deb,
-              },
-              {
-                label: d.formatRpm,
-                href: assets.linuxAmd64Rpm,
-              },
-            ]}
-            unavailable={d.unavailable}
-          />
-          <Row
-            icon={<LinuxIcon className="text-[#0a0d12]" />}
-            label={d.linuxArm64Label}
-            formats={[
-              {
-                label: d.formatAppImage,
-                href: assets.linuxArm64AppImage,
-              },
-              {
-                label: d.formatDeb,
-                href: assets.linuxArm64Deb,
-              },
-              {
-                label: d.formatRpm,
-                href: assets.linuxArm64Rpm,
-              },
-            ]}
-            unavailable={d.unavailable}
             isLast
           />
+          {/* Kensink: no Windows ARM or Linux builds are published. */}
         </div>
 
         {/* Some row is missing its link — surface the GitHub fallback so

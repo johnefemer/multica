@@ -3901,7 +3901,7 @@ export function createEnDict(
         altZip: "or download .zip",
       },
       macIntel: {
-        title: "Multica for macOS",
+        title: "Agenthost for macOS",
         sub: "Intel · bundled daemon, zero setup",
         primary: "Download (.dmg)",
         altZip: "or download .zip",
